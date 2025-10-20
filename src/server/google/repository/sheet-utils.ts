@@ -71,3 +71,54 @@ export function requireInteger(
 
   return parsed;
 }
+
+export function requireNumber(
+  value: string,
+  {
+    field,
+    rowIndex,
+  }: {
+    field: string;
+    rowIndex: number;
+  },
+) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    throw new Error(`Invalid row at index ${rowIndex}: missing ${field}`);
+  }
+
+  const parsed = Number(trimmed);
+
+  if (Number.isNaN(parsed)) {
+    throw new Error(`Invalid row at index ${rowIndex}: ${field} must be a number`);
+  }
+
+  return parsed;
+}
+
+export function optionalNumber(
+  value: string,
+  {
+    field,
+    rowIndex,
+  }: {
+    field: string;
+    rowIndex: number;
+  },
+  defaultValue = 0,
+) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return defaultValue;
+  }
+
+  const parsed = Number(trimmed);
+
+  if (Number.isNaN(parsed)) {
+    throw new Error(`Invalid row at index ${rowIndex}: ${field} must be a number`);
+  }
+
+  return parsed;
+}
