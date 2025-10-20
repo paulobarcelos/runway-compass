@@ -116,8 +116,9 @@ function loadScriptOnce(src: string) {
       return;
     }
 
-    if (existing && typeof existing.readyState === "string") {
-      const state = existing.readyState;
+    if (existing) {
+      const scriptWithState = existing as HTMLScriptElement & { readyState?: string };
+      const state = scriptWithState.readyState;
       if (state === "complete" || state === "loaded") {
         existing.dataset.loaded = "true";
         resolve();
@@ -160,7 +161,7 @@ async function ensurePickerLoaded() {
   }
 
   await new Promise<void>((resolve, reject) => {
-    window.gapi.load("picker", {
+    window.gapi!.load("picker", {
       callback: () => resolve(),
       onerror: () => reject(new Error("Failed to initialize Google Picker")),
       timeout: 5000,
@@ -181,7 +182,8 @@ async function requestOAuthToken(clientId: string) {
   await ensurePickerLoaded();
 
   return new Promise<string>((resolve, reject) => {
-    const tokenClient = window.google.accounts.oauth2.initTokenClient({
+    const oauth2 = window.google!.accounts!.oauth2!;
+    const tokenClient = oauth2.initTokenClient({
       client_id: clientId,
       scope: PICKER_SCOPES,
       callback: (response: { access_token?: string; error?: string }) => {
@@ -213,11 +215,7 @@ async function showPicker({
 
   const oauthToken = await requestOAuthToken(clientId);
 
-  const pickerNamespace = window.google?.picker;
-
-  if (!pickerNamespace) {
-    throw new Error("Google Picker namespace unavailable");
-  }
+  const pickerNamespace = window.google!.picker!;
 
   return await new Promise<string | null>((resolve) => {
     const pickerBuilder = new pickerNamespace.PickerBuilder()
