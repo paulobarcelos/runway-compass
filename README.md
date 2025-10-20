@@ -4,9 +4,10 @@ Personal cash runway planner built with Next.js and Google Sheets. Track rolling
 
 ## Getting Started
 
-1. Clone the repo and install dependencies (instructions forthcoming with Milestone 0).
-2. Configure Google Cloud credentials and environment variables (see `docs/engineering/process.md`).
-3. Run the Next.js development server and authenticate with Google to select your private spreadsheet.
+1. Clone the repository and install dependencies with `npm install`.
+2. Follow the [local development setup guide](docs/engineering/setup.md) to prepare `.env.local` and Google Cloud credentials.
+3. Run `npm run dev` to start the Next.js development server at `http://localhost:3000`.
+4. Subsequent milestones will enable Google authentication and spreadsheet connectivity.
 
 ## Documentation
 
@@ -14,9 +15,9 @@ Personal cash runway planner built with Next.js and Google Sheets. Track rolling
 - [Use Cases](docs/product/use-cases.md)
 - [Architecture Overview](docs/engineering/architecture.md)
 - [Engineering Process](docs/engineering/process.md)
+- [Local Development Setup](docs/engineering/setup.md)
 - [Decision Log](docs/notes/decision-log.md)
 
 ## Roadmap
 
 High-level milestones are outlined in the [PRD](docs/product/PRD.md). Track day-to-day progress via GitHub Issues and the project board once created.
-
