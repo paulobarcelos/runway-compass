@@ -26,7 +26,7 @@ Google Sheets & Drive
 
 ## Core Modules
 - **Auth Layer:** NextAuth configuration with Google provider requesting `openid email profile`, `https://www.googleapis.com/auth/drive.file`, `https://www.googleapis.com/auth/spreadsheets` plus offline access.
-- **Sheets Client:** Wrapper around Google Sheets/Drive APIs handling batching, retries, and error normalization.
+- **Sheets Client:** Wrapper around Google Sheets/Drive APIs handling batching, retries, and error normalization. See [Google Sheets reference](../notes/google-sheets-reference.md) for quotas, batching, and scope guidance.
 - **Repository Layer:** Typed functions for each tab (e.g., `BudgetRepository`, `AccountRepository`) encapsulating read/write logic and schema coercion.
 - **Projection Engine:** Aggregates data to compute monthly runway timeline and persists derived results in `runway_projection`.
 - **UI Components:** Form editors, tables, charts, and status widgets aligned with Tailwind design system.
@@ -55,4 +55,3 @@ Google Sheets & Drive
 - Background sync job to refresh projections when future events change (serverless cron on Vercel).
 - Optional local caching layer (IndexedDB) for offline-first editing.
 - CSV import pipeline with mapping service.
-
