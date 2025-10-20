@@ -17,6 +17,7 @@
 - Added background bootstrap sync on login to ensure `_meta` sheet stays aligned.
 - Enforced sheet schema bootstrap with automatic tab/header creation.
 - Implemented repositories and tests for `_meta`, `categories`, `accounts`, `budget_plan`, `snapshots`, `actuals`, `future_events`, and `runway_projection` tabs.
+- Added categories API route backed by the repository layer.
 
 ## Next Steps for Milestone 1
 1. Introduce server routes/actions that use repositories for CRUD.

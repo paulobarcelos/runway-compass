@@ -7,3 +7,4 @@
 | 2025-10-21 | Scaffolded Next.js App Router project with Tailwind CSS | Forms the foundation for implementing milestones within a consistent UI stack |
 | 2025-10-21 | Documented project status and Milestone 1 kickoff plan | Ensures future agents can continue work without chat history context |
 | 2025-10-22 | Enforced sheet schema bootstrap and added repositories for `_meta`, `categories`, `accounts`, `budget_plan`, `snapshots`, `actuals`, `future_events`, and `runway_projection` | Guarantees spreadsheet structure and provides typed accessors for Milestone 1 workflows |
+| 2025-10-22 | Exposed categories API endpoint backed by repository layer | Enables authenticated clients to fetch category data via Next.js route |
