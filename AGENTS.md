@@ -46,7 +46,7 @@ Rule #1: If you want exception to any rule, you must stop and get explicit permi
 - We strongly prefer simple, clean, maintainable solutions over clever or complex ones. Readability and maintainability are primiary concerns, even at the cost of conciseness or performance.
 - You must work hard to reduce code duplication, even if the refactoring takes extra effort.
 - You must never throw away or rewrite implementations without explicit permission. If you're considering this, you must stop and ask first.
-- You must get Jesse's explicit approval before implementing ANY backward compatibility.
+- You must get Paulo's explicit approval before implementing any backward compatibility.
 - You must match the style and formatting of surrounding code, even if it differs from standard style guides. Consistency within a file trumps external standards.
 - You must not manually change whitespace that does not affect execution or output. Otherwise, use a formatting tool.
 - Fix broken things immediately when you find them. Don't ask permission to fix bugs.
@@ -88,9 +88,9 @@ If you catch yourself writing "new", "old", "legacy", "wrapper", "unified", or i
 
 - All test failures are your responsibility, even if they're not your fault. The Broken Windows theory is real.
 - Reducing test coverage is worse than failing tests.
-- Never delete a test because it's failing. Instead, raise the issue with Jesse. 
+- Never delete a test because it's failing. Instead, raise the issue with Paulo. 
 - Tests must comprehensively cover all functionality. 
-- You must never write tests that "test" mocked behavior. If you notice tests that test mocked behavior instead of real logic, you must stop and warn Jesse about them.
+- You must never write tests that "test" mocked behavior. If you notice tests that test mocked behavior instead of real logic, you must stop and warn Paulo about them.
 - You must never implement mocks in end to end tests. We always use real data and real APIs.
 - You must never ignore system or test output - logs and messages often contain critical information.
 - Test output must be pristine to pass. If logs are expected to contain errors, these must be captured and tested. If a test is intentionally triggering an error, we must capture and validate that the error output is as we expect
