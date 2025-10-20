@@ -16,12 +16,12 @@
 - Enabled spreadsheet creation flow to bootstrap new Google Sheets from the app.
 - Added background bootstrap sync on login to ensure `_meta` sheet stays aligned.
 - Enforced sheet schema bootstrap with automatic tab/header creation.
-- Implemented repositories and tests for `_meta`, `categories`, `accounts`, `budget_plan`, `snapshots`, `actuals`, and `future_events` tabs.
+- Implemented repositories and tests for `_meta`, `categories`, `accounts`, `budget_plan`, `snapshots`, `actuals`, `future_events`, and `runway_projection` tabs.
 
 ## Next Steps for Milestone 1
-1. Implement repository for `runway_projection`.
-2. Introduce server routes/actions that use repositories for CRUD.
-3. Begin UI wiring for budget planner once repositories stabilize.
+1. Introduce server routes/actions that use repositories for CRUD.
+2. Begin UI wiring for budget planner once repositories stabilize.
+3. Build projection computation pipeline leveraging repositories.
 
 ## Reference Docs
 - [Product Requirements](../product/PRD.md)

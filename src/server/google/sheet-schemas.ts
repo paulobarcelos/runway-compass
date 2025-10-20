@@ -163,6 +163,7 @@ export const BUDGET_PLAN_SHEET_SCHEMA = requireSchema("budget_plan");
 export const SNAPSHOTS_SHEET_SCHEMA = requireSchema("snapshots");
 export const ACTUALS_SHEET_SCHEMA = requireSchema("actuals");
 export const FUTURE_EVENTS_SHEET_SCHEMA = requireSchema("future_events");
+export const RUNWAY_PROJECTION_SHEET_SCHEMA = requireSchema("runway_projection");
 
 export function columnIndexToLetter(index: number) {
   if (index <= 0) {
