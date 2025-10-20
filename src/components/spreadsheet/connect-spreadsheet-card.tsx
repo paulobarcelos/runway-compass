@@ -10,6 +10,7 @@ import {
   saveManifest,
   type ManifestRecord,
 } from "@/lib/manifest-store";
+import { debugLog } from "@/lib/debug-log";
 
 const PICKER_SCOPES =
   "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets";
@@ -74,7 +75,10 @@ function loadScriptOnce(src: string) {
 
   scriptPromises.set(src, promise);
 
-  return promise;
+  return promise.catch((error) => {
+    scriptPromises.delete(src);
+    throw error;
+  });
 }
 
 async function ensurePickerLoaded() {
@@ -200,6 +204,7 @@ export function ConnectSpreadsheetCard() {
 
     const stored = loadManifest(window.localStorage);
     setManifest(stored);
+    void debugLog("Loaded manifest from storage", stored);
   }, []);
 
   const persistManifest = useCallback((record: ManifestRecord) => {
@@ -247,6 +252,7 @@ export function ConnectSpreadsheetCard() {
     }
 
     setStatus("authorizing");
+    void debugLog("Launching picker", { projectNumber });
 
     try {
       const spreadsheetId = await showPicker({
@@ -256,16 +262,20 @@ export function ConnectSpreadsheetCard() {
       });
 
       if (!spreadsheetId) {
+        void debugLog("Picker cancelled");
         return;
       }
 
       setStatus("registering");
+       void debugLog("Registering spreadsheet", { spreadsheetId });
       const manifest = await registerSpreadsheet(spreadsheetId);
       persistManifest(manifest);
+      void debugLog("Spreadsheet registered", manifest);
     } catch (pickerError) {
       const message =
         pickerError instanceof Error ? pickerError.message : "Failed to open Google Picker";
       setError(message);
+      void debugLog("Picker error", { message });
     } finally {
       setStatus("idle");
     }
@@ -278,6 +288,7 @@ export function ConnectSpreadsheetCard() {
 
     setError(null);
     setStatus("creating");
+    void debugLog("Creating spreadsheet");
 
     try {
       const response = await fetch("/api/spreadsheet/create", {
@@ -296,10 +307,12 @@ export function ConnectSpreadsheetCard() {
       }
 
       persistManifest(payload.manifest as ManifestRecord);
+      void debugLog("Spreadsheet created", payload.manifest);
     } catch (creationError) {
       const message =
         creationError instanceof Error ? creationError.message : "Unable to create spreadsheet";
       setError(message);
+      void debugLog("Create spreadsheet error", { message });
     } finally {
       setStatus("idle");
     }
@@ -314,6 +327,7 @@ export function ConnectSpreadsheetCard() {
 
     const sync = async () => {
       setSyncing(true);
+      void debugLog("Bootstrapping spreadsheet", { spreadsheetId: manifest.spreadsheetId });
 
       try {
         const response = await fetch("/api/spreadsheet/bootstrap", {
@@ -331,6 +345,7 @@ export function ConnectSpreadsheetCard() {
                 ? payload.error
                 : "Failed to bootstrap spreadsheet";
             setError(message);
+            void debugLog("Bootstrap error response", { message });
           }
           return;
         }
@@ -357,6 +372,7 @@ export function ConnectSpreadsheetCard() {
             spreadsheetId: result.spreadsheetId,
             storedAt: result.storedAt,
           });
+          void debugLog("Bootstrap updated manifest", result);
         }
       } catch (bootstrapError) {
         if (!cancelled) {
@@ -365,10 +381,12 @@ export function ConnectSpreadsheetCard() {
               ? bootstrapError.message
               : "Unable to bootstrap spreadsheet";
           setError(message);
+          void debugLog("Bootstrap exception", { message });
         }
       } finally {
         if (!cancelled) {
           setSyncing(false);
+          void debugLog("Bootstrap finished");
         }
       }
     };
@@ -377,6 +395,7 @@ export function ConnectSpreadsheetCard() {
 
     return () => {
       cancelled = true;
+      void debugLog("Bootstrap cancelled");
     };
   }, [manifest?.spreadsheetId, persistManifest]);
 
