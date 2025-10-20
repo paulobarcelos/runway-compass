@@ -1,6 +1,11 @@
 // ABOUTME: Bootstraps required sheets and meta rows for Google spreadsheets.
 // ABOUTME: Ensures `_meta` sheet tracks schema version and timestamps.
+import type { Session } from "next-auth";
+
 import type { sheets_v4 } from "googleapis";
+
+import { getSession } from "../auth/session";
+import { createSheetsClient, type GoogleAuthTokens } from "./clients";
 
 const META_SHEET_TITLE = "_meta";
 const META_RANGE = `${META_SHEET_TITLE}!A1:B100`;
@@ -119,3 +124,53 @@ export async function bootstrapSpreadsheet({
   };
 }
 
+interface BootstrapExistingOptions {
+  spreadsheetId: string;
+  getSession?: () => Promise<Session | null>;
+  createSheetsClient?: (tokens: GoogleAuthTokens) => sheets_v4.Sheets;
+  bootstrapSpreadsheet?: typeof bootstrapSpreadsheet;
+  schemaVersion?: string;
+  now?: () => number;
+}
+
+export async function bootstrapExistingSpreadsheet({
+  spreadsheetId,
+  getSession: resolveSession = getSession,
+  createSheetsClient: resolveClient = createSheetsClient,
+  bootstrapSpreadsheet: bootstrap = bootstrapSpreadsheet,
+  schemaVersion = "1.0.0",
+  now = Date.now,
+}: BootstrapExistingOptions) {
+  if (!spreadsheetId) {
+    throw new Error("Missing spreadsheet identifier");
+  }
+
+  const session = await resolveSession();
+
+  if (!session) {
+    throw new Error("Missing authenticated session");
+  }
+
+  const tokens = session.googleTokens;
+
+  if (!tokens?.accessToken || !tokens.refreshToken || !tokens.expiresAt) {
+    throw new Error("Missing Google tokens");
+  }
+
+  const sheets = resolveClient(tokens);
+  const storedAt = now();
+
+  const result = await bootstrap({
+    sheets,
+    spreadsheetId,
+    schemaVersion,
+    now: () => storedAt,
+  });
+
+  return {
+    spreadsheetId: result.selectedSpreadsheetId,
+    schemaVersion: result.schemaVersion,
+    bootstrappedAt: result.bootstrappedAt,
+    storedAt,
+  };
+}

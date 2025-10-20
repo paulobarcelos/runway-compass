@@ -178,6 +178,7 @@ export function ConnectSpreadsheetCard() {
   const [manifest, setManifest] = useState<ManifestRecord | null>(null);
   const [status, setStatus] = useState<AsyncStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const developerKey = useMemo(
     () => process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY ?? "",
@@ -234,7 +235,7 @@ export function ConnectSpreadsheetCard() {
   }, []);
 
   const handleSelect = useCallback(async () => {
-    if (status !== "idle") {
+    if (status !== "idle" || syncing) {
       return;
     }
 
@@ -268,10 +269,10 @@ export function ConnectSpreadsheetCard() {
     } finally {
       setStatus("idle");
     }
-  }, [status, developerKey, clientId, projectNumber, registerSpreadsheet, persistManifest]);
+  }, [status, syncing, developerKey, clientId, projectNumber, registerSpreadsheet, persistManifest]);
 
   const handleCreate = useCallback(async () => {
-    if (status !== "idle") {
+    if (status !== "idle" || syncing) {
       return;
     }
 
@@ -302,7 +303,82 @@ export function ConnectSpreadsheetCard() {
     } finally {
       setStatus("idle");
     }
-  }, [status, persistManifest]);
+  }, [status, syncing, persistManifest]);
+
+  useEffect(() => {
+    if (!manifest?.spreadsheetId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const sync = async () => {
+      setSyncing(true);
+
+      try {
+        const response = await fetch("/api/spreadsheet/bootstrap", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ spreadsheetId: manifest.spreadsheetId }),
+        });
+
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          if (!cancelled) {
+            const message =
+              typeof payload.error === "string"
+                ? payload.error
+                : "Failed to bootstrap spreadsheet";
+            setError(message);
+          }
+          return;
+        }
+
+        if (!payload?.manifest) {
+          if (!cancelled) {
+            setError("Missing bootstrap response");
+          }
+          return;
+        }
+
+        const result = payload.manifest as {
+          spreadsheetId: string;
+          storedAt?: number;
+        };
+
+        if (
+          !cancelled &&
+          result.spreadsheetId === manifest.spreadsheetId &&
+          typeof result.storedAt === "number" &&
+          result.storedAt !== manifest.storedAt
+        ) {
+          persistManifest({
+            spreadsheetId: result.spreadsheetId,
+            storedAt: result.storedAt,
+          });
+        }
+      } catch (bootstrapError) {
+        if (!cancelled) {
+          const message =
+            bootstrapError instanceof Error
+              ? bootstrapError.message
+              : "Unable to bootstrap spreadsheet";
+          setError(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setSyncing(false);
+        }
+      }
+    };
+
+    void sync();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [manifest?.spreadsheetId, persistManifest]);
 
   const handleDisconnect = useCallback(() => {
     if (typeof window === "undefined") {
@@ -314,16 +390,22 @@ export function ConnectSpreadsheetCard() {
     setError(null);
   }, []);
 
-  const disableActions = status !== "idle";
+  const disableActions = status !== "idle" || syncing;
   const selectLabel =
-    status === "authorizing"
-      ? "Authorizing..."
-      : status === "registering"
-        ? "Connecting..."
-        : manifest
-          ? "Change spreadsheet"
-          : "Select spreadsheet";
-  const createLabel = status === "creating" ? "Creating..." : "Create new spreadsheet";
+    syncing
+      ? "Syncing..."
+      : status === "authorizing"
+        ? "Authorizing..."
+        : status === "registering"
+          ? "Connecting..."
+          : manifest
+            ? "Change spreadsheet"
+            : "Select spreadsheet";
+  const createLabel = syncing
+    ? "Syncing..."
+    : status === "creating"
+      ? "Creating..."
+      : "Create new spreadsheet";
 
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-zinc-200/70 bg-white/60 p-6 shadow-sm shadow-zinc-900/5 backdrop-blur dark:border-zinc-700/60 dark:bg-zinc-900/70">
