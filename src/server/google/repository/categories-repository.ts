@@ -3,6 +3,13 @@
 import type { sheets_v4 } from "googleapis";
 
 import { CATEGORIES_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
+import {
+  ensureHeaderRow as assertHeaderRow,
+  isEmptyRow,
+  normalizeRow,
+  parseBoolean,
+  requireInteger,
+} from "./sheet-utils";
 
 const CATEGORY_HEADERS = CATEGORIES_SHEET_SCHEMA.headers;
 const CATEGORY_RANGE = dataRange(CATEGORIES_SHEET_SCHEMA, 1000);
@@ -20,49 +27,11 @@ interface CategoriesRepositoryOptions {
   spreadsheetId: string;
 }
 
-function normalizeRowLength(row: unknown[]): string[] {
-  const result: string[] = [];
-
-  for (let index = 0; index < CATEGORY_HEADERS.length; index += 1) {
-    const value = row[index];
-    result.push(typeof value === "string" ? value : value == null ? "" : String(value));
-  }
-
-  return result;
-}
-
-function isEmptyRow(row: string[]) {
-  return row.every((cell) => !cell || !cell.trim());
-}
-
-function parseBoolean(value: string) {
-  const normalized = value.trim().toLowerCase();
-
-  if (!normalized) {
-    return false;
-  }
-
-  return normalized === "true" || normalized === "1" || normalized === "yes";
-}
-
-function parseSortOrder(value: string, rowIndex: number) {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    throw new Error(`Invalid category row at index ${rowIndex}: missing sort order`);
-  }
-
-  const parsed = Number.parseInt(trimmed, 10);
-
-  if (Number.isNaN(parsed)) {
-    throw new Error(`Invalid category row at index ${rowIndex}: sort order must be a number`);
-  }
-
-  return parsed;
-}
-
 function parseCategoryRow(row: unknown[], dataIndex: number): CategoryRecord | null {
-  const normalized = normalizeRowLength(Array.isArray(row) ? row : []);
+  const normalized = normalizeRow(
+    Array.isArray(row) ? row : [],
+    CATEGORY_HEADERS.length,
+  );
 
   if (isEmptyRow(normalized)) {
     return null;
@@ -82,7 +51,10 @@ function parseCategoryRow(row: unknown[], dataIndex: number): CategoryRecord | n
     throw new Error(`Invalid category row at index ${dataIndex}: missing color`);
   }
 
-  const sortOrder = parseSortOrder(sortOrderRaw, dataIndex);
+  const sortOrder = requireInteger(sortOrderRaw, {
+    field: "sort_order",
+    rowIndex: dataIndex,
+  });
   const rolloverFlag = parseBoolean(rolloverRaw);
 
   return {
@@ -92,18 +64,6 @@ function parseCategoryRow(row: unknown[], dataIndex: number): CategoryRecord | n
     rolloverFlag,
     sortOrder,
   };
-}
-
-function ensureHeaderRow(row: unknown[]) {
-  const normalized = normalizeRowLength(Array.isArray(row) ? row : []);
-
-  const matches = CATEGORY_HEADERS.every(
-    (header, index) => normalized[index] === header,
-  );
-
-  if (!matches) {
-    throw new Error("Categories sheet header does not match expected schema");
-  }
 }
 
 export function createCategoriesRepository({
@@ -125,7 +85,7 @@ export function createCategoriesRepository({
 
       const [headerRow, ...dataRows] = rows;
 
-      ensureHeaderRow(headerRow);
+      assertHeaderRow(headerRow, CATEGORY_HEADERS, "categories");
 
       const records: CategoryRecord[] = [];
 
