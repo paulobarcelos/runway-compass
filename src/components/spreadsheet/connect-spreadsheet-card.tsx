@@ -2,7 +2,7 @@
 // ABOUTME: Persists manifest locally and registers selection via API route.
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   clearManifest,
@@ -12,6 +12,76 @@ import {
 } from "@/lib/manifest-store";
 import { debugLog } from "@/lib/debug-log";
 
+interface GoogleTokenResponse {
+  access_token?: string;
+  error?: string;
+}
+
+interface GoogleTokenError {
+  error: string;
+}
+
+interface GoogleTokenClient {
+  requestAccessToken: (options: { prompt: string }) => void;
+}
+
+interface GoogleOauth2 {
+  initTokenClient(config: {
+    client_id: string;
+    scope: string;
+    callback: (response: GoogleTokenResponse) => void;
+    error_callback: (error: GoogleTokenError) => void;
+  }): GoogleTokenClient;
+}
+
+interface GoogleDocsView {
+  setSelectFolderEnabled(value: boolean): GoogleDocsView;
+  setIncludeFolders(value: boolean): GoogleDocsView;
+  setOwnedByMe(value: boolean): GoogleDocsView;
+}
+
+interface GooglePickerCallbackData {
+  [key: string]: unknown;
+}
+
+interface GooglePickerBuilder {
+  setDeveloperKey(key: string): GooglePickerBuilder;
+  setOAuthToken(token: string): GooglePickerBuilder;
+  addView(view: GoogleDocsView): GooglePickerBuilder;
+  enableFeature(feature: string): GooglePickerBuilder;
+  setCallback(callback: (data: GooglePickerCallbackData) => void): GooglePickerBuilder;
+  setAppId(appId: string): GooglePickerBuilder;
+  build(): { setVisible(visible: boolean): void };
+}
+
+interface GooglePickerNamespace {
+  PickerBuilder: new () => GooglePickerBuilder;
+  DocsView: new (viewId: string) => GoogleDocsView;
+  ViewId: Record<string, string>;
+  Response: Record<string, string>;
+  Action: Record<string, string>;
+  Feature: Record<string, string>;
+  Document: Record<string, string>;
+}
+
+interface GoogleNamespace {
+  accounts?: {
+    oauth2?: GoogleOauth2;
+  };
+  picker?: GooglePickerNamespace;
+}
+
+interface GapiLoadOptions {
+  callback: () => void;
+  onerror: () => void;
+  timeout?: number;
+  ontimeout: () => void;
+}
+
+interface GapiNamespace {
+  load(name: string, options: GapiLoadOptions): void;
+}
+
 const PICKER_SCOPES =
   "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets";
 const GSI_SCRIPT = "https://accounts.google.com/gsi/client";
@@ -19,8 +89,8 @@ const GAPI_SCRIPT = "https://apis.google.com/js/api.js";
 
 declare global {
   interface Window {
-    google?: any;
-    gapi?: any;
+    google?: GoogleNamespace;
+    gapi?: GapiNamespace;
   }
 }
 
@@ -143,38 +213,47 @@ async function showPicker({
 
   const oauthToken = await requestOAuthToken(clientId);
 
+  const pickerNamespace = window.google?.picker;
+
+  if (!pickerNamespace) {
+    throw new Error("Google Picker namespace unavailable");
+  }
+
   return await new Promise<string | null>((resolve) => {
-    const picker = new window.google.picker.PickerBuilder()
+    const pickerBuilder = new pickerNamespace.PickerBuilder()
       .setDeveloperKey(developerKey)
       .setOAuthToken(oauthToken)
       .addView(
-        new window.google.picker.DocsView(window.google.picker.ViewId.SPREADSHEETS)
+        new pickerNamespace.DocsView(pickerNamespace.ViewId.SPREADSHEETS)
           .setSelectFolderEnabled(false)
           .setIncludeFolders(false)
           .setOwnedByMe(true),
       )
-      .enableFeature(window.google.picker.Feature.SUPPORT_DRIVES)
-      .enableFeature(window.google.picker.Feature.CREATE_NEW_DRIVE_ENTRY)
-      .enableFeature(window.google.picker.Feature.NAV_HIDDEN)
-      .setCallback((data: any) => {
-        const action = data?.[window.google.picker.Response.ACTION];
+      .enableFeature(pickerNamespace.Feature.SUPPORT_DRIVES)
+      .enableFeature(pickerNamespace.Feature.CREATE_NEW_DRIVE_ENTRY)
+      .enableFeature(pickerNamespace.Feature.NAV_HIDDEN)
+      .setCallback((data: GooglePickerCallbackData) => {
+        const responseKeys = pickerNamespace.Response;
+        const actionKeys = pickerNamespace.Action;
 
-        if (action === window.google.picker.Action.PICKED) {
-          const documents = data?.[window.google.picker.Response.DOCUMENTS] ?? [];
+        const action = data?.[responseKeys.ACTION] as string | undefined;
+
+        if (action === actionKeys.PICKED) {
+          const documents = (data?.[responseKeys.DOCUMENTS] as GooglePickerCallbackData[]) ?? [];
           const document = documents[0];
-          const spreadsheetId = document?.[window.google.picker.Document.ID];
+          const spreadsheetId = document?.[pickerNamespace.Document.ID] as string | undefined;
 
           resolve(typeof spreadsheetId === "string" ? spreadsheetId : null);
-        } else if (action === window.google.picker.Action.CANCEL) {
+        } else if (action === actionKeys.CANCEL) {
           resolve(null);
         }
       });
 
     if (appId) {
-      picker.setAppId(appId);
+      pickerBuilder.setAppId(appId);
     }
 
-    picker.build().setVisible(true);
+    pickerBuilder.build().setVisible(true);
   });
 }
 
@@ -183,6 +262,9 @@ export function ConnectSpreadsheetCard() {
   const [status, setStatus] = useState<AsyncStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const lastBootstrapRef = useRef<{ spreadsheetId: string; storedAt: number | null } | null>(
+    null,
+  );
 
   const developerKey = useMemo(
     () => process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY ?? "",
@@ -319,7 +401,15 @@ export function ConnectSpreadsheetCard() {
   }, [status, syncing, persistManifest]);
 
   useEffect(() => {
-    if (!manifest?.spreadsheetId) {
+    const spreadsheetId = manifest?.spreadsheetId;
+    const storedAt = manifest?.storedAt ?? null;
+
+    if (!spreadsheetId) {
+      return;
+    }
+
+    const last = lastBootstrapRef.current;
+    if (last && last.spreadsheetId === spreadsheetId && last.storedAt === storedAt) {
       return;
     }
 
@@ -327,13 +417,14 @@ export function ConnectSpreadsheetCard() {
 
     const sync = async () => {
       setSyncing(true);
-      void debugLog("Bootstrapping spreadsheet", { spreadsheetId: manifest.spreadsheetId });
+      lastBootstrapRef.current = { spreadsheetId, storedAt };
+      void debugLog("Bootstrapping spreadsheet", { spreadsheetId });
 
       try {
         const response = await fetch("/api/spreadsheet/bootstrap", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ spreadsheetId: manifest.spreadsheetId }),
+          body: JSON.stringify({ spreadsheetId }),
         });
 
         const payload = await response.json().catch(() => ({}));
@@ -364,14 +455,18 @@ export function ConnectSpreadsheetCard() {
 
         if (
           !cancelled &&
-          result.spreadsheetId === manifest.spreadsheetId &&
+          result.spreadsheetId === spreadsheetId &&
           typeof result.storedAt === "number" &&
-          result.storedAt !== manifest.storedAt
+          result.storedAt !== storedAt
         ) {
           persistManifest({
             spreadsheetId: result.spreadsheetId,
             storedAt: result.storedAt,
           });
+          lastBootstrapRef.current = {
+            spreadsheetId: result.spreadsheetId,
+            storedAt: result.storedAt,
+          };
           void debugLog("Bootstrap updated manifest", result);
         }
       } catch (bootstrapError) {
@@ -397,7 +492,7 @@ export function ConnectSpreadsheetCard() {
       cancelled = true;
       void debugLog("Bootstrap cancelled");
     };
-  }, [manifest?.spreadsheetId, persistManifest]);
+  }, [manifest?.spreadsheetId, manifest?.storedAt, persistManifest]);
 
   const handleDisconnect = useCallback(() => {
     if (typeof window === "undefined") {

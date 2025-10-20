@@ -43,7 +43,7 @@ export function loadManifest(storage: StorageLike): ManifestRecord | null {
     }
 
     return parsed;
-  } catch (error) {
+  } catch {
     return null;
   }
 }

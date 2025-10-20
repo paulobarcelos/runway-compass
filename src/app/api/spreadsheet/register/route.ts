@@ -22,11 +22,11 @@ export function createRegisterHandler({
   return async function POST(request: Request) {
     let body: RegisterBody;
 
-    try {
-      body = (await request.json()) as RegisterBody;
-    } catch (error) {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-    }
+  try {
+    body = (await request.json()) as RegisterBody;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
     const spreadsheetId = typeof body.spreadsheetId === "string" ? body.spreadsheetId : "";
 

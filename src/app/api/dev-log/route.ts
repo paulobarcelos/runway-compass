@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
   try {
     body = ((await request.json()) as DevLogBody) ?? {};
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 

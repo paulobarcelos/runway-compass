@@ -74,7 +74,7 @@ export async function bootstrapSpreadsheet({
     });
 
     existingValues = existing.data.values ?? [];
-  } catch (error) {
+  } catch {
     existingValues = [];
   }
 

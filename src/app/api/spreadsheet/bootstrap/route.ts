@@ -23,7 +23,7 @@ export function createBootstrapHandler({
       if (typeof data.spreadsheetId === "string") {
         spreadsheetId = data.spreadsheetId.trim();
       }
-    } catch (error) {
+    } catch {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 

@@ -39,7 +39,7 @@ async function sendToServer(payload: DebugPayload) {
       body: JSON.stringify(payload),
       keepalive: true,
     });
-  } catch (error) {
+  } catch {
     // Swallow logging errors silently.
   }
 }

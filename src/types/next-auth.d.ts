@@ -1,6 +1,5 @@
 // ABOUTME: Extends NextAuth session with Google token metadata.
 // ABOUTME: Declares JWT fields used for Sheets client authentication.
-import NextAuth from "next-auth";
 
 declare module "next-auth" {
   interface Session {
@@ -19,3 +18,5 @@ declare module "next-auth/jwt" {
     googleAccessTokenExpires?: number;
   }
 }
+
+export {};
