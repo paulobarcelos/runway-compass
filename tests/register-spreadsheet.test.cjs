@@ -59,9 +59,9 @@ test("registerSpreadsheetSelection requires Google tokens", async () => {
   }
 });
 
-test("registerSpreadsheetSelection stores meta and returns manifest", async () => {
+test("registerSpreadsheetSelection bootstraps sheet and returns manifest", async () => {
   const jiti = createJiti(__filename);
-  const metaCalls = [];
+  const bootstrapCalls = [];
   let receivedTokens;
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -88,9 +88,15 @@ test("registerSpreadsheetSelection stores meta and returns manifest", async () =
         receivedTokens = tokens;
         return { type: "sheets" };
       },
-      storeSelectedSpreadsheetMeta: async (payload) => {
-        metaCalls.push(payload);
+      bootstrapSpreadsheet: async (payload) => {
+        bootstrapCalls.push(payload);
+        return {
+          selectedSpreadsheetId: payload.spreadsheetId,
+          schemaVersion: payload.schemaVersion ?? "1.0.0",
+          bootstrappedAt: "2024-01-01T00:00:00.000Z",
+        };
       },
+      schemaVersion: "3.1.4",
       now: () => 1234,
     });
 
@@ -100,11 +106,12 @@ test("registerSpreadsheetSelection stores meta and returns manifest", async () =
       expiresAt: 1730000000,
     });
 
-    assert.equal(metaCalls.length, 1);
-    assert.deepEqual(metaCalls[0], {
-      sheets: { type: "sheets" },
-      spreadsheetId: "sheet-123",
-    });
+    assert.equal(bootstrapCalls.length, 1);
+    const bootstrapArgs = bootstrapCalls[0];
+    assert.deepEqual(bootstrapArgs.sheets, { type: "sheets" });
+    assert.equal(bootstrapArgs.spreadsheetId, "sheet-123");
+    assert.equal(bootstrapArgs.schemaVersion, "3.1.4");
+    assert.equal(typeof bootstrapArgs.now, "function");
 
     assert.deepEqual(manifest, {
       spreadsheetId: "sheet-123",

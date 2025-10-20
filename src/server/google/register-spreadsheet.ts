@@ -7,16 +7,23 @@ import { getSession } from "../auth/session";
 import type { sheets_v4 } from "googleapis";
 
 import { createSheetsClient, type GoogleAuthTokens } from "./clients";
-import { storeSelectedSpreadsheetMeta } from "./meta";
+import { bootstrapSpreadsheet } from "./bootstrap";
 
 interface RegisterSpreadsheetOptions {
   spreadsheetId: string;
   getSession?: () => Promise<Session | null>;
   createSheetsClient?: (tokens: GoogleAuthTokens) => sheets_v4.Sheets;
-  storeSelectedSpreadsheetMeta?: (params: {
+  bootstrapSpreadsheet?: (params: {
     sheets: sheets_v4.Sheets;
     spreadsheetId: string;
-  }) => Promise<void>;
+    schemaVersion?: string;
+    now?: () => number;
+  }) => Promise<{
+    selectedSpreadsheetId: string;
+    schemaVersion: string;
+    bootstrappedAt: string;
+  }>;
+  schemaVersion?: string;
   now?: () => number;
 }
 
@@ -29,7 +36,8 @@ export async function registerSpreadsheetSelection({
   spreadsheetId,
   getSession: resolveSession = getSession,
   createSheetsClient: resolveSheetsClient = createSheetsClient,
-  storeSelectedSpreadsheetMeta: persistMeta = storeSelectedSpreadsheetMeta,
+  bootstrapSpreadsheet: bootstrap = bootstrapSpreadsheet,
+  schemaVersion = "1.0.0",
   now = Date.now,
 }: RegisterSpreadsheetOptions): Promise<RegisterSpreadsheetResult> {
   if (!spreadsheetId) {
@@ -50,9 +58,11 @@ export async function registerSpreadsheetSelection({
 
   const sheets = resolveSheetsClient(tokens);
 
-  await persistMeta({
+  await bootstrap({
     sheets,
     spreadsheetId,
+    schemaVersion,
+    now,
   });
 
   return {
