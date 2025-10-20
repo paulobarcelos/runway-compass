@@ -35,5 +35,39 @@ export const authConfig: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
+  callbacks: {
+    async jwt({ token, account }) {
+      if (account?.provider === "google") {
+        if (account.access_token) {
+          token.googleAccessToken = account.access_token;
+        }
+
+        if (account.refresh_token) {
+          token.googleRefreshToken = account.refresh_token;
+        }
+
+        if (account.expires_at) {
+          token.googleAccessTokenExpires = account.expires_at;
+        }
+      }
+
+      return token;
+    },
+    async session({ session, token }) {
+      if (
+        token.googleAccessToken &&
+        token.googleRefreshToken &&
+        token.googleAccessTokenExpires
+      ) {
+        session.googleTokens = {
+          accessToken: token.googleAccessToken,
+          refreshToken: token.googleRefreshToken,
+          expiresAt: token.googleAccessTokenExpires,
+        };
+      }
+
+      return session;
+    },
+  },
   secret: process.env.NEXTAUTH_SECRET,
 };

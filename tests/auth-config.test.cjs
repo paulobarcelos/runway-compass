@@ -48,3 +48,82 @@ test("authConfig configures Google provider with required scopes", () => {
     process.env.GOOGLE_CLIENT_SECRET = originalClientSecret;
   }
 });
+
+test("authConfig jwt callback stores Google tokens", async () => {
+  const loader = createLoader(__filename, { cache: false });
+  const originalClientId = process.env.GOOGLE_CLIENT_ID;
+  const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  process.env.GOOGLE_CLIENT_ID = "test-client-id";
+  process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
+
+  try {
+    const { authConfig } = loader("../src/server/auth/config");
+
+    assert.ok(authConfig.callbacks?.jwt, "jwt callback defined");
+
+    const issuedToken = await authConfig.callbacks.jwt({
+      token: {},
+      account: {
+        provider: "google",
+        access_token: "access-123",
+        refresh_token: "refresh-456",
+        expires_at: 1730000000,
+      },
+      profile: {},
+      user: { email: "paulo@example.com" },
+    });
+
+    assert.equal(
+      issuedToken.googleAccessToken,
+      "access-123",
+      "stores access token",
+    );
+    assert.equal(
+      issuedToken.googleRefreshToken,
+      "refresh-456",
+      "stores refresh token",
+    );
+    assert.equal(
+      issuedToken.googleAccessTokenExpires,
+      1730000000,
+      "stores expiry",
+    );
+  } finally {
+    process.env.GOOGLE_CLIENT_ID = originalClientId;
+    process.env.GOOGLE_CLIENT_SECRET = originalClientSecret;
+  }
+});
+
+test("authConfig session callback attaches Google tokens", async () => {
+  const loader = createLoader(__filename, { cache: false });
+  const originalClientId = process.env.GOOGLE_CLIENT_ID;
+  const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  process.env.GOOGLE_CLIENT_ID = "test-client-id";
+  process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
+
+  try {
+    const { authConfig } = loader("../src/server/auth/config");
+
+    assert.ok(authConfig.callbacks?.session, "session callback defined");
+
+    const enrichedSession = await authConfig.callbacks.session({
+      session: { user: { email: "paulo@example.com" } },
+      token: {
+        googleAccessToken: "access-123",
+        googleRefreshToken: "refresh-456",
+        googleAccessTokenExpires: 1730000000,
+      },
+    });
+
+    assert.deepEqual(enrichedSession.googleTokens, {
+      accessToken: "access-123",
+      refreshToken: "refresh-456",
+      expiresAt: 1730000000,
+    });
+  } finally {
+    process.env.GOOGLE_CLIENT_ID = originalClientId;
+    process.env.GOOGLE_CLIENT_SECRET = originalClientSecret;
+  }
+});

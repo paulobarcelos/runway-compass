@@ -1,5 +1,6 @@
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { requireSession } from "@/server/auth/session";
+import { ConnectSpreadsheetCard } from "@/components/spreadsheet/connect-spreadsheet-card";
 
 const featureItems = [
   {
@@ -41,6 +42,8 @@ export default async function Home() {
         </div>
         <SignOutButton />
       </section>
+
+      <ConnectSpreadsheetCard />
 
       <section className="flex flex-col gap-6 text-balance">
         <span className="text-sm font-semibold uppercase tracking-wide text-emerald-600">

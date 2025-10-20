@@ -11,10 +11,12 @@
 ## Recent Progress
 - Installed and configured `next-auth` with Google provider requesting `openid email profile`, `https://www.googleapis.com/auth/drive.file`, `https://www.googleapis.com/auth/spreadsheets`, and offline access.
 - Implemented session guard, Google sign-in/out UI, and protected the app shell behind authentication.
+- Added Google Picker-based spreadsheet selection with manifest storage and `_meta` persistence.
+- Exposed API route and Sheets client helpers for future CRUD operations.
 
 ## Next Steps for Milestone 1
-1. Integrate Google Picker to allow the user to select or create a spreadsheet, then persist the `spreadsheetId` to `_meta` and local manifest storage.
-2. Create initial server action/API route wrappers around the Google APIs client (Node runtime only).
+1. Finish Google Sheets repository scaffolding for `_meta` bootstrap and schema validation.
+2. Begin server-side tab creation for core tables (categories, accounts, budget_plan, etc.).
 
 ## Reference Docs
 - [Product Requirements](../product/PRD.md)
