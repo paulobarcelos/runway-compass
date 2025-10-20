@@ -38,17 +38,10 @@ export const authConfig: NextAuthOptions = {
   callbacks: {
     async jwt({ token, account }) {
       if (account?.provider === "google") {
-        if (account.access_token) {
-          token.googleAccessToken = account.access_token;
-        }
-
-        if (account.refresh_token) {
-          token.googleRefreshToken = account.refresh_token;
-        }
-
-        if (account.expires_at) {
-          token.googleAccessTokenExpires = account.expires_at;
-        }
+        token.googleAccessToken = account.access_token ?? token.googleAccessToken;
+        token.googleRefreshToken = account.refresh_token ?? token.googleRefreshToken;
+        token.googleAccessTokenExpires =
+          account.expires_at ?? token.googleAccessTokenExpires;
       }
 
       return token;

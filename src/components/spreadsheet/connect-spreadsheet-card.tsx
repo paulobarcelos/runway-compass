@@ -129,49 +129,49 @@ async function requestOAuthToken(clientId: string) {
 async function showPicker({
   developerKey,
   clientId,
-  onPick,
   appId,
 }: {
   developerKey: string;
   clientId: string;
-  onPick: (spreadsheetId: string) => void;
   appId?: string;
 }) {
   await ensurePickerLoaded();
 
   const oauthToken = await requestOAuthToken(clientId);
 
-  const picker = new window.google.picker.PickerBuilder()
-    .setDeveloperKey(developerKey)
-    .setOAuthToken(oauthToken)
-    .addView(
-      new window.google.picker.DocsView(window.google.picker.ViewId.SPREADSHEETS)
-        .setSelectFolderEnabled(false)
-        .setIncludeFolders(false)
-        .setOwnedByMe(true),
-    )
-    .enableFeature(window.google.picker.Feature.SUPPORT_DRIVES)
-    .enableFeature(window.google.picker.Feature.CREATE_NEW_DRIVE_ENTRY)
-    .enableFeature(window.google.picker.Feature.NAV_HIDDEN)
-    .setCallback((data: any) => {
-      const action = data?.[window.google.picker.Response.ACTION];
+  return await new Promise<string | null>((resolve) => {
+    const picker = new window.google.picker.PickerBuilder()
+      .setDeveloperKey(developerKey)
+      .setOAuthToken(oauthToken)
+      .addView(
+        new window.google.picker.DocsView(window.google.picker.ViewId.SPREADSHEETS)
+          .setSelectFolderEnabled(false)
+          .setIncludeFolders(false)
+          .setOwnedByMe(true),
+      )
+      .enableFeature(window.google.picker.Feature.SUPPORT_DRIVES)
+      .enableFeature(window.google.picker.Feature.CREATE_NEW_DRIVE_ENTRY)
+      .enableFeature(window.google.picker.Feature.NAV_HIDDEN)
+      .setCallback((data: any) => {
+        const action = data?.[window.google.picker.Response.ACTION];
 
-      if (action === window.google.picker.Action.PICKED) {
-        const documents = data?.[window.google.picker.Response.DOCUMENTS] ?? [];
-        const document = documents[0];
-        const spreadsheetId = document?.[window.google.picker.Document.ID];
+        if (action === window.google.picker.Action.PICKED) {
+          const documents = data?.[window.google.picker.Response.DOCUMENTS] ?? [];
+          const document = documents[0];
+          const spreadsheetId = document?.[window.google.picker.Document.ID];
 
-        if (typeof spreadsheetId === "string") {
-          onPick(spreadsheetId);
+          resolve(typeof spreadsheetId === "string" ? spreadsheetId : null);
+        } else if (action === window.google.picker.Action.CANCEL) {
+          resolve(null);
         }
-      }
-    });
+      });
 
-  if (appId) {
-    picker.setAppId(appId);
-  }
+    if (appId) {
+      picker.setAppId(appId);
+    }
 
-  picker.build().setVisible(true);
+    picker.build().setVisible(true);
+  });
 }
 
 export function ConnectSpreadsheetCard() {
@@ -210,44 +210,28 @@ export function ConnectSpreadsheetCard() {
     setManifest(record);
   }, []);
 
-  const registerSpreadsheet = useCallback(
-    async (spreadsheetId: string) => {
-      setStatus("registering");
-      setError(null);
+  const registerSpreadsheet = useCallback(async (spreadsheetId: string) => {
+    const response = await fetch("/api/spreadsheet/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ spreadsheetId }),
+    });
 
-      try {
-        const response = await fetch("/api/spreadsheet/register", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ spreadsheetId }),
-        });
+    const payload = await response.json().catch(() => ({}));
 
-        const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = typeof payload.error === "string" ? payload.error : "Failed to register spreadsheet";
+      throw new Error(message);
+    }
 
-        if (!response.ok) {
-          const message = typeof payload.error === "string" ? payload.error : "Failed to register spreadsheet";
-          throw new Error(message);
-        }
+    if (!payload?.manifest) {
+      throw new Error("Missing manifest response");
+    }
 
-        if (!payload?.manifest) {
-          throw new Error("Missing manifest response");
-        }
-
-        persistManifest(payload.manifest as ManifestRecord);
-      } catch (registrationError) {
-        const message =
-          registrationError instanceof Error
-            ? registrationError.message
-            : "Unable to register spreadsheet";
-        setError(message);
-      } finally {
-        setStatus("idle");
-      }
-    },
-    [persistManifest],
-  );
+    return payload.manifest as ManifestRecord;
+  }, []);
 
   const handleSelect = useCallback(async () => {
     setError(null);
@@ -260,21 +244,27 @@ export function ConnectSpreadsheetCard() {
     setStatus("authorizing");
 
     try {
-      await showPicker({
+      const spreadsheetId = await showPicker({
         developerKey,
         clientId,
         appId: projectNumber || undefined,
-        onPick: (spreadsheetId) => {
-          void registerSpreadsheet(spreadsheetId);
-        },
       });
+
+      if (!spreadsheetId) {
+        return;
+      }
+
+      setStatus("registering");
+      const manifest = await registerSpreadsheet(spreadsheetId);
+      persistManifest(manifest);
     } catch (pickerError) {
       const message =
         pickerError instanceof Error ? pickerError.message : "Failed to open Google Picker";
       setError(message);
+    } finally {
       setStatus("idle");
     }
-  }, [developerKey, clientId, projectNumber, registerSpreadsheet]);
+  }, [developerKey, clientId, projectNumber, registerSpreadsheet, persistManifest]);
 
   const handleDisconnect = useCallback(() => {
     if (typeof window === "undefined") {

@@ -127,3 +127,46 @@ test("authConfig session callback attaches Google tokens", async () => {
     process.env.GOOGLE_CLIENT_SECRET = originalClientSecret;
   }
 });
+
+test("authConfig jwt callback retains existing refresh token", async () => {
+  const jiti = createJiti(__filename);
+  const originalClientId = process.env.GOOGLE_CLIENT_ID;
+  const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  process.env.GOOGLE_CLIENT_ID = "test-client-id";
+  process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
+
+  try {
+    const { authConfig } = await jiti.import("../src/server/auth/config");
+
+    const initialToken = await authConfig.callbacks.jwt({
+      token: {},
+      account: {
+        provider: "google",
+        access_token: "access-123",
+        refresh_token: "refresh-456",
+        expires_at: 1730000000,
+      },
+      profile: {},
+      user: { email: "paulo@example.com" },
+    });
+
+    const rotatedToken = await authConfig.callbacks.jwt({
+      token: initialToken,
+      account: {
+        provider: "google",
+        access_token: "access-789",
+        expires_at: 1730009999,
+      },
+      profile: {},
+      user: { email: "paulo@example.com" },
+    });
+
+    assert.equal(rotatedToken.googleAccessToken, "access-789");
+    assert.equal(rotatedToken.googleRefreshToken, "refresh-456");
+    assert.equal(rotatedToken.googleAccessTokenExpires, 1730009999);
+  } finally {
+    process.env.GOOGLE_CLIENT_ID = originalClientId;
+    process.env.GOOGLE_CLIENT_SECRET = originalClientSecret;
+  }
+});
