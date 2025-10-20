@@ -164,3 +164,77 @@ test("storeSelectedSpreadsheetMeta creates _meta sheet when missing", async () =
     },
   });
 });
+
+test("createSpreadsheet creates Drive spreadsheet", async () => {
+  const jiti = createJiti(__filename);
+  const credentialsLog = [];
+  const createCalls = [];
+
+  class OAuth2 {
+    constructor(clientId, clientSecret) {
+      this.clientId = clientId;
+      this.clientSecret = clientSecret;
+    }
+
+    setCredentials(credentials) {
+      credentialsLog.push(credentials);
+    }
+  }
+
+  const googleStub = {
+    auth: { OAuth2 },
+    drive: ({ version, auth }) => {
+      createCalls.push({ version, auth });
+
+      return {
+        files: {
+          create: async (request) => {
+            createCalls.push(request);
+            return { data: { id: "sheet-789" } };
+          },
+        },
+      };
+    },
+  };
+
+  const originalClientId = process.env.GOOGLE_CLIENT_ID;
+  const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  process.env.GOOGLE_CLIENT_ID = "test-client-id";
+  process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
+
+  try {
+    const { createSpreadsheet } = await jiti.import(
+      "../src/server/google/drive",
+    );
+
+    const result = await createSpreadsheet({
+      tokens: {
+        accessToken: "access-123",
+        refreshToken: "refresh-456",
+        expiresAt: 1730000000,
+      },
+      googleModule: googleStub,
+      title: "Runway Compass",
+    });
+
+    assert.equal(result.spreadsheetId, "sheet-789");
+    assert.equal(credentialsLog.length, 1);
+    assert.deepEqual(credentialsLog[0], {
+      access_token: "access-123",
+      refresh_token: "refresh-456",
+      expiry_date: 1730000000,
+    });
+    assert.equal(createCalls.length, 2);
+    assert.deepEqual(createCalls[1], {
+      requestBody: {
+        mimeType: "application/vnd.google-apps.spreadsheet",
+        name: "Runway Compass",
+      },
+      fields: "id",
+    });
+  } finally {
+    process.env.GOOGLE_CLIENT_ID = originalClientId;
+    process.env.GOOGLE_CLIENT_SECRET = originalClientSecret;
+  }
+});

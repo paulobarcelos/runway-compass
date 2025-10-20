@@ -23,7 +23,7 @@ declare global {
   }
 }
 
-type AsyncStatus = "idle" | "authorizing" | "registering";
+type AsyncStatus = "idle" | "authorizing" | "registering" | "creating";
 
 const scriptPromises = new Map<string, Promise<void>>();
 
@@ -234,6 +234,10 @@ export function ConnectSpreadsheetCard() {
   }, []);
 
   const handleSelect = useCallback(async () => {
+    if (status !== "idle") {
+      return;
+    }
+
     setError(null);
 
     if (!developerKey || !clientId) {
@@ -264,7 +268,41 @@ export function ConnectSpreadsheetCard() {
     } finally {
       setStatus("idle");
     }
-  }, [developerKey, clientId, projectNumber, registerSpreadsheet, persistManifest]);
+  }, [status, developerKey, clientId, projectNumber, registerSpreadsheet, persistManifest]);
+
+  const handleCreate = useCallback(async () => {
+    if (status !== "idle") {
+      return;
+    }
+
+    setError(null);
+    setStatus("creating");
+
+    try {
+      const response = await fetch("/api/spreadsheet/create", {
+        method: "POST",
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const message = typeof payload.error === "string" ? payload.error : "Failed to create spreadsheet";
+        throw new Error(message);
+      }
+
+      if (!payload?.manifest) {
+        throw new Error("Missing manifest response");
+      }
+
+      persistManifest(payload.manifest as ManifestRecord);
+    } catch (creationError) {
+      const message =
+        creationError instanceof Error ? creationError.message : "Unable to create spreadsheet";
+      setError(message);
+    } finally {
+      setStatus("idle");
+    }
+  }, [status, persistManifest]);
 
   const handleDisconnect = useCallback(() => {
     if (typeof window === "undefined") {
@@ -276,25 +314,44 @@ export function ConnectSpreadsheetCard() {
     setError(null);
   }, []);
 
-  const loading = status !== "idle";
+  const disableActions = status !== "idle";
+  const selectLabel =
+    status === "authorizing"
+      ? "Authorizing..."
+      : status === "registering"
+        ? "Connecting..."
+        : manifest
+          ? "Change spreadsheet"
+          : "Select spreadsheet";
+  const createLabel = status === "creating" ? "Creating..." : "Create new spreadsheet";
 
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-zinc-200/70 bg-white/60 p-6 shadow-sm shadow-zinc-900/5 backdrop-blur dark:border-zinc-700/60 dark:bg-zinc-900/70">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">Spreadsheet connection</h2>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             Select or create the Google Sheet Runway Compass will use for runway data.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleSelect}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-emerald-400"
-        >
-          {loading ? "Opening..." : manifest ? "Change spreadsheet" : "Select spreadsheet"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleSelect}
+            disabled={disableActions}
+            className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-emerald-400"
+          >
+            {selectLabel}
+          </button>
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={disableActions}
+            className="inline-flex items-center gap-2 rounded-full border border-emerald-500 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:border-emerald-300 disabled:text-emerald-300 dark:border-emerald-400 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
+          >
+            {createLabel}
+          </button>
+        </div>
       </div>
 
       {manifest ? (
@@ -323,8 +380,8 @@ export function ConnectSpreadsheetCard() {
         </div>
       ) : (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          No spreadsheet connected. Use the picker to create a dedicated sheet or pick an existing
-          one you trust with runway data.
+          No spreadsheet connected. Create a dedicated sheet or pick an existing one you trust with
+          runway data.
         </p>
       )}
 

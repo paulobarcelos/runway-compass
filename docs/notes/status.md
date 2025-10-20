@@ -13,6 +13,7 @@
 - Implemented session guard, Google sign-in/out UI, and protected the app shell behind authentication.
 - Added Google Picker-based spreadsheet selection with manifest storage and `_meta` persistence.
 - Exposed API route and Sheets client helpers for future CRUD operations.
+- Enabled spreadsheet creation flow to bootstrap new Google Sheets from the app.
 
 ## Next Steps for Milestone 1
 1. Finish Google Sheets repository scaffolding for `_meta` bootstrap and schema validation.
