@@ -3,10 +3,10 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const createLoader = require("jiti");
+const { createJiti } = require("jiti");
 
 test("registerSpreadsheetSelection requires authenticated session", async () => {
-  const loader = createLoader(__filename, { cache: false });
+  const loader = createJiti(__filename, { cache: false });
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -33,7 +33,7 @@ test("registerSpreadsheetSelection requires authenticated session", async () => 
 });
 
 test("registerSpreadsheetSelection requires Google tokens", async () => {
-  const loader = createLoader(__filename, { cache: false });
+  const loader = createJiti(__filename, { cache: false });
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -60,7 +60,7 @@ test("registerSpreadsheetSelection requires Google tokens", async () => {
 });
 
 test("registerSpreadsheetSelection stores meta and returns manifest", async () => {
-  const loader = createLoader(__filename, { cache: false });
+  const loader = createJiti(__filename, { cache: false });
   const metaCalls = [];
   let receivedTokens;
   const originalClientId = process.env.GOOGLE_CLIENT_ID;

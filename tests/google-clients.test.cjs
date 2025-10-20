@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const createLoader = require("jiti");
+const { createJiti } = require("jiti");
 
 function createGoogleStub() {
   const credentialsLog = [];
@@ -34,7 +34,7 @@ function createGoogleStub() {
 }
 
 test("createSheetsClient configures OAuth credentials", () => {
-  const loader = createLoader(__filename, { cache: false });
+  const loader = createJiti(__filename, { cache: false });
   const googleStub = createGoogleStub();
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -72,7 +72,7 @@ test("createSheetsClient configures OAuth credentials", () => {
 });
 
 test("storeSelectedSpreadsheetMeta writes key-value pair", async () => {
-  const loader = createLoader(__filename, { cache: false });
+  const loader = createJiti(__filename, { cache: false });
   const calls = [];
   const sheetsClient = {
     spreadsheets: {
@@ -106,7 +106,7 @@ test("storeSelectedSpreadsheetMeta writes key-value pair", async () => {
 });
 
 test("storeSelectedSpreadsheetMeta creates _meta sheet when missing", async () => {
-  const loader = createLoader(__filename, { cache: false });
+  const loader = createJiti(__filename, { cache: false });
   const updateCalls = [];
   const batchCalls = [];
 

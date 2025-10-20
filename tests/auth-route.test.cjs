@@ -3,10 +3,10 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const createLoader = require("jiti");
+const { createJiti } = require("jiti");
 
 test("auth route wires NextAuth with shared config", () => {
-  const loader = createLoader(__filename, { cache: false });
+  const loader = createJiti(__filename, { cache: false });
   const nextAuthPath = require.resolve("next-auth");
   const originalModule = require.cache[nextAuthPath];
   const originalClientId = process.env.GOOGLE_CLIENT_ID;

@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const createLoader = require("jiti");
+const { createJiti } = require("jiti");
 
 const REQUIRED_SCOPE = [
   "openid",
@@ -14,7 +14,7 @@ const REQUIRED_SCOPE = [
 ].join(" ");
 
 test("authConfig configures Google provider with required scopes", () => {
-  const loader = createLoader(__filename, { cache: false });
+  const loader = createJiti(__filename, { cache: false });
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -50,7 +50,7 @@ test("authConfig configures Google provider with required scopes", () => {
 });
 
 test("authConfig jwt callback stores Google tokens", async () => {
-  const loader = createLoader(__filename, { cache: false });
+  const loader = createJiti(__filename, { cache: false });
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -96,7 +96,7 @@ test("authConfig jwt callback stores Google tokens", async () => {
 });
 
 test("authConfig session callback attaches Google tokens", async () => {
-  const loader = createLoader(__filename, { cache: false });
+  const loader = createJiti(__filename, { cache: false });
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 

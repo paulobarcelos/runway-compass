@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const createLoader = require("jiti");
+const { createJiti } = require("jiti");
 
 function createMemoryStorage() {
   const data = new Map();
@@ -21,7 +21,7 @@ function createMemoryStorage() {
 }
 
 test("saveManifest stores spreadsheet identifier", () => {
-  const loader = createLoader(__filename, { cache: false });
+  const loader = createJiti(__filename, { cache: false });
   const storage = createMemoryStorage();
   const { saveManifest, loadManifest } = loader(
     "../src/lib/manifest-store",
@@ -39,7 +39,7 @@ test("saveManifest stores spreadsheet identifier", () => {
 });
 
 test("loadManifest handles missing or invalid payloads", () => {
-  const loader = createLoader(__filename, { cache: false });
+  const loader = createJiti(__filename, { cache: false });
   const storage = createMemoryStorage();
   const { loadManifest, clearManifest } = loader(
     "../src/lib/manifest-store",
