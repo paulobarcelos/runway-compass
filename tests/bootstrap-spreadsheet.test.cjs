@@ -22,11 +22,23 @@ function withEnv(run) {
   })();
 }
 
-function createSheetsStub({ hasMeta = false, values = [] } = {}) {
+const DATA_SHEETS = [
+  "categories",
+  "accounts",
+  "snapshots",
+  "budget_plan",
+  "actuals",
+  "future_events",
+  "runway_projection",
+];
+
+function createSheetsStub({ existingSheets = [], sheetValues = {} } = {}) {
   const getCalls = [];
   const batchUpdateCalls = [];
   const valueGetCalls = [];
   const valueUpdateCalls = [];
+
+  const sheets = new Set(existingSheets);
 
   const stub = {
     spreadsheets: {
@@ -34,22 +46,30 @@ function createSheetsStub({ hasMeta = false, values = [] } = {}) {
         getCalls.push(request);
         return {
           data: {
-            sheets: hasMeta
-              ? [{ properties: { title: "_meta" } }]
-              : [{ properties: { title: "other" } }],
+            sheets: Array.from(sheets).map((title) => ({
+              properties: { title },
+            })),
           },
         };
       },
       batchUpdate: async (request) => {
         batchUpdateCalls.push(request);
-        hasMeta = true;
+        for (const change of request.requestBody?.requests ?? []) {
+          const addedTitle = change.addSheet?.properties?.title;
+          if (addedTitle) {
+            sheets.add(addedTitle);
+          }
+        }
         return { status: 200 };
       },
       values: {
         get: async (request) => {
           valueGetCalls.push(request);
 
-          if (!hasMeta) {
+          const range = String(request.range ?? "");
+          const [title] = range.split("!");
+
+          if (!sheets.has(title)) {
             const error = new Error("sheet not found");
             error.code = 400;
             throw error;
@@ -57,12 +77,15 @@ function createSheetsStub({ hasMeta = false, values = [] } = {}) {
 
           return {
             data: {
-              values,
+              values: sheetValues[title] ?? [],
             },
           };
         },
         update: async (request) => {
           valueUpdateCalls.push(request);
+          const range = String(request.range ?? "");
+          const [title] = range.split("!");
+          sheetValues[title] = request.resource?.values ?? [];
           return { status: 200 };
         },
       },
@@ -75,6 +98,8 @@ function createSheetsStub({ hasMeta = false, values = [] } = {}) {
     batchUpdateCalls,
     valueGetCalls,
     valueUpdateCalls,
+    sheetValues,
+    sheets,
   };
 }
 
@@ -82,8 +107,7 @@ test("bootstrapSpreadsheet creates meta sheet and rows when missing", async () =
   await withEnv(async () => {
     const jiti = createJiti(__filename);
     const { stub, batchUpdateCalls, valueUpdateCalls } = createSheetsStub({
-      hasMeta: false,
-      values: [],
+      existingSheets: DATA_SHEETS,
     });
 
     const { bootstrapSpreadsheet } = await jiti.import(
@@ -111,6 +135,7 @@ test("bootstrapSpreadsheet creates meta sheet and rows when missing", async () =
                 gridProperties: {
                   rowCount: 20,
                   columnCount: 2,
+                  frozenRowCount: 0,
                 },
               },
             },
@@ -119,8 +144,12 @@ test("bootstrapSpreadsheet creates meta sheet and rows when missing", async () =
       },
     });
 
-    assert.equal(valueUpdateCalls.length, 1);
-    assert.deepEqual(valueUpdateCalls[0], {
+    const metaUpdate = valueUpdateCalls.find((call) =>
+      call.range.startsWith("_meta!"),
+    );
+
+    assert.ok(metaUpdate, "meta sheet receives header update");
+    assert.deepEqual(metaUpdate, {
       spreadsheetId: "sheet-123",
       range: "_meta!A1:B4",
       valueInputOption: "RAW",
@@ -144,8 +173,10 @@ test("bootstrapSpreadsheet preserves existing keys and selected id", async () =>
       ["custom_key", "custom"],
     ];
     const { stub, batchUpdateCalls, valueUpdateCalls } = createSheetsStub({
-      hasMeta: true,
-      values: existingValues,
+      existingSheets: ["_meta", ...DATA_SHEETS],
+      sheetValues: {
+        _meta: existingValues,
+      },
     });
 
     const { bootstrapSpreadsheet } = await jiti.import(
@@ -160,9 +191,11 @@ test("bootstrapSpreadsheet preserves existing keys and selected id", async () =>
     });
 
     assert.equal(batchUpdateCalls.length, 0, "meta sheet not recreated");
-    assert.equal(valueUpdateCalls.length, 1);
 
-    const updateRequest = valueUpdateCalls[0];
+    const updateRequest = valueUpdateCalls.find((call) =>
+      call.range.startsWith("_meta!"),
+    );
+    assert.ok(updateRequest, "meta sheet update issued");
     const rows = updateRequest.resource.values;
 
     assert.deepEqual(rows[0], ["key", "value"]);
@@ -265,5 +298,101 @@ test("bootstrapExistingSpreadsheet bootstraps via Sheets client", async () => {
       bootstrappedAt: "2024-01-01T00:00:00.000Z",
       storedAt: 8888,
     });
+  });
+});
+
+test("bootstrapSpreadsheet ensures data sheets exist with headers", async () => {
+  await withEnv(async () => {
+    const jiti = createJiti(__filename);
+    const { stub, batchUpdateCalls, valueUpdateCalls } = createSheetsStub({
+      existingSheets: [],
+    });
+
+    const { bootstrapSpreadsheet } = await jiti.import(
+      "../src/server/google/bootstrap",
+    );
+
+    await bootstrapSpreadsheet({
+      sheets: stub,
+      spreadsheetId: "sheet-123",
+      schemaVersion: "3.1.4",
+      now: () => 1710000000000,
+    });
+
+    assert.equal(batchUpdateCalls.length, 1, "missing sheets created in single batch");
+
+    const requests = batchUpdateCalls[0].requestBody.requests;
+    const addedTitles = requests
+      .filter((req) => req.addSheet)
+      .map((req) => req.addSheet.properties.title);
+
+    assert.deepEqual(
+      addedTitles,
+      ["_meta", ...DATA_SHEETS],
+    );
+
+    const expectedHeaders = {
+      _meta: ["key", "value"],
+      categories: ["category_id", "label", "color", "rollover_flag", "sort_order"],
+      accounts: [
+        "account_id",
+        "name",
+        "type",
+        "currency",
+        "include_in_runway",
+        "snapshot_frequency",
+        "last_snapshot_at",
+      ],
+      snapshots: ["snapshot_id", "account_id", "date", "balance", "note"],
+      budget_plan: [
+        "record_id",
+        "category_id",
+        "month",
+        "year",
+        "amount",
+        "rollover_balance",
+      ],
+      actuals: [
+        "txn_id",
+        "account_id",
+        "date",
+        "category_id",
+        "amount",
+        "status",
+        "entry_mode",
+        "note",
+      ],
+      future_events: [
+        "event_id",
+        "type",
+        "account_id",
+        "category_id",
+        "start_month",
+        "end_month",
+        "frequency",
+        "amount",
+        "status",
+        "linked_txn_id",
+      ],
+      runway_projection: [
+        "month",
+        "year",
+        "starting_balance",
+        "income_total",
+        "expense_total",
+        "ending_balance",
+        "stoplight_status",
+        "notes",
+      ],
+    };
+
+    for (const [title, headers] of Object.entries(expectedHeaders)) {
+      const headerUpdate = valueUpdateCalls.find((call) =>
+        call.range.startsWith(`${title}!`),
+      );
+
+      assert.ok(headerUpdate, `expected header update for ${title}`);
+      assert.deepEqual(headerUpdate.resource.values[0], headers);
+    }
   });
 });

@@ -73,14 +73,29 @@ test("createSheetsClient configures OAuth credentials", async () => {
 
 test("storeSelectedSpreadsheetMeta writes key-value pair", async () => {
   const jiti = createJiti(__filename);
-  const calls = [];
+  const getCalls = [];
+  const updateCalls = [];
+  let storedValues = [];
+
   const sheetsClient = {
     spreadsheets: {
       values: {
+        get: async (request) => {
+          getCalls.push(request);
+          return {
+            data: {
+              values: storedValues,
+            },
+          };
+        },
         update: async (request) => {
-          calls.push(request);
+          updateCalls.push(request);
+          storedValues = request.resource.values;
           return { status: 200 };
         },
+      },
+      batchUpdate: async () => {
+        throw new Error("batchUpdate should not be called");
       },
     },
   };
@@ -94,34 +109,53 @@ test("storeSelectedSpreadsheetMeta writes key-value pair", async () => {
     spreadsheetId: "sheet-123",
   });
 
-  assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0], {
+  assert.equal(getCalls.length, 1);
+  assert.equal(updateCalls.length, 1);
+  assert.deepEqual(updateCalls[0], {
     spreadsheetId: "sheet-123",
-    range: "_meta!A1:B1",
+    range: "_meta!A1:B2",
     valueInputOption: "RAW",
     resource: {
-      values: [["selected_spreadsheet_id", "sheet-123"]],
+      values: [
+        ["key", "value"],
+        ["selected_spreadsheet_id", "sheet-123"],
+      ],
     },
   });
+  assert.deepEqual(storedValues, [
+    ["key", "value"],
+    ["selected_spreadsheet_id", "sheet-123"],
+  ]);
 });
 
 test("storeSelectedSpreadsheetMeta creates _meta sheet when missing", async () => {
   const jiti = createJiti(__filename);
+  const getCalls = [];
   const updateCalls = [];
   const batchCalls = [];
+  let storedValues = [];
+  let firstUpdate = true;
 
   const sheetsClient = {
     spreadsheets: {
       values: {
+        get: async (request) => {
+          getCalls.push(request);
+          const error = new Error("Unable to parse range: _meta!A1:B100");
+          error.code = 400;
+          throw error;
+        },
         update: async (request) => {
           updateCalls.push(request);
 
-          if (updateCalls.length === 1) {
-            const error = new Error("Unable to parse range: _meta!A1:B1");
+          if (firstUpdate) {
+            firstUpdate = false;
+            const error = new Error("Unable to parse range: _meta!A1:B2");
             error.code = 400;
             throw error;
           }
 
+          storedValues = request.resource.values;
           return { status: 200 };
         },
       },
@@ -141,6 +175,7 @@ test("storeSelectedSpreadsheetMeta creates _meta sheet when missing", async () =
     spreadsheetId: "sheet-123",
   });
 
+  assert.equal(getCalls.length, 1, "meta load attempted before creation");
   assert.equal(updateCalls.length, 2, "update retried after creating meta sheet");
   assert.equal(batchCalls.length, 1, "meta sheet created via batchUpdate");
   assert.deepEqual(batchCalls[0], {
@@ -154,8 +189,9 @@ test("storeSelectedSpreadsheetMeta creates _meta sheet when missing", async () =
               sheetType: "GRID",
               hidden: true,
               gridProperties: {
-                rowCount: 10,
+                rowCount: 20,
                 columnCount: 2,
+                frozenRowCount: 0,
               },
             },
           },
@@ -163,6 +199,10 @@ test("storeSelectedSpreadsheetMeta creates _meta sheet when missing", async () =
       ],
     },
   });
+  assert.deepEqual(storedValues, [
+    ["key", "value"],
+    ["selected_spreadsheet_id", "sheet-123"],
+  ]);
 });
 
 test("createSpreadsheet creates Drive spreadsheet", async () => {

@@ -2,12 +2,13 @@
 // ABOUTME: Normalizes meta tab key-value persistence for server actions.
 import type { sheets_v4 } from "googleapis";
 
+import { createMetaRepository } from "./repository/meta-repository";
+import { META_SHEET_SCHEMA, sheetPropertiesFor } from "./sheet-schemas";
+
 interface StoreMetaParams {
   sheets: sheets_v4.Sheets;
   spreadsheetId: string;
 }
-
-const META_RANGE = "_meta!A1:B1";
 
 function isMissingMetaSheet(error: unknown) {
   if (!(error instanceof Error)) {
@@ -25,17 +26,13 @@ export async function storeSelectedSpreadsheetMeta({
     throw new Error("Missing spreadsheet identifier");
   }
 
-  const request = {
-    spreadsheetId,
-    range: META_RANGE,
-    valueInputOption: "RAW" as const,
-    resource: {
-      values: [["selected_spreadsheet_id", spreadsheetId]],
-    },
-  };
+  const repository = createMetaRepository({ sheets, spreadsheetId });
+  const entries = await repository.load();
+
+  entries.set("selected_spreadsheet_id", spreadsheetId);
 
   try {
-    await sheets.spreadsheets.values.update(request);
+    await repository.save(entries);
   } catch (error) {
     if (!isMissingMetaSheet(error)) {
       throw error;
@@ -47,21 +44,13 @@ export async function storeSelectedSpreadsheetMeta({
         requests: [
           {
             addSheet: {
-              properties: {
-                title: "_meta",
-                sheetType: "GRID",
-                hidden: true,
-                gridProperties: {
-                  rowCount: 10,
-                  columnCount: 2,
-                },
-              },
+              properties: sheetPropertiesFor(META_SHEET_SCHEMA),
             },
           },
         ],
       },
     });
 
-    await sheets.spreadsheets.values.update(request);
+    await repository.save(entries);
   }
 }

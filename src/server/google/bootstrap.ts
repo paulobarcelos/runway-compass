@@ -6,9 +6,13 @@ import type { sheets_v4 } from "googleapis";
 
 import { getSession } from "../auth/session";
 import { createSheetsClient, type GoogleAuthTokens } from "./clients";
-
-const META_SHEET_TITLE = "_meta";
-const META_RANGE = `${META_SHEET_TITLE}!A1:B100`;
+import {
+  META_SHEET_TITLE,
+  REQUIRED_SHEETS,
+  headerRange,
+  sheetPropertiesFor,
+} from "./sheet-schemas";
+import { createMetaRepository } from "./repository/meta-repository";
 
 interface BootstrapSpreadsheetParams {
   sheets: sheets_v4.Sheets;
@@ -17,11 +21,23 @@ interface BootstrapSpreadsheetParams {
   now?: () => number;
 }
 
-const REQUIRED_KEYS = [
+const META_KEYS = [
   "selected_spreadsheet_id",
   "schema_version",
   "last_bootstrapped_at",
-];
+] as const;
+
+function headersMatch(actual: string[] | undefined, expected: readonly string[]) {
+  if (!actual) {
+    return false;
+  }
+
+  if (actual.length !== expected.length) {
+    return false;
+  }
+
+  return expected.every((value, index) => actual[index] === value);
+}
 
 export async function bootstrapSpreadsheet({
   sheets,
@@ -38,84 +54,82 @@ export async function bootstrapSpreadsheet({
     fields: "sheets(properties(title))",
   });
 
-  const hasMetaSheet = Boolean(
-    metadata.data.sheets?.some((sheet) => sheet.properties?.title === META_SHEET_TITLE),
+  const existingTitles = new Set(
+    (metadata.data.sheets ?? [])
+      .map((sheet) => sheet.properties?.title)
+      .filter((title): title is string => Boolean(title)),
   );
 
-  if (!hasMetaSheet) {
+  const missingSchemas = REQUIRED_SHEETS.filter(
+    (schema) => !existingTitles.has(schema.title),
+  );
+
+  if (missingSchemas.length > 0) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
       requestBody: {
-        requests: [
-          {
-            addSheet: {
-              properties: {
-                title: META_SHEET_TITLE,
-                sheetType: "GRID",
-                hidden: true,
-                gridProperties: {
-                  rowCount: 20,
-                  columnCount: 2,
-                },
-              },
-            },
+        requests: missingSchemas.map((schema) => ({
+          addSheet: {
+            properties: sheetPropertiesFor(schema),
           },
-        ],
+        })),
       },
     });
   }
 
-  let existingValues: string[][] = [];
-
-  try {
-    const existing = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: META_RANGE,
-    });
-
-    existingValues = existing.data.values ?? [];
-  } catch {
-    existingValues = [];
-  }
-
-  const entries = new Map<string, string>();
-
-  for (const row of existingValues) {
-    const [key, value] = row;
-
-    if (typeof key === "string" && key.trim()) {
-      entries.set(key, typeof value === "string" ? value : "");
-    }
-  }
-
-  const selectedSpreadsheetId =
-    entries.get("selected_spreadsheet_id") ?? spreadsheetId;
-
-  const isoTimestamp = new Date(now()).toISOString();
-
-  const orderedRows: string[][] = [
-    ["key", "value"],
-    ["selected_spreadsheet_id", selectedSpreadsheetId],
-    ["schema_version", schemaVersion],
-    ["last_bootstrapped_at", isoTimestamp],
-  ];
-
-  for (const [key, value] of entries) {
-    if (REQUIRED_KEYS.includes(key)) {
+  for (const schema of REQUIRED_SHEETS) {
+    if (schema.title === META_SHEET_TITLE) {
       continue;
     }
 
-    orderedRows.push([key, value ?? ""]);
+    let headerRow: string[] | undefined;
+
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: headerRange(schema),
+      });
+      headerRow = (response.data.values?.[0] ?? []) as string[];
+    } catch {
+      headerRow = undefined;
+    }
+
+    if (headersMatch(headerRow, schema.headers)) {
+      continue;
+    }
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: headerRange(schema),
+      valueInputOption: "RAW",
+      resource: {
+        values: [Array.from(schema.headers)],
+      },
+    });
   }
 
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${META_SHEET_TITLE}!A1:B${orderedRows.length}`,
-    valueInputOption: "RAW",
-    resource: {
-      values: orderedRows,
-    },
-  });
+  const metaRepository = createMetaRepository({ sheets, spreadsheetId });
+  const existingMeta = await metaRepository.load();
+
+  const selectedSpreadsheetId =
+    existingMeta.get("selected_spreadsheet_id") ?? spreadsheetId;
+  const isoTimestamp = new Date(now()).toISOString();
+
+  const orderedMeta = new Map<string, string>();
+
+  orderedMeta.set("selected_spreadsheet_id", selectedSpreadsheetId);
+  orderedMeta.set("schema_version", schemaVersion);
+  orderedMeta.set("last_bootstrapped_at", isoTimestamp);
+
+  for (const [key, value] of existingMeta) {
+    if (META_KEYS.includes(key as (typeof META_KEYS)[number])) {
+      continue;
+    }
+
+    orderedMeta.set(key, value ?? "");
+  }
+
+  await metaRepository.save(orderedMeta);
 
   return {
     selectedSpreadsheetId,
