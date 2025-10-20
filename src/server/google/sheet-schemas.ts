@@ -147,6 +147,11 @@ export const REQUIRED_SHEETS: SheetSchema[] = [
 REQUIRED_SHEETS.forEach((schema) => Object.freeze(schema.headers));
 
 export const META_SHEET_SCHEMA = REQUIRED_SHEETS[0];
+export const CATEGORIES_SHEET_SCHEMA =
+  REQUIRED_SHEETS.find((schema) => schema.title === "categories") ??
+  (() => {
+    throw new Error("Categories sheet schema not defined");
+  })();
 
 export function columnIndexToLetter(index: number) {
   if (index <= 0) {
