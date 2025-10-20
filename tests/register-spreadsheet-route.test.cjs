@@ -24,8 +24,8 @@ function withEnv(run) {
 
 test("register route validates request payload", async () => {
   await withEnv(async () => {
-    const loader = createJiti(__filename, { cache: false });
-    const { createRegisterHandler } = loader(
+    const jiti = createJiti(__filename);
+    const { createRegisterHandler } = await jiti.import(
       "../src/app/api/spreadsheet/register/route",
     );
 
@@ -51,8 +51,8 @@ test("register route validates request payload", async () => {
 
 test("register route maps auth errors to 401", async () => {
   await withEnv(async () => {
-    const loader = createJiti(__filename, { cache: false });
-    const { createRegisterHandler } = loader(
+    const jiti = createJiti(__filename);
+    const { createRegisterHandler } = await jiti.import(
       "../src/app/api/spreadsheet/register/route",
     );
 
@@ -78,8 +78,8 @@ test("register route maps auth errors to 401", async () => {
 
 test("register route returns manifest on success", async () => {
   await withEnv(async () => {
-    const loader = createJiti(__filename, { cache: false });
-    const { createRegisterHandler } = loader(
+    const jiti = createJiti(__filename);
+    const { createRegisterHandler } = await jiti.import(
       "../src/app/api/spreadsheet/register/route",
     );
 

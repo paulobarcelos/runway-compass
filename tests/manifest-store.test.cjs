@@ -20,10 +20,10 @@ function createMemoryStorage() {
   };
 }
 
-test("saveManifest stores spreadsheet identifier", () => {
-  const loader = createJiti(__filename, { cache: false });
+test("saveManifest stores spreadsheet identifier", async () => {
+  const jiti = createJiti(__filename);
   const storage = createMemoryStorage();
-  const { saveManifest, loadManifest } = loader(
+  const { saveManifest, loadManifest } = await jiti.import(
     "../src/lib/manifest-store",
   );
 
@@ -38,10 +38,10 @@ test("saveManifest stores spreadsheet identifier", () => {
   assert.equal(reloaded?.spreadsheetId, "sheet-123");
 });
 
-test("loadManifest handles missing or invalid payloads", () => {
-  const loader = createJiti(__filename, { cache: false });
+test("loadManifest handles missing or invalid payloads", async () => {
+  const jiti = createJiti(__filename);
   const storage = createMemoryStorage();
-  const { loadManifest, clearManifest } = loader(
+  const { loadManifest, clearManifest } = await jiti.import(
     "../src/lib/manifest-store",
   );
 

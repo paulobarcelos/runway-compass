@@ -6,7 +6,7 @@ const assert = require("node:assert/strict");
 const { createJiti } = require("jiti");
 
 test("registerSpreadsheetSelection requires authenticated session", async () => {
-  const loader = createJiti(__filename, { cache: false });
+  const jiti = createJiti(__filename);
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -14,7 +14,7 @@ test("registerSpreadsheetSelection requires authenticated session", async () => 
   process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
 
   try {
-    const { registerSpreadsheetSelection } = loader(
+    const { registerSpreadsheetSelection } = await jiti.import(
       "../src/server/google/register-spreadsheet",
     );
 
@@ -33,7 +33,7 @@ test("registerSpreadsheetSelection requires authenticated session", async () => 
 });
 
 test("registerSpreadsheetSelection requires Google tokens", async () => {
-  const loader = createJiti(__filename, { cache: false });
+  const jiti = createJiti(__filename);
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -41,7 +41,7 @@ test("registerSpreadsheetSelection requires Google tokens", async () => {
   process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
 
   try {
-    const { registerSpreadsheetSelection } = loader(
+    const { registerSpreadsheetSelection } = await jiti.import(
       "../src/server/google/register-spreadsheet",
     );
 
@@ -60,7 +60,7 @@ test("registerSpreadsheetSelection requires Google tokens", async () => {
 });
 
 test("registerSpreadsheetSelection stores meta and returns manifest", async () => {
-  const loader = createJiti(__filename, { cache: false });
+  const jiti = createJiti(__filename);
   const metaCalls = [];
   let receivedTokens;
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
@@ -70,7 +70,7 @@ test("registerSpreadsheetSelection stores meta and returns manifest", async () =
   process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
 
   try {
-    const { registerSpreadsheetSelection } = loader(
+    const { registerSpreadsheetSelection } = await jiti.import(
       "../src/server/google/register-spreadsheet",
     );
 

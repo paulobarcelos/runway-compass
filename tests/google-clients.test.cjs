@@ -33,8 +33,8 @@ function createGoogleStub() {
   };
 }
 
-test("createSheetsClient configures OAuth credentials", () => {
-  const loader = createJiti(__filename, { cache: false });
+test("createSheetsClient configures OAuth credentials", async () => {
+  const jiti = createJiti(__filename);
   const googleStub = createGoogleStub();
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -43,7 +43,7 @@ test("createSheetsClient configures OAuth credentials", () => {
   process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
 
   try {
-    const { createSheetsClient } = loader(
+    const { createSheetsClient } = await jiti.import(
       "../src/server/google/clients",
     );
 
@@ -72,7 +72,7 @@ test("createSheetsClient configures OAuth credentials", () => {
 });
 
 test("storeSelectedSpreadsheetMeta writes key-value pair", async () => {
-  const loader = createJiti(__filename, { cache: false });
+  const jiti = createJiti(__filename);
   const calls = [];
   const sheetsClient = {
     spreadsheets: {
@@ -85,7 +85,7 @@ test("storeSelectedSpreadsheetMeta writes key-value pair", async () => {
     },
   };
 
-  const { storeSelectedSpreadsheetMeta } = loader(
+  const { storeSelectedSpreadsheetMeta } = await jiti.import(
     "../src/server/google/meta",
   );
 
@@ -106,7 +106,7 @@ test("storeSelectedSpreadsheetMeta writes key-value pair", async () => {
 });
 
 test("storeSelectedSpreadsheetMeta creates _meta sheet when missing", async () => {
-  const loader = createJiti(__filename, { cache: false });
+  const jiti = createJiti(__filename);
   const updateCalls = [];
   const batchCalls = [];
 
@@ -132,7 +132,7 @@ test("storeSelectedSpreadsheetMeta creates _meta sheet when missing", async () =
     },
   };
 
-  const { storeSelectedSpreadsheetMeta } = loader(
+  const { storeSelectedSpreadsheetMeta } = await jiti.import(
     "../src/server/google/meta",
   );
 

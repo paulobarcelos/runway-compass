@@ -13,8 +13,8 @@ const REQUIRED_SCOPE = [
   "https://www.googleapis.com/auth/spreadsheets",
 ].join(" ");
 
-test("authConfig configures Google provider with required scopes", () => {
-  const loader = createJiti(__filename, { cache: false });
+test("authConfig configures Google provider with required scopes", async () => {
+  const jiti = createJiti(__filename);
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -22,7 +22,7 @@ test("authConfig configures Google provider with required scopes", () => {
   process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
 
   try {
-    const { authConfig } = loader("../src/server/auth/config");
+    const { authConfig } = await jiti.import("../src/server/auth/config");
 
     assert.ok(authConfig, "authConfig is exported");
     assert.ok(Array.isArray(authConfig.providers), "providers list defined");
@@ -50,7 +50,7 @@ test("authConfig configures Google provider with required scopes", () => {
 });
 
 test("authConfig jwt callback stores Google tokens", async () => {
-  const loader = createJiti(__filename, { cache: false });
+  const jiti = createJiti(__filename);
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -58,7 +58,7 @@ test("authConfig jwt callback stores Google tokens", async () => {
   process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
 
   try {
-    const { authConfig } = loader("../src/server/auth/config");
+    const { authConfig } = await jiti.import("../src/server/auth/config");
 
     assert.ok(authConfig.callbacks?.jwt, "jwt callback defined");
 
@@ -96,7 +96,7 @@ test("authConfig jwt callback stores Google tokens", async () => {
 });
 
 test("authConfig session callback attaches Google tokens", async () => {
-  const loader = createJiti(__filename, { cache: false });
+  const jiti = createJiti(__filename);
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -104,7 +104,7 @@ test("authConfig session callback attaches Google tokens", async () => {
   process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
 
   try {
-    const { authConfig } = loader("../src/server/auth/config");
+    const { authConfig } = await jiti.import("../src/server/auth/config");
 
     assert.ok(authConfig.callbacks?.session, "session callback defined");
 

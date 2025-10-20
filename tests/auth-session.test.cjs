@@ -6,7 +6,7 @@ const assert = require("node:assert/strict");
 const { createJiti } = require("jiti");
 
 test("requireSession returns server session when present", async () => {
-  const loader = createJiti(__filename, { cache: false });
+  const loader = createJiti(__filename);
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -16,7 +16,7 @@ test("requireSession returns server session when present", async () => {
   process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
 
   try {
-    const { requireSession } = loader("../src/server/auth/session");
+    const { requireSession } = await loader.import("../src/server/auth/session");
     const session = await requireSession(async () => mockSession);
 
     assert.equal(session, mockSession, "session passthrough");
@@ -27,7 +27,7 @@ test("requireSession returns server session when present", async () => {
 });
 
 test("requireSession redirects when session missing", async () => {
-  const loader = createJiti(__filename, { cache: false });
+  const loader = createJiti(__filename);
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -37,7 +37,7 @@ test("requireSession redirects when session missing", async () => {
   let caught;
 
   try {
-    const { requireSession, SIGN_IN_ROUTE } = loader(
+    const { requireSession, SIGN_IN_ROUTE } = await loader.import(
       "../src/server/auth/session",
     );
 
