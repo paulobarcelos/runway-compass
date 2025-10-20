@@ -20,13 +20,13 @@ The generated project already includes Tailwind CSS v4, TypeScript, and ESLint. 
 - `npm run lint` – Run ESLint across the project.
 
 ## Environment Variables
-Create a `.env.local` file (ignored by git) with placeholders for upcoming integrations. The values will be populated during Milestone 1.
+Create a `.env.local` file (ignored by git) with the following variables. Replace placeholders with the values generated in Google Cloud and via your secret generator.
 
 ```
 NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=replace-with-generated-secret
-GOOGLE_CLIENT_ID=replace-me
-GOOGLE_CLIENT_SECRET=replace-me
+NEXTAUTH_SECRET=<generated-random-secret>
+GOOGLE_CLIENT_ID=<oauth-client-id>
+GOOGLE_CLIENT_SECRET=<oauth-client-secret>
 ```
 
 > Generate a secure `NEXTAUTH_SECRET` using `openssl rand -base64 32` or an equivalent tool. Google credentials require an OAuth client configured in the Google Cloud console (documented below).
@@ -40,4 +40,3 @@ GOOGLE_CLIENT_SECRET=replace-me
 5. Store the generated Client ID and Client Secret securely; they will populate `.env.local` in Milestone 1.
 
 > These steps establish the baseline so the Auth & Sheet handshake milestone can focus on application wiring instead of console setup.
-

@@ -17,6 +17,7 @@ Personal cash runway planner built with Next.js and Google Sheets. Track rolling
 - [Engineering Process](docs/engineering/process.md)
 - [Local Development Setup](docs/engineering/setup.md)
 - [Decision Log](docs/notes/decision-log.md)
+- [Current Status](docs/notes/status.md)
 
 ## Roadmap
 
