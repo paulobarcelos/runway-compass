@@ -160,6 +160,7 @@ export const META_SHEET_SCHEMA = requireSchema("_meta");
 export const CATEGORIES_SHEET_SCHEMA = requireSchema("categories");
 export const ACCOUNTS_SHEET_SCHEMA = requireSchema("accounts");
 export const BUDGET_PLAN_SHEET_SCHEMA = requireSchema("budget_plan");
+export const SNAPSHOTS_SHEET_SCHEMA = requireSchema("snapshots");
 
 export function columnIndexToLetter(index: number) {
   if (index <= 0) {
