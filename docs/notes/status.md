@@ -1,8 +1,8 @@
 # Current Project Status
 
-- **Date:** 2025-10-20 (update when new changes land)
+- **Date:** 2025-10-22 (update when new changes land)
 - **Active Milestone:** 1 – Auth & Sheet Handshake ([Issue #2](https://github.com/paulobarcelos/runway-compass/issues/2))
-- **Latest Commit:** `feat: scaffold next.js app foundation` on `main`
+- **Latest Commit:** `refactor: share sheet repository helpers` on `feature/solo-progress`
 
 ## Environment & Credentials
 - `.env.local` is populated with `NEXTAUTH_URL=http://localhost:3000`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` created via the Google Cloud Console.
@@ -15,10 +15,13 @@
 - Exposed API route and Sheets client helpers for future CRUD operations.
 - Enabled spreadsheet creation flow to bootstrap new Google Sheets from the app.
 - Added background bootstrap sync on login to ensure `_meta` sheet stays aligned.
+- Enforced sheet schema bootstrap with automatic tab/header creation.
+- Implemented repositories and tests for `_meta`, `categories`, and `accounts` tabs.
 
 ## Next Steps for Milestone 1
-1. Finish Google Sheets repository scaffolding for `_meta` bootstrap and schema validation.
-2. Begin server-side tab creation for core tables (categories, accounts, budget_plan, etc.).
+1. Implement repositories for remaining tabs (budget_plan, snapshots, actuals, future_events, runway_projection).
+2. Introduce server routes/actions that use repositories for CRUD.
+3. Begin UI wiring for budget planner once repositories stabilize.
 
 ## Reference Docs
 - [Product Requirements](../product/PRD.md)
