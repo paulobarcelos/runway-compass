@@ -154,6 +154,7 @@ For commands that don't return quickly (e.g., dev servers, tests, or interactive
 - Start: tmux new-session -d -s <session-name> '<command>'
 - Attach/Check Logs: tmux attach -t <session-name> or tmux capture-pane -t <session-name> -p (to get output)
 - Kill: tmux kill-session -t <session-name>
+- For browser testing, use `chrome-devtools inspect <url>` in a separate TMUX session.
 
 Example: For a dev server, use "tmux new-session -d -s dev-server 'npm run dev'". Later, fetch logs with "tmux capture-pane -t dev-server -p | tail -n 50".
 
