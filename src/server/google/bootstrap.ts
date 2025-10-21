@@ -6,6 +6,7 @@ import type { sheets_v4 } from "googleapis";
 
 import { getSession } from "../auth/session";
 import { createSheetsClient, type GoogleAuthTokens } from "./clients";
+import { executeWithRetry } from "./retry";
 import {
   META_SHEET_TITLE,
   REQUIRED_SHEETS,
@@ -49,10 +50,12 @@ export async function bootstrapSpreadsheet({
     throw new Error("Missing spreadsheet identifier");
   }
 
-  const metadata = await sheets.spreadsheets.get({
-    spreadsheetId,
-    fields: "sheets(properties(title))",
-  });
+  const metadata = await executeWithRetry(() =>
+    sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: "sheets(properties(title))",
+    }),
+  );
 
   const existingTitles = new Set(
     (metadata.data.sheets ?? [])
@@ -65,16 +68,18 @@ export async function bootstrapSpreadsheet({
   );
 
   if (missingSchemas.length > 0) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: {
-        requests: missingSchemas.map((schema) => ({
-          addSheet: {
-            properties: sheetPropertiesFor(schema),
-          },
-        })),
-      },
-    });
+    await executeWithRetry(() =>
+      sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: missingSchemas.map((schema) => ({
+            addSheet: {
+              properties: sheetPropertiesFor(schema),
+            },
+          })),
+        },
+      }),
+    );
   }
 
   for (const schema of REQUIRED_SHEETS) {
@@ -85,10 +90,12 @@ export async function bootstrapSpreadsheet({
     let headerRow: string[] | undefined;
 
     try {
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: headerRange(schema),
-      });
+      const response = await executeWithRetry(() =>
+        sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: headerRange(schema),
+        }),
+      );
       headerRow = (response.data.values?.[0] ?? []) as string[];
     } catch {
       headerRow = undefined;
@@ -98,14 +105,16 @@ export async function bootstrapSpreadsheet({
       continue;
     }
 
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: headerRange(schema),
-      valueInputOption: "RAW",
-      resource: {
-        values: [Array.from(schema.headers)],
-      },
-    });
+    await executeWithRetry(() =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: headerRange(schema),
+        valueInputOption: "RAW",
+        resource: {
+          values: [Array.from(schema.headers)],
+        },
+      }),
+    );
   }
 
   const metaRepository = createMetaRepository({ sheets, spreadsheetId });

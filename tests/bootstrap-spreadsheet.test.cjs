@@ -333,7 +333,15 @@ test("bootstrapSpreadsheet ensures data sheets exist with headers", async () => 
 
     const expectedHeaders = {
       _meta: ["key", "value"],
-      categories: ["category_id", "label", "color", "rollover_flag", "sort_order"],
+      categories: [
+        "category_id",
+        "label",
+        "color",
+        "rollover_flag",
+        "sort_order",
+        "monthly_budget",
+        "currency_code",
+      ],
       accounts: [
         "account_id",
         "name",

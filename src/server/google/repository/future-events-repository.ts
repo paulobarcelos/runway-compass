@@ -2,6 +2,7 @@
 // ABOUTME: Validates required scheduling fields and normalizes numeric amounts.
 import type { sheets_v4 } from "googleapis";
 
+import { executeWithRetry } from "../retry";
 import { FUTURE_EVENTS_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
 import {
   ensureHeaderRow,
@@ -100,10 +101,12 @@ export function createFutureEventsRepository({
 }: FutureEventsRepositoryOptions) {
   return {
     async list(): Promise<FutureEventRecord[]> {
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: FUTURE_RANGE,
-      });
+      const response = await executeWithRetry(() =>
+        sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: FUTURE_RANGE,
+        }),
+      );
 
       const rows = (response.data.values as unknown[][] | undefined) ?? [];
 
@@ -150,14 +153,16 @@ export function createFutureEventsRepository({
         Math.max(records.length + 1, 1),
       );
 
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range,
-        valueInputOption: "RAW",
-        resource: {
-          values: rows,
-        },
-      });
+      await executeWithRetry(() =>
+        sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range,
+          valueInputOption: "RAW",
+          resource: {
+            values: rows,
+          },
+        }),
+      );
     },
   };
 }

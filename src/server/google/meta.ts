@@ -2,6 +2,7 @@
 // ABOUTME: Normalizes meta tab key-value persistence for server actions.
 import type { sheets_v4 } from "googleapis";
 
+import { executeWithRetry } from "./retry";
 import { createMetaRepository } from "./repository/meta-repository";
 import { META_SHEET_SCHEMA, sheetPropertiesFor } from "./sheet-schemas";
 
@@ -38,18 +39,20 @@ export async function storeSelectedSpreadsheetMeta({
       throw error;
     }
 
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: {
-        requests: [
-          {
-            addSheet: {
-              properties: sheetPropertiesFor(META_SHEET_SCHEMA),
+    await executeWithRetry(() =>
+      sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              addSheet: {
+                properties: sheetPropertiesFor(META_SHEET_SCHEMA),
+              },
             },
-          },
-        ],
-      },
-    });
+          ],
+        },
+      }),
+    );
 
     await repository.save(entries);
   }

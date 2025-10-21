@@ -2,6 +2,7 @@
 // ABOUTME: Ensures balances parse to numbers and notes default to empty strings.
 import type { sheets_v4 } from "googleapis";
 
+import { executeWithRetry } from "../retry";
 import { SNAPSHOTS_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
 import {
   ensureHeaderRow,
@@ -72,10 +73,12 @@ export function createSnapshotsRepository({
 }: SnapshotsRepositoryOptions) {
   return {
     async list(): Promise<SnapshotRecord[]> {
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: SNAPSHOT_RANGE,
-      });
+      const response = await executeWithRetry(() =>
+        sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: SNAPSHOT_RANGE,
+        }),
+      );
 
       const rows = (response.data.values as unknown[][] | undefined) ?? [];
 
@@ -117,14 +120,16 @@ export function createSnapshotsRepository({
         Math.max(records.length + 1, 1),
       );
 
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range,
-        valueInputOption: "RAW",
-        resource: {
-          values: rows,
-        },
-      });
+      await executeWithRetry(() =>
+        sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range,
+          valueInputOption: "RAW",
+          resource: {
+            values: rows,
+          },
+        }),
+      );
     },
   };
 }

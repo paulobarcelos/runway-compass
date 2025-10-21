@@ -2,6 +2,7 @@
 // ABOUTME: Validates numeric fields and normalizes rollover balances.
 import type { sheets_v4 } from "googleapis";
 
+import { executeWithRetry } from "../retry";
 import { BUDGET_PLAN_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
 import {
   ensureHeaderRow,
@@ -76,10 +77,12 @@ export function createBudgetPlanRepository({
 }: BudgetPlanRepositoryOptions) {
   return {
     async list(): Promise<BudgetPlanRecord[]> {
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: BUDGET_PLAN_RANGE,
-      });
+      const response = await executeWithRetry(() =>
+        sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: BUDGET_PLAN_RANGE,
+        }),
+      );
 
       const rows = (response.data.values as unknown[][] | undefined) ?? [];
 
@@ -123,14 +126,16 @@ export function createBudgetPlanRepository({
         Math.max(records.length + 1, 1),
       );
 
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range,
-        valueInputOption: "RAW",
-        resource: {
-          values: rows,
-        },
-      });
+      await executeWithRetry(() =>
+        sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range,
+          valueInputOption: "RAW",
+          resource: {
+            values: rows,
+          },
+        }),
+      );
     },
   };
 }

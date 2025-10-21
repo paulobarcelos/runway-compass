@@ -10,6 +10,7 @@ import {
   saveManifest,
   type ManifestRecord,
 } from "@/lib/manifest-store";
+import { emitManifestChange } from "@/lib/manifest-events";
 import { debugLog } from "@/lib/debug-log";
 
 interface GoogleTokenResponse {
@@ -294,6 +295,7 @@ export function ConnectSpreadsheetCard() {
 
     saveManifest(window.localStorage, record);
     setManifest(record);
+    emitManifestChange(record);
   }, []);
 
   const registerSpreadsheet = useCallback(async (spreadsheetId: string) => {
@@ -500,6 +502,7 @@ export function ConnectSpreadsheetCard() {
     clearManifest(window.localStorage);
     setManifest(null);
     setError(null);
+    emitManifestChange(null);
   }, []);
 
   const disableActions = status !== "idle" || syncing;

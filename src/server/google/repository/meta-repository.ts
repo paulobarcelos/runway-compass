@@ -2,6 +2,7 @@
 // ABOUTME: Normalizes meta rows for spreadsheet bootstrap workflows.
 import type { sheets_v4 } from "googleapis";
 
+import { executeWithRetry } from "../retry";
 import {
   META_HEADERS,
   META_SHEET_SCHEMA,
@@ -68,10 +69,12 @@ export function createMetaRepository({
   return {
     async load(): Promise<Map<string, string>> {
       try {
-        const response = await sheets.spreadsheets.values.get({
-          spreadsheetId,
-          range: META_VALUES_RANGE,
-        });
+        const response = await executeWithRetry(() =>
+          sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: META_VALUES_RANGE,
+          }),
+        );
 
         return parseMetaRows(response.data.values as string[][]);
       } catch (error) {
@@ -87,14 +90,16 @@ export function createMetaRepository({
       const rows = toMetaRows(entries);
       const range = dataRange(META_SHEET_SCHEMA, rows.length);
 
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range,
-        valueInputOption: "RAW",
-        resource: {
-          values: rows,
-        },
-      });
+      await executeWithRetry(() =>
+        sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range,
+          valueInputOption: "RAW",
+          resource: {
+            values: rows,
+          },
+        }),
+      );
     },
   };
 }

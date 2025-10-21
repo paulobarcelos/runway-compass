@@ -2,6 +2,7 @@
 // ABOUTME: Applies schema validation and boolean/date normalization for rows.
 import type { sheets_v4 } from "googleapis";
 
+import { executeWithRetry } from "../retry";
 import { ACCOUNTS_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
 import {
   ensureHeaderRow,
@@ -85,10 +86,12 @@ export function createAccountsRepository({
 }: AccountsRepositoryOptions) {
   return {
     async list(): Promise<AccountRecord[]> {
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: ACCOUNT_RANGE,
-      });
+      const response = await executeWithRetry(() =>
+        sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: ACCOUNT_RANGE,
+        }),
+      );
 
       const rows = (response.data.values as unknown[][] | undefined) ?? [];
 
@@ -130,14 +133,16 @@ export function createAccountsRepository({
 
       const range = dataRange(ACCOUNTS_SHEET_SCHEMA, Math.max(records.length + 1, 1));
 
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range,
-        valueInputOption: "RAW",
-        resource: {
-          values: rows,
-        },
-      });
+      await executeWithRetry(() =>
+        sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range,
+          valueInputOption: "RAW",
+          resource: {
+            values: rows,
+          },
+        }),
+      );
     },
   };
 }

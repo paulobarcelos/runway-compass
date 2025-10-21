@@ -13,3 +13,8 @@ Keep entries evergreen:
 3. If an entry supersedes earlier advice, update or prune it so the journal stays trustworthy.
 
 This journal is optional but encouraged—treat it as shared memory that makes the next task smoother.
+
+## 2025-10-21 – Currency normalization TODOs
+- Budgets now store a single monthly amount per category along with a currency code.
+- Need future work to add a base display currency toggle and conversion pipeline for category budgets, account balances, actuals, and projections.
+- Conversion source undecided: evaluate Google Sheets `GOOGLEFINANCE` vs a lightweight external FX API, log latency/caching implications before implementation.

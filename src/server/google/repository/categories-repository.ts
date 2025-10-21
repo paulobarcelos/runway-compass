@@ -2,11 +2,13 @@
 // ABOUTME: Validates sheet rows and maps them to typed category structures.
 import type { sheets_v4 } from "googleapis";
 
+import { executeWithRetry } from "../retry";
 import { CATEGORIES_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
 import {
   ensureHeaderRow as assertHeaderRow,
   isEmptyRow,
   normalizeRow,
+  optionalNumber,
   parseBoolean,
   requireInteger,
 } from "./sheet-utils";
@@ -20,6 +22,8 @@ export interface CategoryRecord {
   color: string;
   rolloverFlag: boolean;
   sortOrder: number;
+  monthlyBudget: number;
+  currencyCode: string;
 }
 
 interface CategoriesRepositoryOptions {
@@ -37,7 +41,15 @@ function parseCategoryRow(row: unknown[], dataIndex: number): CategoryRecord | n
     return null;
   }
 
-  const [categoryId, label, color, rolloverRaw, sortOrderRaw] = normalized;
+  const [
+    categoryId,
+    label,
+    color,
+    rolloverRaw,
+    sortOrderRaw,
+    monthlyBudgetRaw,
+    currencyCodeRaw,
+  ] = normalized;
 
   if (!categoryId.trim()) {
     throw new Error(`Invalid category row at index ${dataIndex}: missing category_id`);
@@ -56,6 +68,11 @@ function parseCategoryRow(row: unknown[], dataIndex: number): CategoryRecord | n
     rowIndex: dataIndex,
   });
   const rolloverFlag = parseBoolean(rolloverRaw);
+  const monthlyBudget = optionalNumber(monthlyBudgetRaw ?? "", {
+    field: "monthly_budget",
+    rowIndex: dataIndex,
+  });
+  const currencyCode = (currencyCodeRaw ?? "").trim().toUpperCase();
 
   return {
     categoryId: categoryId.trim(),
@@ -63,6 +80,8 @@ function parseCategoryRow(row: unknown[], dataIndex: number): CategoryRecord | n
     color: color.trim(),
     rolloverFlag,
     sortOrder,
+    monthlyBudget,
+    currencyCode,
   };
 }
 
@@ -72,10 +91,12 @@ export function createCategoriesRepository({
 }: CategoriesRepositoryOptions) {
   return {
     async list(): Promise<CategoryRecord[]> {
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: CATEGORY_RANGE,
-      });
+      const response = await executeWithRetry(() =>
+        sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: CATEGORY_RANGE,
+        }),
+      );
 
       const rows = (response.data.values as unknown[][] | undefined) ?? [];
 
@@ -106,25 +127,35 @@ export function createCategoriesRepository({
       const rows: (string | number | boolean)[][] = [header];
 
       for (const record of records) {
+        const currencyCode = (record.currencyCode ?? "").trim().toUpperCase();
+        const monthlyBudgetString =
+          Number.isFinite(record.monthlyBudget) && record.monthlyBudget !== 0
+            ? String(record.monthlyBudget)
+            : "";
+
         rows.push([
           record.categoryId,
           record.label,
           record.color,
           record.rolloverFlag ? "TRUE" : "FALSE",
           String(record.sortOrder),
+          monthlyBudgetString,
+          currencyCode,
         ]);
       }
 
       const range = dataRange(CATEGORIES_SHEET_SCHEMA, Math.max(records.length + 1, 1));
 
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range,
-        valueInputOption: "RAW",
-        resource: {
-          values: rows,
-        },
-      });
+      await executeWithRetry(() =>
+        sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range,
+          valueInputOption: "RAW",
+          resource: {
+            values: rows,
+          },
+        }),
+      );
     },
   };
 }

@@ -30,10 +30,18 @@ export const REQUIRED_SHEETS: SheetSchema[] = [
   },
   {
     title: "categories",
-    headers: ["category_id", "label", "color", "rollover_flag", "sort_order"],
+    headers: [
+      "category_id",
+      "label",
+      "color",
+      "rollover_flag",
+      "sort_order",
+      "monthly_budget",
+      "currency_code",
+    ],
     gridProperties: {
       rowCount: DEFAULT_GRID_ROWS,
-      columnCount: 10,
+      columnCount: 12,
       frozenRowCount: 1,
     },
     freezeHeader: true,

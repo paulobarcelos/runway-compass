@@ -2,6 +2,7 @@
 // ABOUTME: Validates numeric amounts and required transaction fields.
 import type { sheets_v4 } from "googleapis";
 
+import { executeWithRetry } from "../retry";
 import { ACTUALS_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
 import {
   ensureHeaderRow,
@@ -90,10 +91,12 @@ export function createActualsRepository({
 }: ActualsRepositoryOptions) {
   return {
     async list(): Promise<ActualTransaction[]> {
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: ACTUAL_RANGE,
-      });
+      const response = await executeWithRetry(() =>
+        sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: ACTUAL_RANGE,
+        }),
+      );
 
       const rows = (response.data.values as unknown[][] | undefined) ?? [];
 
@@ -138,14 +141,16 @@ export function createActualsRepository({
         Math.max(records.length + 1, 1),
       );
 
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range,
-        valueInputOption: "RAW",
-        resource: {
-          values: rows,
-        },
-      });
+      await executeWithRetry(() =>
+        sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range,
+          valueInputOption: "RAW",
+          resource: {
+            values: rows,
+          },
+        }),
+      );
     },
   };
 }

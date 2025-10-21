@@ -2,6 +2,7 @@
 // ABOUTME: Validates numeric balances and ensures stoplight status is present.
 import type { sheets_v4 } from "googleapis";
 
+import { executeWithRetry } from "../retry";
 import { RUNWAY_PROJECTION_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
 import {
   ensureHeaderRow,
@@ -124,10 +125,12 @@ export function createRunwayProjectionRepository({
 }: RunwayProjectionRepositoryOptions) {
   return {
     async list(): Promise<RunwayProjectionRecord[]> {
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: PROJECTION_RANGE,
-      });
+      const response = await executeWithRetry(() =>
+        sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: PROJECTION_RANGE,
+        }),
+      );
 
       const rows = (response.data.values as unknown[][] | undefined) ?? [];
 
@@ -172,14 +175,16 @@ export function createRunwayProjectionRepository({
         Math.max(records.length + 1, 1),
       );
 
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range,
-        valueInputOption: "RAW",
-        resource: {
-          values: rows,
-        },
-      });
+      await executeWithRetry(() =>
+        sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range,
+          valueInputOption: "RAW",
+          resource: {
+            values: rows,
+          },
+        }),
+      );
     },
   };
 }
