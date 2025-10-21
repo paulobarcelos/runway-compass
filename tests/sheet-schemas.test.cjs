@@ -11,7 +11,15 @@ const EXPECTED_SCHEMAS = [
   },
   {
     title: "categories",
-    headers: ["category_id", "label", "color", "rollover_flag", "sort_order"],
+    headers: [
+      "category_id",
+      "label",
+      "color",
+      "rollover_flag",
+      "sort_order",
+      "monthly_budget",
+      "currency_code",
+    ],
   },
   {
     title: "accounts",
