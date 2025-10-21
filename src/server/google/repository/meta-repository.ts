@@ -2,13 +2,13 @@
 // ABOUTME: Normalizes meta rows for spreadsheet bootstrap workflows.
 import type { sheets_v4 } from "googleapis";
 
-import { executeWithRetry } from "../retry";
+import { executeWithRetry } from "@/server/google/retry";
 import {
   META_HEADERS,
   META_SHEET_SCHEMA,
   META_SHEET_TITLE,
   dataRange,
-} from "../sheet-schemas";
+} from "@/server/google/sheet-schemas";
 
 const META_VALUES_RANGE = `${META_SHEET_TITLE}!A1:B100`;
 

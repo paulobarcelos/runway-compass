@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function createSheetsStub({ values = [], throwOnGet = false } = {}) {
   const valueGetCalls = [];
@@ -44,7 +44,7 @@ function createSheetsStub({ values = [], throwOnGet = false } = {}) {
 }
 
 test("meta repository load returns key-value map", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { createMetaRepository } = await jiti.import(
     "../src/server/google/repository/meta-repository",
   );
@@ -70,7 +70,7 @@ test("meta repository load returns key-value map", async () => {
 });
 
 test("meta repository load handles missing sheet gracefully", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { createMetaRepository } = await jiti.import(
     "../src/server/google/repository/meta-repository",
   );
@@ -90,7 +90,7 @@ test("meta repository load handles missing sheet gracefully", async () => {
 });
 
 test("meta repository save writes header and entries in order", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { createMetaRepository } = await jiti.import(
     "../src/server/google/repository/meta-repository",
   );

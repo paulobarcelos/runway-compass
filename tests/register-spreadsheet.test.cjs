@@ -3,10 +3,10 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 test("registerSpreadsheetSelection requires authenticated session", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -33,7 +33,7 @@ test("registerSpreadsheetSelection requires authenticated session", async () => 
 });
 
 test("registerSpreadsheetSelection requires Google tokens", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -60,7 +60,7 @@ test("registerSpreadsheetSelection requires Google tokens", async () => {
 });
 
 test("registerSpreadsheetSelection bootstraps sheet and returns manifest", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const bootstrapCalls = [];
   let receivedTokens;
   const originalClientId = process.env.GOOGLE_CLIENT_ID;

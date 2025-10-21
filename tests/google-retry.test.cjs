@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function createDependencies() {
   const sleeps = [];
@@ -18,7 +18,7 @@ function createDependencies() {
 }
 
 test("executeWithRetry resolves immediately when the first attempt succeeds", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { executeWithRetry } = await jiti.import(
     "../src/server/google/retry",
   );
@@ -41,7 +41,7 @@ test("executeWithRetry resolves immediately when the first attempt succeeds", as
 });
 
 test("executeWithRetry retries on rate-limited errors using backoff", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { executeWithRetry } = await jiti.import(
     "../src/server/google/retry",
   );
@@ -72,7 +72,7 @@ test("executeWithRetry retries on rate-limited errors using backoff", async () =
 });
 
 test("executeWithRetry throws after exhausting attempts", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { executeWithRetry } = await jiti.import(
     "../src/server/google/retry",
   );

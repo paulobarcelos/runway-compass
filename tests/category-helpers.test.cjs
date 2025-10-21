@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 test("createBlankCategory generates defaults", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { createBlankCategory } = await jiti.import(
     "../src/components/categories/category-helpers",
   );
@@ -21,7 +21,7 @@ test("createBlankCategory generates defaults", async () => {
 });
 
 test("categoriesEqual compares drafts shallowly", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { categoriesEqual } = await jiti.import(
     "../src/components/categories/category-helpers",
   );

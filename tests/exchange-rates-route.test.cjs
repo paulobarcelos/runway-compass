@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function createResponse(status, json) {
   return {
@@ -14,7 +14,7 @@ function createResponse(status, json) {
 }
 
 test("exchange rates route returns fetched rates with caching headers", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { createExchangeRatesHandler } = await jiti.import(
     "../src/app/api/exchange-rates/route",
   );
@@ -49,7 +49,7 @@ test("exchange rates route returns fetched rates with caching headers", async ()
 });
 
 test("exchange rates route falls back on error", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { createExchangeRatesHandler, FALLBACK_RATES } = await jiti.import(
     "../src/app/api/exchange-rates/route",
   );
@@ -65,7 +65,7 @@ test("exchange rates route falls back on error", async () => {
 });
 
 test("exchange rates route falls back when payload missing rates", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { createExchangeRatesHandler, FALLBACK_RATES } = await jiti.import(
     "../src/app/api/exchange-rates/route",
   );

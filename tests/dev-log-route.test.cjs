@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function withEnv(debugFlag, run) {
   const original = process.env.DEBUG_LOGS;
@@ -24,7 +24,7 @@ function withEnv(debugFlag, run) {
 
 test("dev log route ignores requests when disabled", async () => {
   await withEnv(undefined, async () => {
-    const route = await createJiti(__filename, { cache: false }).import(
+    const route = await createTestJiti(__filename, { cache: false }).import(
       "../src/app/api/dev-log/route",
     );
 
@@ -50,7 +50,7 @@ test("dev log route logs when enabled", async () => {
   };
 
   await withEnv("true", async () => {
-    const route = await createJiti(__filename, { cache: false }).import(
+    const route = await createTestJiti(__filename, { cache: false }).import(
       "../src/app/api/dev-log/route",
     );
 

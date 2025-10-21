@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function withEnv(run) {
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
@@ -24,7 +24,7 @@ function withEnv(run) {
 
 test("create route maps auth failures to 401", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createCreateHandler } = await jiti.import(
       "../src/app/api/spreadsheet/create/route",
     );
@@ -45,7 +45,7 @@ test("create route maps auth failures to 401", async () => {
 
 test("create route returns manifest on success", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createCreateHandler } = await jiti.import(
       "../src/app/api/spreadsheet/create/route",
     );
@@ -69,7 +69,7 @@ test("create route returns manifest on success", async () => {
 
 test("create route maps unexpected errors to 500", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createCreateHandler } = await jiti.import(
       "../src/app/api/spreadsheet/create/route",
     );

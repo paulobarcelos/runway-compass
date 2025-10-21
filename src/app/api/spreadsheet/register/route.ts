@@ -2,7 +2,7 @@
 // ABOUTME: Persists manifest metadata and returns selection manifest.
 import { NextResponse } from "next/server";
 
-import { registerSpreadsheetSelection } from "../../../../server/google/register-spreadsheet";
+import { registerSpreadsheetSelection } from "@/server/google/register-spreadsheet";
 
 interface RegisterBody {
   spreadsheetId?: string;

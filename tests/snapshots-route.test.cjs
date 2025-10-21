@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function withEnv(run) {
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
@@ -22,7 +22,7 @@ function withEnv(run) {
 
 test("snapshots route requires spreadsheetId query", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createSnapshotsHandler } = await jiti.import(
       "../src/app/api/snapshots/route",
     );
@@ -44,7 +44,7 @@ test("snapshots route requires spreadsheetId query", async () => {
 
 test("snapshots route returns data on success", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createSnapshotsHandler } = await jiti.import(
       "../src/app/api/snapshots/route",
     );
@@ -85,7 +85,7 @@ test("snapshots route returns data on success", async () => {
 
 test("snapshots create route validates payload", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createSnapshotsHandler } = await jiti.import(
       "../src/app/api/snapshots/route",
     );
@@ -112,7 +112,7 @@ test("snapshots create route validates payload", async () => {
 
 test("snapshots create route appends snapshot and returns payload", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createSnapshotsHandler } = await jiti.import(
       "../src/app/api/snapshots/route",
     );

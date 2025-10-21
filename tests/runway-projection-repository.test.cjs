@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
   const getCalls = [];
@@ -44,7 +44,7 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
 }
 
 test("runway projection repository list returns typed records", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub, getCalls } = createSheetsStub({
     values: [
       [
@@ -102,7 +102,7 @@ test("runway projection repository list returns typed records", async () => {
 });
 
 test("runway projection repository list validates required fields", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub } = createSheetsStub({
     values: [
       [
@@ -132,7 +132,7 @@ test("runway projection repository list validates required fields", async () => 
 });
 
 test("runway projection repository save writes header and rows", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub, updateCalls, getStoredValues } = createSheetsStub({
     values: [
       [

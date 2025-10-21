@@ -2,7 +2,7 @@
 // ABOUTME: Persists manifest metadata to the Sheets `_meta` tab.
 import type { Session } from "next-auth";
 
-import { getSession } from "../auth/session";
+import { getSession } from "@/server/auth/session";
 
 import type { sheets_v4 } from "googleapis";
 

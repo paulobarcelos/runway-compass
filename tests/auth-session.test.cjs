@@ -3,10 +3,10 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 test("requireSession returns server session when present", async () => {
-  const loader = createJiti(__filename);
+  const loader = createTestJiti(__filename);
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -27,7 +27,7 @@ test("requireSession returns server session when present", async () => {
 });
 
 test("requireSession redirects when session missing", async () => {
-  const loader = createJiti(__filename);
+  const loader = createTestJiti(__filename);
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 test("emitManifestChange dispatches custom event", async () => {
   global.CustomEvent = class CustomEvent {
@@ -11,7 +11,7 @@ test("emitManifestChange dispatches custom event", async () => {
     }
   };
 
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { emitManifestChange, subscribeToManifestChange } = await jiti.import(
     "../src/lib/manifest-events",
   );

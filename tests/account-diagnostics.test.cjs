@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 test("normalizeAccountWarnings extracts rows and messages with severity", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { normalizeAccountWarnings, isAccountWarning } = await jiti.import(
     "../src/components/accounts/account-diagnostics",
   );
@@ -26,7 +26,7 @@ test("normalizeAccountWarnings extracts rows and messages with severity", async 
 });
 
 test("normalizeAccountWarnings returns empty array for non-array input", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { normalizeAccountWarnings } = await jiti.import(
     "../src/components/accounts/account-diagnostics",
   );
@@ -36,7 +36,7 @@ test("normalizeAccountWarnings returns empty array for non-array input", async (
 });
 
 test("normalizeAccountErrors extracts codes and messages", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { normalizeAccountErrors, isAccountError } = await jiti.import(
     "../src/components/accounts/account-diagnostics",
   );
