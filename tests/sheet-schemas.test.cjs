@@ -29,7 +29,7 @@ const EXPECTED_SCHEMAS = [
       "type",
       "currency",
       "include_in_runway",
-      "snapshot_frequency",
+      "sort_order",
       "last_snapshot_at",
     ],
   },

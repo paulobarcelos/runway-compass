@@ -53,11 +53,11 @@ test("accounts repository list returns typed records", async () => {
         "type",
         "currency",
         "include_in_runway",
-        "snapshot_frequency",
+        "sort_order",
         "last_snapshot_at",
       ],
-      ["acct-123", "Checking", "checking", "USD", "TRUE", "monthly", "2025-01-01T00:00:00.000Z"],
-      ["acct-456", "Savings", "savings", "USD", "FALSE", "quarterly", ""],
+      ["acct-123", "Checking", "checking", "USD", "TRUE", "1", "2025-01-01T00:00:00.000Z"],
+      ["acct-456", "Savings", "savings", "USD", "FALSE", "2", ""],
     ],
   });
 
@@ -83,7 +83,7 @@ test("accounts repository list returns typed records", async () => {
       type: "checking",
       currency: "USD",
       includeInRunway: true,
-      snapshotFrequency: "monthly",
+      sortOrder: 1,
       lastSnapshotAt: "2025-01-01T00:00:00.000Z",
     },
     {
@@ -92,8 +92,131 @@ test("accounts repository list returns typed records", async () => {
       type: "savings",
       currency: "USD",
       includeInRunway: false,
-      snapshotFrequency: "quarterly",
+      sortOrder: 2,
       lastSnapshotAt: null,
+    },
+  ]);
+});
+
+test("accounts repository listWithDiagnostics coerces invalid sort order and emits warnings", async () => {
+  const jiti = createJiti(__filename);
+  const { stub } = createSheetsStub({
+    values: [
+      [
+        "account_id",
+        "name",
+        "type",
+        "currency",
+        "include_in_runway",
+        "sort_order",
+        "last_snapshot_at",
+      ],
+      ["acct-123", "Checking", "checking", "USD", "TRUE", "1", ""],
+      ["acct-789", "Brokerage", "brokerage", "USD", "TRUE", "not-a-number", ""],
+    ],
+  });
+
+  const { createAccountsRepository } = await jiti.import(
+    "../src/server/google/repository/accounts-repository",
+  );
+
+  const repository = createAccountsRepository({
+    sheets: stub,
+    spreadsheetId: "sheet-123",
+  });
+
+  const result = await repository.listWithDiagnostics();
+
+  assert.deepEqual(result.accounts, [
+    {
+      accountId: "acct-123",
+      name: "Checking",
+      type: "checking",
+      currency: "USD",
+      includeInRunway: true,
+      sortOrder: 1,
+      lastSnapshotAt: null,
+    },
+    {
+      accountId: "acct-789",
+      name: "Brokerage",
+      type: "brokerage",
+      currency: "USD",
+      includeInRunway: true,
+      sortOrder: 0,
+      lastSnapshotAt: null,
+    },
+  ]);
+
+  assert.deepEqual(result.warnings, [
+    {
+      rowNumber: 3,
+      code: "invalid_sort_order",
+      message: 'Sort order value "not-a-number" is not a valid integer',
+    },
+  ]);
+  assert.deepEqual(result.errors, []);
+});
+
+test("accounts repository listWithDiagnostics returns missing sheet error when tab absent", async () => {
+  const jiti = createJiti(__filename);
+  const { stub } = createSheetsStub({ throwsOnGet: true });
+
+  const { createAccountsRepository } = await jiti.import(
+    "../src/server/google/repository/accounts-repository",
+  );
+
+  const repository = createAccountsRepository({
+    sheets: stub,
+    spreadsheetId: "sheet-123",
+  });
+
+  const diagnostics = await repository.listWithDiagnostics();
+
+  assert.deepEqual(diagnostics.accounts, []);
+  assert.deepEqual(diagnostics.warnings, []);
+  assert.deepEqual(diagnostics.errors, [
+    {
+      code: "missing_sheet",
+      message: 'accounts sheet "accounts" is missing from the spreadsheet',
+    },
+  ]);
+});
+
+test("accounts repository listWithDiagnostics returns header mismatch error and skips rows", async () => {
+  const jiti = createJiti(__filename);
+  const { stub } = createSheetsStub({
+    values: [
+      [
+        "account_id",
+        "name",
+        "type",
+        "currency",
+        "include_in_runway",
+        "sort_order",
+      ],
+      ["acct-1", "Checking", "checking", "USD", "TRUE", "1"],
+    ],
+  });
+
+  const { createAccountsRepository } = await jiti.import(
+    "../src/server/google/repository/accounts-repository",
+  );
+
+  const repository = createAccountsRepository({
+    sheets: stub,
+    spreadsheetId: "sheet-123",
+  });
+
+  const diagnostics = await repository.listWithDiagnostics();
+
+  assert.deepEqual(diagnostics.accounts, []);
+  assert.deepEqual(diagnostics.warnings, []);
+  assert.deepEqual(diagnostics.errors, [
+    {
+      code: "header_mismatch",
+      message:
+        "accounts sheet headers must match: account_id, name, type, currency, include_in_runway, sort_order, last_snapshot_at",
     },
   ]);
 });
@@ -108,10 +231,10 @@ test("accounts repository list validates required fields", async () => {
         "type",
         "currency",
         "include_in_runway",
-        "snapshot_frequency",
+        "sort_order",
         "last_snapshot_at",
       ],
-      ["", "Account", "checking", "USD", "TRUE", "monthly", ""],
+      ["", "Account", "checking", "USD", "TRUE", "1", ""],
     ],
   });
 
@@ -137,7 +260,7 @@ test("accounts repository save writes header and rows", async () => {
         "type",
         "currency",
         "include_in_runway",
-        "snapshot_frequency",
+        "sort_order",
         "last_snapshot_at",
       ],
     ],
@@ -159,7 +282,7 @@ test("accounts repository save writes header and rows", async () => {
       type: "checking",
       currency: "USD",
       includeInRunway: true,
-      snapshotFrequency: "monthly",
+      sortOrder: 1,
       lastSnapshotAt: "2025-01-01T00:00:00.000Z",
     },
     {
@@ -168,7 +291,7 @@ test("accounts repository save writes header and rows", async () => {
       type: "savings",
       currency: "USD",
       includeInRunway: false,
-      snapshotFrequency: "quarterly",
+      sortOrder: 2,
       lastSnapshotAt: null,
     },
   ];
@@ -189,11 +312,11 @@ test("accounts repository save writes header and rows", async () => {
       "type",
       "currency",
       "include_in_runway",
-      "snapshot_frequency",
-      "last_snapshot_at",
-    ],
-    ["acct-123", "Checking", "checking", "USD", "TRUE", "monthly", "2025-01-01T00:00:00.000Z"],
-    ["acct-456", "Savings", "savings", "USD", "FALSE", "quarterly", ""],
+        "sort_order",
+        "last_snapshot_at",
+      ],
+    ["acct-123", "Checking", "checking", "USD", "TRUE", "1", "2025-01-01T00:00:00.000Z"],
+    ["acct-456", "Savings", "savings", "USD", "FALSE", "2", ""],
   ]);
 
   assert.deepEqual(getStoredValues(), call.resource.values);
