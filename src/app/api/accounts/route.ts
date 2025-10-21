@@ -208,9 +208,9 @@ export function createAccountsHandler({
     }
 
     try {
-      const { accounts, warnings } = await fetchAccounts({ spreadsheetId });
+      const { accounts, warnings, errors } = await fetchAccounts({ spreadsheetId });
 
-      return NextResponse.json({ accounts, warnings }, { status: 200 });
+      return NextResponse.json({ accounts, warnings, errors }, { status: 200 });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       const status =
@@ -256,7 +256,11 @@ export function createAccountsHandler({
       const diagnostics = await fetchAccounts({ spreadsheetId });
 
       return NextResponse.json(
-        { accounts: diagnostics.accounts, warnings: diagnostics.warnings },
+        {
+          accounts: diagnostics.accounts,
+          warnings: diagnostics.warnings,
+          errors: diagnostics.errors,
+        },
         { status: 200 },
       );
     } catch (error) {

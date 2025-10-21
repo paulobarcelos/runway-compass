@@ -13,6 +13,86 @@ import {
 
 const ACCOUNT_HEADERS = ACCOUNTS_SHEET_SCHEMA.headers;
 const ACCOUNT_RANGE = dataRange(ACCOUNTS_SHEET_SCHEMA, 1000);
+const ACCOUNT_HEADER_EXPECTATION = `accounts sheet headers must match: ${ACCOUNT_HEADERS.join(", ")}`;
+const ACCOUNTS_MISSING_SHEET_MESSAGE = 'accounts sheet "accounts" is missing from the spreadsheet';
+const ACCOUNTS_RANGE_ERROR_MESSAGE = `accounts sheet range ${ACCOUNT_RANGE} could not be read`;
+
+function extractErrorCode(error: unknown): number | null {
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+
+  const { code, status } = error as { code?: unknown; status?: unknown };
+
+  if (typeof code === "number") {
+    return code;
+  }
+
+  if (typeof status === "number") {
+    return status;
+  }
+
+  return null;
+}
+
+function extractErrorMessages(error: unknown): string[] {
+  const messages: string[] = [];
+
+  if (error instanceof Error && error.message) {
+    messages.push(error.message);
+  } else if (error && typeof error === "object") {
+    const { message } = error as { message?: unknown };
+
+    if (typeof message === "string") {
+      messages.push(message);
+    }
+  }
+
+  if (error && typeof error === "object") {
+    const nested = (error as { errors?: Array<{ message?: string }> }).errors;
+
+    if (Array.isArray(nested)) {
+      for (const item of nested) {
+        if (item && typeof item.message === "string") {
+          messages.push(item.message);
+        }
+      }
+    }
+  }
+
+  return messages;
+}
+
+function parseAccountsSheetError(error: unknown): AccountError | null {
+  const code = extractErrorCode(error);
+  const normalizedMessages = extractErrorMessages(error).map((message) =>
+    message.toLowerCase(),
+  );
+
+  if (
+    normalizedMessages.some(
+      (message) =>
+        message.includes("unable to parse range") ||
+        message.includes("requested entity was not found") ||
+        message.includes("sheet not found") ||
+        message.includes("does not exist"),
+    )
+  ) {
+    return {
+      code: "missing_sheet",
+      message: ACCOUNTS_MISSING_SHEET_MESSAGE,
+    };
+  }
+
+  if (code === 400 || code === 404) {
+    return {
+      code: "range_error",
+      message: ACCOUNTS_RANGE_ERROR_MESSAGE,
+    };
+  }
+
+  return null;
+}
 
 export interface AccountRecord {
   accountId: string;
@@ -30,9 +110,15 @@ export interface AccountWarning {
   message: string;
 }
 
+export interface AccountError {
+  code: "missing_sheet" | "header_mismatch" | "range_error";
+  message: string;
+}
+
 export interface AccountsDiagnostics {
   accounts: AccountRecord[];
   warnings: AccountWarning[];
+  errors: AccountError[];
 }
 
 interface AccountsRepositoryOptions {
@@ -109,25 +195,50 @@ export function createAccountsRepository({
   spreadsheetId,
 }: AccountsRepositoryOptions) {
   const loadAccountsWithDiagnostics = async (): Promise<AccountsDiagnostics> => {
-    const response = await executeWithRetry(() =>
-      sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: ACCOUNT_RANGE,
-      }),
-    );
+    let rows: unknown[][] = [];
 
-    const rows = (response.data.values as unknown[][] | undefined) ?? [];
+    try {
+      const response = await executeWithRetry(() =>
+        sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: ACCOUNT_RANGE,
+        }),
+      );
+
+      rows = (response.data.values as unknown[][] | undefined) ?? [];
+    } catch (error) {
+      const structuralError = parseAccountsSheetError(error);
+
+      if (structuralError) {
+        return { accounts: [], warnings: [], errors: [structuralError] };
+      }
+
+      throw error;
+    }
 
     if (rows.length === 0) {
-      return { accounts: [], warnings: [] };
+      return { accounts: [], warnings: [], errors: [] };
     }
 
     const [headerRow, ...dataRows] = rows;
 
-    ensureHeaderRow(headerRow, ACCOUNT_HEADERS, "accounts");
+    try {
+      ensureHeaderRow(headerRow, ACCOUNT_HEADERS, "accounts");
+    } catch {
+      return {
+        accounts: [],
+        warnings: [],
+        errors: [
+          {
+            code: "header_mismatch",
+            message: ACCOUNT_HEADER_EXPECTATION,
+          },
+        ],
+      };
+    }
 
-    const records: AccountRecord[] = [];
     const warnings: AccountWarning[] = [];
+    const records: AccountRecord[] = [];
 
     for (let index = 0; index < dataRows.length; index += 1) {
       const parsed = parseAccountRow(dataRows[index], index + 2, warnings);
@@ -137,7 +248,7 @@ export function createAccountsRepository({
       }
     }
 
-    return { accounts: records, warnings };
+    return { accounts: records, warnings, errors: [] };
   };
 
   return {

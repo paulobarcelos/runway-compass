@@ -155,6 +155,70 @@ test("accounts repository listWithDiagnostics coerces invalid sort order and emi
       message: 'Sort order value "not-a-number" is not a valid integer',
     },
   ]);
+  assert.deepEqual(result.errors, []);
+});
+
+test("accounts repository listWithDiagnostics returns missing sheet error when tab absent", async () => {
+  const jiti = createJiti(__filename);
+  const { stub } = createSheetsStub({ throwsOnGet: true });
+
+  const { createAccountsRepository } = await jiti.import(
+    "../src/server/google/repository/accounts-repository",
+  );
+
+  const repository = createAccountsRepository({
+    sheets: stub,
+    spreadsheetId: "sheet-123",
+  });
+
+  const diagnostics = await repository.listWithDiagnostics();
+
+  assert.deepEqual(diagnostics.accounts, []);
+  assert.deepEqual(diagnostics.warnings, []);
+  assert.deepEqual(diagnostics.errors, [
+    {
+      code: "missing_sheet",
+      message: 'accounts sheet "accounts" is missing from the spreadsheet',
+    },
+  ]);
+});
+
+test("accounts repository listWithDiagnostics returns header mismatch error and skips rows", async () => {
+  const jiti = createJiti(__filename);
+  const { stub } = createSheetsStub({
+    values: [
+      [
+        "account_id",
+        "name",
+        "type",
+        "currency",
+        "include_in_runway",
+        "sort_order",
+      ],
+      ["acct-1", "Checking", "checking", "USD", "TRUE", "1"],
+    ],
+  });
+
+  const { createAccountsRepository } = await jiti.import(
+    "../src/server/google/repository/accounts-repository",
+  );
+
+  const repository = createAccountsRepository({
+    sheets: stub,
+    spreadsheetId: "sheet-123",
+  });
+
+  const diagnostics = await repository.listWithDiagnostics();
+
+  assert.deepEqual(diagnostics.accounts, []);
+  assert.deepEqual(diagnostics.warnings, []);
+  assert.deepEqual(diagnostics.errors, [
+    {
+      code: "header_mismatch",
+      message:
+        "accounts sheet headers must match: account_id, name, type, currency, include_in_runway, sort_order, last_snapshot_at",
+    },
+  ]);
 });
 
 test("accounts repository list validates required fields", async () => {

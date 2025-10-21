@@ -64,7 +64,7 @@ test("accounts route maps auth errors to 401", async () => {
   });
 });
 
-test("accounts route returns data on success with warnings", async () => {
+test("accounts route returns data on success with warnings and errors", async () => {
   await withEnv(async () => {
     const jiti = createJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
@@ -93,6 +93,12 @@ test("accounts route returns data on success with warnings", async () => {
               message: 'Sort order value "not-a-number" is not a valid integer',
             },
           ],
+          errors: [
+            {
+              code: "range_error",
+              message: "accounts sheet range accounts!A1:G1000 could not be read",
+            },
+          ],
         };
       },
     });
@@ -119,6 +125,12 @@ test("accounts route returns data on success with warnings", async () => {
           rowNumber: 3,
           code: "invalid_sort_order",
           message: 'Sort order value "not-a-number" is not a valid integer',
+        },
+      ],
+      errors: [
+        {
+          code: "range_error",
+          message: "accounts sheet range accounts!A1:G1000 could not be read",
         },
       ],
     });
@@ -179,7 +191,7 @@ test("accounts update route validates payload shape", async () => {
   });
 });
 
-test("accounts update route persists records and returns payload", async () => {
+test("accounts update route persists records and returns payload with diagnostics", async () => {
   await withEnv(async () => {
     const jiti = createJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
@@ -204,6 +216,13 @@ test("accounts update route persists records and returns payload", async () => {
             },
           ],
           warnings: [],
+          errors: [
+            {
+              code: "header_mismatch",
+              message:
+                "accounts sheet headers must match: account_id, name, type, currency, include_in_runway, sort_order, last_snapshot_at",
+            },
+          ],
         };
       },
       saveAccounts: async ({ spreadsheetId, accounts }) => {
@@ -259,7 +278,17 @@ test("accounts update route persists records and returns payload", async () => {
 
     assert.equal(response.status, 200);
     assert.deepEqual(saved, payload);
-    assert.deepEqual(body, { accounts: payload, warnings: [] });
+    assert.deepEqual(body, {
+      accounts: payload,
+      warnings: [],
+      errors: [
+        {
+          code: "header_mismatch",
+          message:
+            "accounts sheet headers must match: account_id, name, type, currency, include_in_runway, sort_order, last_snapshot_at",
+        },
+      ],
+    });
   });
 });
 
@@ -287,6 +316,7 @@ test("accounts update route removes snapshots for deleted accounts", async () =>
             },
           ],
           warnings: [],
+          errors: [],
         };
       },
       saveAccounts: async () => {},
@@ -348,5 +378,6 @@ test("accounts update route removes snapshots for deleted accounts", async () =>
       },
     ]);
     assert.deepEqual(payload.warnings, []);
+    assert.deepEqual(payload.errors, []);
   });
 });
