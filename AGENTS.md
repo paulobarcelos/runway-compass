@@ -149,6 +149,12 @@ If you catch yourself writing "new", "old", "legacy", "wrapper", "unified", or i
 - When running `git rebase`, avoid opening editors—export `GIT_EDITOR=:` and `GIT_SEQUENCE_EDITOR=:` (or pass `--no-edit`) so the default messages are used automatically.
 - Never amend commits unless you have explicit written approval in the task thread.
 
+## Version Control & Progress Tracking
+- Follow the workflow described in [docs/engineering/tracking.md](docs/engineering/tracking.md).
+- Use standard CLI commands unless Paulo specifies otherwise: `git status`, `git add -- path`, `git commit -m "scope: message" -- …`, `git log --oneline`, `npm test`, `npm run lint`.
+- Keep GitHub issues and the project board in sync with your progress; update status/decision docs only after changes land on `main`.
+- Update issue task checkboxes (`- [x]`) instead of posting completion comments; reserve comments for blockers or clarifications.
+
 ## Handling Long-Running or Interactive Commands
 For commands that don't return quickly (e.g., dev servers, tests, or interactive CLIs), run them in TMUX to avoid blocking:
 - Start: tmux new-session -d -s <session-name> '<command>'

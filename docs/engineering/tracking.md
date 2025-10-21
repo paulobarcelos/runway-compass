@@ -9,6 +9,12 @@
 - **Repository Docs (docs/…):** Deep dives (architecture, process, setup). Update when the underlying systems or policies change.
 - **Commits / PRs:** Atomic implementation history linked back to issues.
 
+## Onboarding Checklist
+
+1. Read this guide, then skim the PRD and the latest Status note.
+2. Pull `main`, run `npm install` (once), and execute `npm test` / `npm run lint` to ensure the workspace is healthy.
+3. Review open GitHub issues (via `gh`) to select work; coordinate with Paulo if unsure.
+
 ## Working Agreement
 
 ### Before You Start
@@ -46,9 +52,22 @@
 - **Issues own the details:** track subtasks, discussion, and acceptance results inside GitHub issues.
 - **Docs reflect `main`:** never record unmerged work.
 - **Commits are atomic:** each commit corresponds to an issue slice and links back via message or PR description.
+- **Use GitHub CLI:** prefer `gh issue <…>` / `gh project <…>` when updating progress so the project board stays aligned with code changes.
+
+### Issue Hygiene
+- Use the markdown task list in each issue (`- [ ] Task`) to track progress. Check the box (`- [x] Task`) instead of posting “done” comments.
+- Keep issue bodies authoritative: adjust tasks, links, or acceptance criteria via `gh issue edit <number> --body-file …`.
+- Comments are for clarifications or blockers only; prefer updating the task list or project status for routine progress.
 
 ## Questions To Ask When Unsure
 
 1. “Has this change landed on `main`?” If no, log it in the issue, not the status note.
 2. “Does this alter how we build/operate going forward?” If yes, capture it in the decision log.
 3. “Will future contributors need context?” If yes, update the relevant doc under `docs/`.
+
+## Recommended CLI Commands
+
+- `git status`, `git add -- path/to/file`, `git commit -m "scope: message" -- …`
+- `git log --oneline`, `git diff <base>..HEAD`
+- `gh issue list`, `gh project`, `gh pr status`
+- `npm test`, `npm run lint`
