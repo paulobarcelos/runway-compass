@@ -1,7 +1,7 @@
 # Local Development Setup
 
 ## Prerequisites
-- **Node.js:** v20.12 or newer (LTS). Use a version manager such as `nvm` or `fnm`.
+- **Node.js:** v22.x (Vercel runtime). Use a version manager such as `nvm` or `fnm` (`.nvmrc` provided).
 - **npm:** Bundled with Node ≥20 (v10+). Yarn and pnpm are optional.
 - **GitHub CLI:** Optional but recommended for issue/project management (`gh`).
 - **Google Cloud Account:** Required to configure OAuth credentials in the next milestone.
