@@ -19,3 +19,4 @@ This journal is optional but encouraged—treat it as shared memory that makes t
 - Need future work to add a base display currency toggle and conversion pipeline for category budgets, account balances, actuals, and projections.
 - Conversion source undecided: evaluate Google Sheets `GOOGLEFINANCE` vs a lightweight external FX API, log latency/caching implications before implementation.
 - Base currency preference should live client-side (e.g., localStorage) with server default to USD until we expose user configuration.
+- Consider building a reusable "monetary input" component (amount + currency dropdown + flag/name) to reduce ISO-code typos once core flows are in place.
