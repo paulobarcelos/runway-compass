@@ -151,9 +151,10 @@ If you catch yourself writing "new", "old", "legacy", "wrapper", "unified", or i
 
 ## Version Control & Progress Tracking
 - Follow the workflow described in [docs/engineering/tracking.md](docs/engineering/tracking.md).
-- Use standard CLI commands unless Paulo specifies otherwise: `git status`, `git add -- path`, `git commit -m "scope: message" -- …`, `git log --oneline`, `npm test`, `npm run lint`.
-- Keep GitHub issues and the project board in sync with your progress; update status/decision docs only after changes land on `main`.
+- Use standard CLI commands unless Paulo specifies otherwise: `git status`, `git add -- path`, `git commit -m "scope: message" -- …`, `git log --oneline`, `gh issue ...`, `gh project ...`, `npm test`, `npm run lint`.
+- Treat GitHub issues and the project board as the single source of truth for progress.
 - Update issue task checkboxes (`- [x]`) instead of posting completion comments; reserve comments for blockers or clarifications.
+- Capture reusable insights (not status updates) in [docs/notes/journal.md](docs/notes/journal.md) when they aid future work.
 
 ## Handling Long-Running or Interactive Commands
 For commands that don't return quickly (e.g., dev servers, tests, or interactive CLIs), run them in TMUX to avoid blocking:

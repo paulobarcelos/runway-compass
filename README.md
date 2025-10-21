@@ -17,8 +17,14 @@ Personal cash runway planner built with Next.js and Google Sheets. Track rolling
 - [Engineering Process](docs/engineering/process.md)
 - [Local Development Setup](docs/engineering/setup.md)
 - [Decision Log](docs/notes/decision-log.md)
-- [Current Status](docs/notes/status.md)
+- [Engineering Journal](docs/notes/journal.md)
 
 ## Roadmap
 
 High-level milestones are outlined in the [PRD](docs/product/PRD.md). Track day-to-day progress via GitHub Issues and the project board once created.
+
+## Knowledge Sharing
+
+- Use GitHub Issues + project board as the single source of truth for active work.
+- Record irreversible choices in the [Decision Log](docs/notes/decision-log.md).
+- Capture reusable insights in the [Engineering Journal](docs/notes/journal.md).
