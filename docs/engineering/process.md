@@ -14,6 +14,7 @@
 - Update relevant files in `docs/` whenever scope or architecture changes.
 - Record major decisions in `docs/notes/decision-log.md`.
 - Keep README links current to point to canonical documentation.
+- Follow the workflow detailed in [docs/engineering/tracking.md](tracking.md) for status updates, decision logging, and issue hygiene.
 
 ## Issue Workflow
 1. Create or select an issue describing the task, acceptance criteria, and dependencies.
@@ -33,4 +34,3 @@
 - Maintain daily status updates on the project board or decision log for asynchronous alignment.
 - When multiple agents work in parallel, coordinate tab/feature ownership to minimize merge conflicts.
 - Use draft PRs for visibility when work is ongoing.
-
