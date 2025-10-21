@@ -18,3 +18,4 @@ This journal is optional but encouraged—treat it as shared memory that makes t
 - Budgets now store a single monthly amount per category along with a currency code.
 - Need future work to add a base display currency toggle and conversion pipeline for category budgets, account balances, actuals, and projections.
 - Conversion source undecided: evaluate Google Sheets `GOOGLEFINANCE` vs a lightweight external FX API, log latency/caching implications before implementation.
+- Base currency preference should live client-side (e.g., localStorage) with server default to USD until we expose user configuration.
