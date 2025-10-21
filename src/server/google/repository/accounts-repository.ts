@@ -20,8 +20,19 @@ export interface AccountRecord {
   type: string;
   currency: string;
   includeInRunway: boolean;
-  snapshotFrequency: string;
+  sortOrder: number;
   lastSnapshotAt: string | null;
+}
+
+export interface AccountWarning {
+  rowNumber: number;
+  code: "invalid_sort_order";
+  message: string;
+}
+
+export interface AccountsDiagnostics {
+  accounts: AccountRecord[];
+  warnings: AccountWarning[];
 }
 
 interface AccountsRepositoryOptions {
@@ -29,7 +40,11 @@ interface AccountsRepositoryOptions {
   spreadsheetId: string;
 }
 
-function parseAccountRow(row: unknown[], rowIndex: number): AccountRecord | null {
+function parseAccountRow(
+  row: unknown[],
+  rowIndex: number,
+  warnings: AccountWarning[] | null = null,
+): AccountRecord | null {
   const normalized = normalizeRow(
     Array.isArray(row) ? row : [],
     ACCOUNT_HEADERS.length,
@@ -39,15 +54,9 @@ function parseAccountRow(row: unknown[], rowIndex: number): AccountRecord | null
     return null;
   }
 
-  const [
-    accountId,
-    name,
-    type,
-    currency,
-    includeRaw,
-    frequency,
-    lastSnapshot,
-  ] = normalized.map((value) => value.trim());
+  const [accountId, name, type, currency, includeRaw, sortRaw, lastSnapshot] = normalized.map(
+    (value) => value.trim(),
+  );
 
   if (!accountId) {
     throw new Error(`Invalid account row at index ${rowIndex}: missing account_id`);
@@ -66,7 +75,22 @@ function parseAccountRow(row: unknown[], rowIndex: number): AccountRecord | null
   }
 
   const includeInRunway = parseBoolean(includeRaw);
-  const snapshotFrequency = frequency;
+  let sortOrder = 0;
+
+  if (sortRaw) {
+    const parsedSortOrder = Number.parseInt(sortRaw, 10);
+
+    if (Number.isFinite(parsedSortOrder)) {
+      sortOrder = parsedSortOrder;
+    } else if (warnings) {
+      warnings.push({
+        rowNumber: rowIndex,
+        code: "invalid_sort_order",
+        message: `Sort order value "${sortRaw}" is not a valid integer`,
+      });
+    }
+  }
+
   const lastSnapshotAt = lastSnapshot ? lastSnapshot : null;
 
   return {
@@ -75,7 +99,7 @@ function parseAccountRow(row: unknown[], rowIndex: number): AccountRecord | null
     type,
     currency,
     includeInRunway,
-    snapshotFrequency,
+    sortOrder,
     lastSnapshotAt,
   };
 }
@@ -84,36 +108,47 @@ export function createAccountsRepository({
   sheets,
   spreadsheetId,
 }: AccountsRepositoryOptions) {
+  const loadAccountsWithDiagnostics = async (): Promise<AccountsDiagnostics> => {
+    const response = await executeWithRetry(() =>
+      sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: ACCOUNT_RANGE,
+      }),
+    );
+
+    const rows = (response.data.values as unknown[][] | undefined) ?? [];
+
+    if (rows.length === 0) {
+      return { accounts: [], warnings: [] };
+    }
+
+    const [headerRow, ...dataRows] = rows;
+
+    ensureHeaderRow(headerRow, ACCOUNT_HEADERS, "accounts");
+
+    const records: AccountRecord[] = [];
+    const warnings: AccountWarning[] = [];
+
+    for (let index = 0; index < dataRows.length; index += 1) {
+      const parsed = parseAccountRow(dataRows[index], index + 2, warnings);
+
+      if (parsed) {
+        records.push(parsed);
+      }
+    }
+
+    return { accounts: records, warnings };
+  };
+
   return {
     async list(): Promise<AccountRecord[]> {
-      const response = await executeWithRetry(() =>
-        sheets.spreadsheets.values.get({
-          spreadsheetId,
-          range: ACCOUNT_RANGE,
-        }),
-      );
+      const result = await loadAccountsWithDiagnostics();
 
-      const rows = (response.data.values as unknown[][] | undefined) ?? [];
+      return result.accounts;
+    },
 
-      if (rows.length === 0) {
-        return [];
-      }
-
-      const [headerRow, ...dataRows] = rows;
-
-      ensureHeaderRow(headerRow, ACCOUNT_HEADERS, "accounts");
-
-      const records: AccountRecord[] = [];
-
-      for (let index = 0; index < dataRows.length; index += 1) {
-        const parsed = parseAccountRow(dataRows[index], index + 2);
-
-        if (parsed) {
-          records.push(parsed);
-        }
-      }
-
-      return records;
+    async listWithDiagnostics(): Promise<AccountsDiagnostics> {
+      return loadAccountsWithDiagnostics();
     },
 
     async save(records: AccountRecord[]) {
@@ -126,7 +161,7 @@ export function createAccountsRepository({
           record.type,
           record.currency,
           record.includeInRunway ? "TRUE" : "FALSE",
-          record.snapshotFrequency,
+          String(record.sortOrder ?? 0),
           record.lastSnapshotAt ?? "",
         ]);
       }
