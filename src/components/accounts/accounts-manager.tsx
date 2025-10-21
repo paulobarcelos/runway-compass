@@ -8,7 +8,12 @@ import { debugLog } from "@/lib/debug-log";
 import { loadManifest, manifestStorageKey, type ManifestRecord } from "@/lib/manifest-store";
 import { subscribeToManifestChange } from "@/lib/manifest-events";
 import { useBaseCurrency } from "@/components/currency/base-currency-context";
-import { normalizeAccountWarnings, type AccountWarning } from "./account-diagnostics";
+import {
+  normalizeAccountErrors,
+  normalizeAccountWarnings,
+  type AccountError,
+  type AccountWarning,
+} from "./account-diagnostics";
 
 interface AccountDraft {
   accountId: string;
@@ -70,6 +75,7 @@ export function AccountsManager() {
   const [isSnapshotLoading, setIsSnapshotLoading] = useState(false);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [diagnostics, setDiagnostics] = useState<AccountWarning[]>([]);
+  const [errors, setErrors] = useState<AccountError[]>([]);
   const [isDiagnosticsDismissed, setIsDiagnosticsDismissed] = useState(false);
 
   const {
@@ -78,6 +84,7 @@ export function AccountsManager() {
     convertAmount,
     formatAmount,
   } = useBaseCurrency();
+  const hasBlockingErrors = errors.length > 0;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -158,6 +165,7 @@ export function AccountsManager() {
 
         const accounts = Array.isArray(payload?.accounts) ? payload.accounts : [];
         const warnings = normalizeAccountWarnings(payload?.warnings ?? []);
+        const blockingErrors = normalizeAccountErrors(payload?.errors ?? []);
 
         const normalized: AccountDraft[] = accounts.map((item) => ({
           accountId: String(item.accountId ?? "").trim(),
@@ -188,6 +196,7 @@ export function AccountsManager() {
         setOriginal(normalized.map((item) => ({ ...item })));
         setDrafts(normalized);
         setDiagnostics(warnings);
+        setErrors(blockingErrors);
         setIsDiagnosticsDismissed(false);
         setLoadState("ready");
         setLastSavedAt(null);
@@ -197,6 +206,8 @@ export function AccountsManager() {
         const message = error instanceof Error ? error.message : "Failed to load accounts";
         setLoadState("error");
         setLoadError(message);
+        setDiagnostics([]);
+        setErrors([]);
         void debugLog("Accounts load error", { message });
       }
     },
@@ -246,12 +257,21 @@ export function AccountsManager() {
       setSnapshots([]);
       setLoadState("idle");
       setLoadError(null);
+      setDiagnostics([]);
+      setErrors([]);
+      setIsDiagnosticsDismissed(false);
       return;
     }
 
     void fetchAccounts(spreadsheetId);
     void fetchSnapshots(spreadsheetId);
   }, [spreadsheetId, fetchAccounts, fetchSnapshots]);
+
+  useEffect(() => {
+    if (hasBlockingErrors) {
+      setActiveAccountId(null);
+    }
+  }, [hasBlockingErrors]);
 
   const handleAddAccount = useCallback(() => {
     setDrafts((current) => {
@@ -350,9 +370,15 @@ export function AccountsManager() {
         throw new Error(message);
       }
 
-      if (body && typeof body === "object" && "warnings" in body) {
-        const warnings = normalizeAccountWarnings((body as Record<string, unknown>).warnings);
-        setDiagnostics(warnings);
+      const diagnosticsPayload =
+        body && typeof body === "object" ? (body as Record<string, unknown>) : null;
+      const warnings = normalizeAccountWarnings(diagnosticsPayload?.warnings);
+      const blockingErrors = normalizeAccountErrors(diagnosticsPayload?.errors);
+
+      setDiagnostics(warnings);
+      setErrors(blockingErrors);
+
+      if (warnings.length > 0) {
         setIsDiagnosticsDismissed(false);
       }
 
@@ -505,6 +531,33 @@ export function AccountsManager() {
         </div>
       </div>
 
+      {errors.length > 0 ? (
+        <section className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-4 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-200">
+              Spreadsheet errors detected
+            </h3>
+            <p className="mt-1 text-xs text-rose-700/80 dark:text-rose-100/80">
+              Resolve these issues in Google Sheets, then refresh. Fields stay read-only until errors clear.
+            </p>
+          </div>
+          <ol className="mt-3 space-y-2">
+            {errors.map((issue, index) => (
+              <li
+                key={`${issue.code ?? "error"}-${issue.rowNumber ?? "global"}-${index}`}
+                className="flex flex-col gap-1 rounded-md bg-white/80 p-3 text-sm text-rose-900 shadow-sm dark:bg-zinc-900/70 dark:text-rose-100"
+              >
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-200">
+                  {issue.code ? <span>{issue.code}</span> : null}
+                  {issue.rowNumber != null ? <span>Row {issue.rowNumber}</span> : null}
+                </div>
+                <span className="text-rose-900 dark:text-rose-50">{issue.message}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
       {diagnostics.length > 0 && !isDiagnosticsDismissed ? (
         <section className="rounded-lg border border-amber-200/70 bg-amber-50/80 p-4 text-sm text-amber-800 shadow-sm shadow-amber-900/10 dark:border-amber-500/60 dark:bg-amber-900/40 dark:text-amber-100">
           <div className="flex items-start justify-between gap-3">
@@ -570,7 +623,8 @@ export function AccountsManager() {
                       handleFieldChange(account.accountId, "name", event.target.value)
                     }
                     placeholder="Account name"
-                    className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                    disabled={hasBlockingErrors}
+                    className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                   />
                 </td>
                 <td className="px-3 py-2">
@@ -579,7 +633,8 @@ export function AccountsManager() {
                     onChange={(event) =>
                       handleFieldChange(account.accountId, "type", event.target.value)
                     }
-                    className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                    disabled={hasBlockingErrors}
+                    className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                   >
                     {ACCOUNT_TYPES.map((type) => (
                       <option key={type} value={type}>
@@ -594,7 +649,8 @@ export function AccountsManager() {
                     onChange={(event) =>
                       handleFieldChange(account.accountId, "currency", event.target.value)
                     }
-                    className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                    disabled={hasBlockingErrors}
+                    className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                   >
                     {availableCurrencies.map((currency) => (
                       <option key={currency} value={currency}>
@@ -613,7 +669,8 @@ export function AccountsManager() {
                     onChange={(event) =>
                       handleFieldChange(account.accountId, "sortOrder", event.target.value)
                     }
-                    className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                    disabled={hasBlockingErrors}
+                    className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                   />
                 </td>
                 <td className="px-3 py-2">
@@ -624,7 +681,8 @@ export function AccountsManager() {
                       onChange={(event) =>
                         handleFieldChange(account.accountId, "includeInRunway", event.target.checked)
                       }
-                      className="h-4 w-4 rounded border border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                      disabled={hasBlockingErrors}
+                      className="h-4 w-4 rounded border border-zinc-300 text-emerald-600 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                     Include
                   </label>
@@ -637,14 +695,16 @@ export function AccountsManager() {
                     <button
                       type="button"
                       onClick={() => setActiveAccountId(account.accountId)}
-                      className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-1 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      disabled={hasBlockingErrors}
+                      className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-1 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                     >
                       Capture snapshot
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(account.accountId)}
-                      className="inline-flex items-center rounded-md bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-200 dark:bg-rose-900/50 dark:text-rose-100 dark:hover:bg-rose-900"
+                      disabled={hasBlockingErrors}
+                      className="inline-flex items-center rounded-md bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-rose-900/50 dark:text-rose-100 dark:hover:bg-rose-900"
                     >
                       Delete
                     </button>
@@ -661,14 +721,15 @@ export function AccountsManager() {
           <button
             type="button"
             onClick={handleAddAccount}
-            className="inline-flex items-center rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500"
+            disabled={hasBlockingErrors}
+            className="inline-flex items-center rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Add account
           </button>
           <button
             type="button"
             onClick={handleReset}
-            disabled={!isDirty || saveState === "saving"}
+            disabled={!isDirty || saveState === "saving" || hasBlockingErrors}
             className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             Reset changes
@@ -692,7 +753,7 @@ export function AccountsManager() {
           <button
             type="button"
             onClick={() => void handleSave()}
-            disabled={!isDirty || saveState === "saving" || drafts.length === 0}
+            disabled={!isDirty || saveState === "saving" || drafts.length === 0 || hasBlockingErrors}
             className="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saveState === "saving" ? "Saving…" : "Save changes"}
@@ -700,7 +761,7 @@ export function AccountsManager() {
         </div>
       </div>
 
-      {activeAccount ? (
+      {activeAccount && !hasBlockingErrors ? (
         <SnapshotModal
           account={activeAccount}
           snapshots={accountSnapshots}
