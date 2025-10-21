@@ -16,7 +16,7 @@ Google Sheets & Drive
 
 ## Data Tabs
 - `categories`: category_id, label, color, rollover_flag, sort_order.
-- `accounts`: account_id, name, type, currency, include_in_runway, snapshot_frequency, last_snapshot_at.
+- `accounts`: account_id, name, type, currency, include_in_runway, sort_order, last_snapshot_at.
 - `snapshots`: snapshot_id, account_id, date, balance, note.
 - `budget_plan`: record_id, category_id, month, year, amount, rollover_balance.
 - `actuals`: txn_id, account_id, date, category_id, amount, status, entry_mode, note.

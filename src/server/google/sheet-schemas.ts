@@ -54,7 +54,7 @@ export const REQUIRED_SHEETS: SheetSchema[] = [
       "type",
       "currency",
       "include_in_runway",
-      "snapshot_frequency",
+      "sort_order",
       "last_snapshot_at",
     ],
     gridProperties: {

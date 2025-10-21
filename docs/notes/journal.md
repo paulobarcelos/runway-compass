@@ -20,3 +20,10 @@ This journal is optional but encouraged—treat it as shared memory that makes t
 - Conversion source undecided: evaluate Google Sheets `GOOGLEFINANCE` vs a lightweight external FX API, log latency/caching implications before implementation.
 - Base currency preference should live client-side (e.g., localStorage) with server default to USD until we expose user configuration.
 - Consider building a reusable "monetary input" component (amount + currency dropdown + flag/name) to reduce ISO-code typos once core flows are in place.
+
+## 2025-10-22 – Ordering UX follow-ups
+- Accounts and categories currently expose numeric `sort_order` inputs; plan to replace with drag-to-reorder widget once we finalize shared list UX.
+
+## 2025-10-22  – Accounts diagnostics structural errors
+- Sheets `values.get` 400/404 responses or "Unable to parse range" now map to `missing_sheet`/`range_error` diagnostics instead of throwing so API clients can surface actionable messaging.
+- Header mismatches short-circuit repository parsing with `header_mismatch` plus the expected column list; client workflows should read the `errors` array alongside `warnings`.

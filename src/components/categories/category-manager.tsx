@@ -7,8 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { loadManifest, manifestStorageKey, type ManifestRecord } from "@/lib/manifest-store";
 import { subscribeToManifestChange } from "@/lib/manifest-events";
 import { debugLog } from "@/lib/debug-log";
-import { loadExchangeRates } from "@/lib/exchange-rates";
-import { convertCurrency, formatCurrency } from "@/lib/currency";
+import { useBaseCurrency } from "@/components/currency/base-currency-context";
 import {
   categoriesEqual,
   createBlankCategory,
@@ -17,8 +16,6 @@ import {
 
 type LoadState = "idle" | "loading" | "error" | "ready";
 type SaveState = "idle" | "saving";
-
-const BASE_CURRENCY_STORAGE_KEY = "runway-compass:base-currency";
 
 export function CategoryManager() {
   const [manifest, setManifest] = useState<ManifestRecord | null>(null);
@@ -29,9 +26,12 @@ export function CategoryManager() {
   const [original, setOriginal] = useState<CategoryDraft[]>([]);
   const [drafts, setDrafts] = useState<CategoryDraft[]>([]);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
-  const [exchangeRates, setExchangeRates] = useState<Record<string, number> | null>(null);
-  const [rateError, setRateError] = useState<string | null>(null);
-  const [baseCurrency, setBaseCurrency] = useState("USD");
+  const {
+    baseCurrency,
+    availableCurrencies,
+    convertAmount,
+    formatAmount,
+  } = useBaseCurrency();
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -45,15 +45,6 @@ export function CategoryManager() {
 
     updateManifest();
     void debugLog("Category manager loaded manifest", loadManifest(window.localStorage));
-
-    const storedBaseCurrency = window.localStorage
-      .getItem(BASE_CURRENCY_STORAGE_KEY)
-      ?.trim()
-      .toUpperCase();
-
-    if (storedBaseCurrency) {
-      setBaseCurrency(storedBaseCurrency);
-    }
 
     const unsubscribe = subscribeToManifestChange((record) => {
       setManifest(record);
@@ -73,60 +64,10 @@ export function CategoryManager() {
     };
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem(BASE_CURRENCY_STORAGE_KEY, baseCurrency);
-  }, [baseCurrency]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadRates = async () => {
-      try {
-        const rates = await loadExchangeRates();
-        if (!cancelled) {
-          setExchangeRates(rates);
-          setRateError(null);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          const message =
-            error instanceof Error ? error.message : "Failed to load exchange rates";
-          setRateError(message);
-          setExchangeRates(null);
-          void debugLog("Exchange rate load error", { message });
-        }
-      }
-    };
-
-    void loadRates();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const spreadsheetId = manifest?.spreadsheetId ?? null;
 
   const isDirty = useMemo(() => !categoriesEqual(drafts, original), [drafts, original]);
   const isSaving = saveState === "saving";
-  const isLoading = loadState === "loading";
-
-  const availableCurrencies = useMemo(() => {
-    if (exchangeRates) {
-      const codes = new Set<string>();
-      for (const code of Object.keys(exchangeRates)) {
-        codes.add(code.toUpperCase());
-      }
-      codes.add(baseCurrency.toUpperCase());
-      return Array.from(codes).sort();
-    }
-
-    return [baseCurrency];
-  }, [exchangeRates, baseCurrency]);
 
   const renderNormalizedBudget = useCallback(
     (category: CategoryDraft) => {
@@ -136,26 +77,17 @@ export function CategoryManager() {
         return "—";
       }
 
-      if (!exchangeRates) {
+      const sourceCurrency = category.currencyCode || baseCurrency;
+      const converted = convertAmount(parsedBudget, sourceCurrency);
+
+      if (converted == null) {
         return "…";
       }
 
-      const fromCurrency = (category.currencyCode || baseCurrency).toUpperCase();
-      const targetCurrency = baseCurrency.toUpperCase();
-
-      if (fromCurrency === targetCurrency) {
-        return formatCurrency(parsedBudget, targetCurrency, false);
-      }
-
-      try {
-        const normalized = convertCurrency(parsedBudget, fromCurrency, targetCurrency, exchangeRates);
-        const approximate = fromCurrency !== targetCurrency;
-        return formatCurrency(normalized, targetCurrency, approximate);
-      } catch {
-        return "—";
-      }
+      const approximate = sourceCurrency.toUpperCase() !== baseCurrency.toUpperCase();
+      return formatAmount(converted, approximate);
     },
-    [exchangeRates, baseCurrency],
+    [convertAmount, formatAmount, baseCurrency],
   );
 
   const fetchCategories = useCallback(
@@ -189,7 +121,8 @@ export function CategoryManager() {
               typeof item.monthlyBudget === "number" && Number.isFinite(item.monthlyBudget)
                 ? item.monthlyBudget.toString()
                 : "",
-            currencyCode: String(item.currencyCode ?? "").trim().toUpperCase(),
+            currencyCode:
+              String(item.currencyCode ?? "").trim().toUpperCase() || baseCurrency.toUpperCase(),
           }))
           .sort((left, right) => left.sortOrder - right.sortOrder);
 
@@ -207,7 +140,7 @@ export function CategoryManager() {
         void debugLog("Category load error", { message });
       }
     },
-    [],
+    [baseCurrency],
   );
 
   useEffect(() => {
@@ -424,30 +357,6 @@ export function CategoryManager() {
 
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
-            <label className="font-medium" htmlFor="base-currency-select">
-              Base currency
-            </label>
-            <select
-              id="base-currency-select"
-              value={baseCurrency}
-              onChange={(event) => setBaseCurrency(event.target.value.trim().toUpperCase())}
-              className="rounded-md border border-zinc-300/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
-            >
-              {availableCurrencies.map((currency) => (
-                <option key={currency} value={currency}>
-                  {currency}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {rateError ? (
-            <span className="text-xs text-rose-600 dark:text-rose-300">{rateError}</span>
-          ) : null}
-        </div>
-
         <div className="overflow-x-auto rounded-lg border border-zinc-200/70 shadow-sm shadow-zinc-900/5 dark:border-zinc-700/60">
           <table className="min-w-full divide-y divide-zinc-200/60 dark:divide-zinc-700/60">
             <thead className="bg-zinc-50/80 dark:bg-zinc-900/60">
@@ -501,16 +410,19 @@ export function CategoryManager() {
                     />
                   </td>
                   <td className="px-3 py-2">
-                    <input
-                      type="text"
-                      maxLength={8}
+                    <select
                       value={category.currencyCode}
                       onChange={(event) =>
                         handleFieldChange(category.categoryId, "currencyCode", event.target.value)
                       }
-                      placeholder="SEK"
-                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm uppercase tracking-wide text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
-                    />
+                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                    >
+                      {availableCurrencies.map((currency) => (
+                        <option key={currency} value={currency}>
+                          {currency}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300">
                     {renderNormalizedBudget(category)}

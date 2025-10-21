@@ -348,7 +348,7 @@ test("bootstrapSpreadsheet ensures data sheets exist with headers", async () => 
         "type",
         "currency",
         "include_in_runway",
-        "snapshot_frequency",
+        "sort_order",
         "last_snapshot_at",
       ],
       snapshots: ["snapshot_id", "account_id", "date", "balance", "note"],

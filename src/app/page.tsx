@@ -1,7 +1,9 @@
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { requireSession } from "@/server/auth/session";
 import { ConnectSpreadsheetCard } from "@/components/spreadsheet/connect-spreadsheet-card";
+import { BaseCurrencySelector } from "@/components/currency/base-currency-selector";
 import { CategoryManager } from "@/components/categories/category-manager";
+import { AccountsManager } from "@/components/accounts/accounts-manager";
 
 const featureItems = [
   {
@@ -46,7 +48,11 @@ export default async function Home() {
 
       <ConnectSpreadsheetCard />
 
+      <BaseCurrencySelector />
+
       <CategoryManager />
+
+      <AccountsManager />
 
       <section className="flex flex-col gap-6 text-balance">
         <span className="text-sm font-semibold uppercase tracking-wide text-emerald-600">
