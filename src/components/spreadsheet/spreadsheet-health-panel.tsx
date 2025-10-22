@@ -19,6 +19,8 @@ interface IssueGroup {
   errors: SpreadsheetIssue[];
 }
 
+const REPAIRABLE_CODES = new Set(["missing_sheet", "header_mismatch", "range_error"]);
+
 function groupIssues(issues: SpreadsheetIssue[]): IssueGroup[] {
   const groups = new Map<string, IssueGroup>();
 
@@ -148,6 +150,14 @@ export function SpreadsheetHealthPanel() {
   const grouped = useMemo(() => groupIssues(issues), [issues]);
   const hasErrors = grouped.some((group) => group.errors.length > 0);
   const hasWarnings = grouped.some((group) => group.warnings.length > 0);
+  const repairableGroups = useMemo(
+    () =>
+      grouped.filter((group) =>
+        group.errors.some((issue) => (issue.code ? REPAIRABLE_CODES.has(issue.code) : false)),
+      ),
+    [grouped],
+  );
+  const hasRepairableIssues = repairableGroups.length > 0;
 
   if (!spreadsheetId) {
     return null;
@@ -228,14 +238,16 @@ export function SpreadsheetHealthPanel() {
           >
             {isFetching || status === "loading" ? "Refreshing…" : "Reload"}
           </button>
-          <button
-            type="button"
-            onClick={() => void handleRepair()}
-            disabled={isRepairing || status === "loading"}
-            className="inline-flex items-center rounded-md border border-current/40 bg-current/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-current shadow-sm transition hover:bg-current/20 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isRepairing ? "Repairing…" : "Repair all"}
-          </button>
+          {hasRepairableIssues ? (
+            <button
+              type="button"
+              onClick={() => void handleRepair(repairableGroups.map((group) => group.sheetId))}
+              disabled={isRepairing || status === "loading"}
+              className="inline-flex items-center rounded-md border border-current/40 bg-current/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-current shadow-sm transition hover:bg-current/20 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isRepairing ? "Repairing…" : "Repair tabs"}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -289,7 +301,7 @@ export function SpreadsheetHealthPanel() {
                       Open in Google Sheets
                     </a>
                   ) : null}
-                  {group.errors.length > 0 || group.warnings.length > 0 ? (
+                  {group.errors.some((issue) => (issue.code ? REPAIRABLE_CODES.has(issue.code) : false)) ? (
                     <button
                       type="button"
                       onClick={() => void handleRepair([group.sheetId])}
