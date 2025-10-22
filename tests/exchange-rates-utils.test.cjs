@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function createResponse(status, json) {
   return {
@@ -14,7 +14,7 @@ function createResponse(status, json) {
 }
 
 test("loadExchangeRates returns parsed rates", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { loadExchangeRates, EXCHANGE_RATES_ENDPOINT } = await jiti.import(
     "../src/lib/exchange-rates",
   );
@@ -32,14 +32,14 @@ test("loadExchangeRates returns parsed rates", async () => {
 });
 
 test("loadExchangeRates throws on missing rates", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { loadExchangeRates } = await jiti.import("../src/lib/exchange-rates");
 
   await assert.rejects(() => loadExchangeRates(async () => createResponse(200, { foo: "bar" })), /Missing rates/);
 });
 
 test("loadExchangeRates throws on non-ok response", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { loadExchangeRates } = await jiti.import("../src/lib/exchange-rates");
 
   await assert.rejects(() => loadExchangeRates(async () => createResponse(500, {})), /Failed to load/);

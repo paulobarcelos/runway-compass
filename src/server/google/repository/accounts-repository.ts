@@ -2,8 +2,8 @@
 // ABOUTME: Applies schema validation and boolean/date normalization for rows.
 import type { sheets_v4 } from "googleapis";
 
-import { executeWithRetry } from "../retry";
-import { ACCOUNTS_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
+import { executeWithRetry } from "@/server/google/retry";
+import { ACCOUNTS_SHEET_SCHEMA, dataRange } from "@/server/google/sheet-schemas";
 import {
   ensureHeaderRow,
   isEmptyRow,

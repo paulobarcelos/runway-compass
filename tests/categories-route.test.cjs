@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function withEnv(run) {
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
@@ -22,7 +22,7 @@ function withEnv(run) {
 
 test("categories route requires spreadsheetId query", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createCategoriesHandler } = await jiti.import(
       "../src/app/api/categories/route",
     );
@@ -44,7 +44,7 @@ test("categories route requires spreadsheetId query", async () => {
 
 test("categories route maps auth errors to 401", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createCategoriesHandler } = await jiti.import(
       "../src/app/api/categories/route",
     );
@@ -66,7 +66,7 @@ test("categories route maps auth errors to 401", async () => {
 
 test("categories route returns data on success", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createCategoriesHandler } = await jiti.import(
       "../src/app/api/categories/route",
     );
@@ -111,7 +111,7 @@ test("categories route returns data on success", async () => {
 
 test("categories update route requires spreadsheetId query", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createCategoriesHandler } = await jiti.import(
       "../src/app/api/categories/route",
     );
@@ -138,7 +138,7 @@ test("categories update route requires spreadsheetId query", async () => {
 
 test("categories update route validates payload shape", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createCategoriesHandler } = await jiti.import(
       "../src/app/api/categories/route",
     );
@@ -165,7 +165,7 @@ test("categories update route validates payload shape", async () => {
 
 test("categories update route persists records and returns payload", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createCategoriesHandler } = await jiti.import(
       "../src/app/api/categories/route",
     );

@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function withEnv(run) {
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
@@ -24,7 +24,7 @@ function withEnv(run) {
 
 test("bootstrap route validates request payload", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createBootstrapHandler } = await jiti.import(
       "../src/app/api/spreadsheet/bootstrap/route",
     );
@@ -47,7 +47,7 @@ test("bootstrap route validates request payload", async () => {
 
 test("bootstrap route maps auth failures to 401", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createBootstrapHandler } = await jiti.import(
       "../src/app/api/spreadsheet/bootstrap/route",
     );
@@ -74,7 +74,7 @@ test("bootstrap route maps auth failures to 401", async () => {
 
 test("bootstrap route returns manifest on success", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createBootstrapHandler } = await jiti.import(
       "../src/app/api/spreadsheet/bootstrap/route",
     );
@@ -111,7 +111,7 @@ test("bootstrap route returns manifest on success", async () => {
 
 test("bootstrap route maps unexpected errors to 500", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createBootstrapHandler } = await jiti.import(
       "../src/app/api/spreadsheet/bootstrap/route",
     );

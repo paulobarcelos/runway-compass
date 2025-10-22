@@ -2,8 +2,8 @@
 // ABOUTME: Validates sheet rows and maps them to typed category structures.
 import type { sheets_v4 } from "googleapis";
 
-import { executeWithRetry } from "../retry";
-import { CATEGORIES_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
+import { executeWithRetry } from "@/server/google/retry";
+import { CATEGORIES_SHEET_SCHEMA, dataRange } from "@/server/google/sheet-schemas";
 import {
   ensureHeaderRow as assertHeaderRow,
   isEmptyRow,

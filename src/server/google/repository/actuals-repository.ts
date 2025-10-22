@@ -2,8 +2,8 @@
 // ABOUTME: Validates numeric amounts and required transaction fields.
 import type { sheets_v4 } from "googleapis";
 
-import { executeWithRetry } from "../retry";
-import { ACTUALS_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
+import { executeWithRetry } from "@/server/google/retry";
+import { ACTUALS_SHEET_SCHEMA, dataRange } from "@/server/google/sheet-schemas";
 import {
   ensureHeaderRow,
   isEmptyRow,

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 const EXPECTED_SCHEMAS = [
   {
@@ -92,7 +92,7 @@ const EXPECTED_SCHEMAS = [
 ];
 
 test("sheet schemas export expected titles and headers", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const sheetSchemas = await jiti.import("../src/server/google/sheet-schemas");
 
   assert.ok(

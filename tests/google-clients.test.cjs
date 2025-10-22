@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function createGoogleStub() {
   const credentialsLog = [];
@@ -34,7 +34,7 @@ function createGoogleStub() {
 }
 
 test("createSheetsClient configures OAuth credentials", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const googleStub = createGoogleStub();
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
   const originalClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -72,7 +72,7 @@ test("createSheetsClient configures OAuth credentials", async () => {
 });
 
 test("storeSelectedSpreadsheetMeta writes key-value pair", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const getCalls = [];
   const updateCalls = [];
   let storedValues = [];
@@ -129,7 +129,7 @@ test("storeSelectedSpreadsheetMeta writes key-value pair", async () => {
 });
 
 test("storeSelectedSpreadsheetMeta creates _meta sheet when missing", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const getCalls = [];
   const updateCalls = [];
   const batchCalls = [];
@@ -206,7 +206,7 @@ test("storeSelectedSpreadsheetMeta creates _meta sheet when missing", async () =
 });
 
 test("createSpreadsheet creates Drive spreadsheet", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const credentialsLog = [];
   const createCalls = [];
 

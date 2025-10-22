@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
   const getCalls = [];
@@ -44,7 +44,7 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
 }
 
 test("actuals repository list returns typed transactions", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub, getCalls } = createSheetsStub({
     values: [
       ["txn_id", "account_id", "date", "category_id", "amount", "status", "entry_mode", "note"],
@@ -93,7 +93,7 @@ test("actuals repository list returns typed transactions", async () => {
 });
 
 test("actuals repository list validates required fields", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub } = createSheetsStub({
     values: [
       ["txn_id", "account_id", "date", "category_id", "amount", "status", "entry_mode", "note"],
@@ -114,7 +114,7 @@ test("actuals repository list validates required fields", async () => {
 });
 
 test("actuals repository save writes header and rows", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub, updateCalls, getStoredValues } = createSheetsStub({
     values: [
       ["txn_id", "account_id", "date", "category_id", "amount", "status", "entry_mode", "note"],

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
   const getCalls = [];
@@ -44,7 +44,7 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
 }
 
 test("budget plan repository list returns typed records", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub, getCalls } = createSheetsStub({
     values: [
       ["record_id", "category_id", "month", "year", "amount", "rollover_balance"],
@@ -89,7 +89,7 @@ test("budget plan repository list returns typed records", async () => {
 });
 
 test("budget plan repository list validates required fields", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub } = createSheetsStub({
     values: [
       ["record_id", "category_id", "month", "year", "amount", "rollover_balance"],
@@ -110,7 +110,7 @@ test("budget plan repository list validates required fields", async () => {
 });
 
 test("budget plan repository save writes header and rows", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub, updateCalls, getStoredValues } = createSheetsStub({
     values: [
       ["record_id", "category_id", "month", "year", "amount", "rollover_balance"],

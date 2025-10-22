@@ -2,7 +2,7 @@
 // ABOUTME: Returns manifest payload after Drive creation succeeds.
 import { NextResponse } from "next/server";
 
-import { createAndRegisterSpreadsheet } from "../../../../server/google/create-spreadsheet";
+import { createAndRegisterSpreadsheet } from "@/server/google/create-spreadsheet";
 
 type CreateAndRegister = typeof createAndRegisterSpreadsheet;
 

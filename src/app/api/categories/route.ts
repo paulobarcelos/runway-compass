@@ -2,12 +2,12 @@
 // ABOUTME: Validates spreadsheet identifier and maps repository results to JSON.
 import { NextResponse } from "next/server";
 
-import { getSession } from "../../../server/auth/session";
-import { createSheetsClient } from "../../../server/google/clients";
+import { getSession } from "@/server/auth/session";
+import { createSheetsClient } from "@/server/google/clients";
 import {
   createCategoriesRepository,
   type CategoryRecord,
-} from "../../../server/google/repository/categories-repository";
+} from "@/server/google/repository/categories-repository";
 
 interface FetchCategoriesOptions {
   spreadsheetId: string;

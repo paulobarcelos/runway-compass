@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 test("convertCurrency converts using USD base", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { convertCurrency } = await jiti.import("../src/lib/currency");
 
   const rates = {
@@ -20,7 +20,7 @@ test("convertCurrency converts using USD base", async () => {
 });
 
 test("convertCurrency throws when rate missing", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { convertCurrency } = await jiti.import("../src/lib/currency");
 
   assert.throws(() =>
@@ -32,7 +32,7 @@ test("convertCurrency throws when rate missing", async () => {
 });
 
 test("formatCurrency supports approximation flag", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { formatCurrency } = await jiti.import("../src/lib/currency");
 
   assert.equal(formatCurrency(1234.5, "USD"), "$1,234.50");

@@ -4,7 +4,7 @@ import type { Session } from "next-auth";
 
 import type { sheets_v4 } from "googleapis";
 
-import { getSession } from "../auth/session";
+import { getSession } from "@/server/auth/session";
 import { createSheetsClient, type GoogleAuthTokens } from "./clients";
 import { executeWithRetry } from "./retry";
 import {

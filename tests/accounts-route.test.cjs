@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function withEnv(run) {
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
@@ -22,7 +22,7 @@ function withEnv(run) {
 
 test("accounts route requires spreadsheetId query", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
       "../src/app/api/accounts/route",
     );
@@ -44,7 +44,7 @@ test("accounts route requires spreadsheetId query", async () => {
 
 test("accounts route maps auth errors to 401", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
       "../src/app/api/accounts/route",
     );
@@ -66,7 +66,7 @@ test("accounts route maps auth errors to 401", async () => {
 
 test("accounts route returns data on success with warnings and errors", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
       "../src/app/api/accounts/route",
     );
@@ -139,7 +139,7 @@ test("accounts route returns data on success with warnings and errors", async ()
 
 test("accounts update route requires spreadsheetId query", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
       "../src/app/api/accounts/route",
     );
@@ -166,7 +166,7 @@ test("accounts update route requires spreadsheetId query", async () => {
 
 test("accounts update route validates payload shape", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
       "../src/app/api/accounts/route",
     );
@@ -193,7 +193,7 @@ test("accounts update route validates payload shape", async () => {
 
 test("accounts update route persists records and returns payload with diagnostics", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
       "../src/app/api/accounts/route",
     );
@@ -294,7 +294,7 @@ test("accounts update route persists records and returns payload with diagnostic
 
 test("accounts update route removes snapshots for deleted accounts", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
       "../src/app/api/accounts/route",
     );

@@ -4,12 +4,12 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("node:path");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 test("auth route wires NextAuth with shared config", async () => {
   const stubPath = path.resolve(__dirname, "./fixtures/next-auth-stub.cjs");
   const googleProviderPath = require.resolve("next-auth/providers/google");
-  const jiti = createJiti(__filename, {
+  const jiti = createTestJiti(__filename, {
     alias: {
       "next-auth": stubPath,
       "next-auth/providers/google": googleProviderPath,

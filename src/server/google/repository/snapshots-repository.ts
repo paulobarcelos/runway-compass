@@ -2,8 +2,8 @@
 // ABOUTME: Ensures balances parse to numbers and notes default to empty strings.
 import type { sheets_v4 } from "googleapis";
 
-import { executeWithRetry } from "../retry";
-import { SNAPSHOTS_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
+import { executeWithRetry } from "@/server/google/retry";
+import { SNAPSHOTS_SHEET_SCHEMA, dataRange } from "@/server/google/sheet-schemas";
 import {
   ensureHeaderRow,
   isEmptyRow,

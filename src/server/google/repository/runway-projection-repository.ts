@@ -2,8 +2,8 @@
 // ABOUTME: Validates numeric balances and ensures stoplight status is present.
 import type { sheets_v4 } from "googleapis";
 
-import { executeWithRetry } from "../retry";
-import { RUNWAY_PROJECTION_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
+import { executeWithRetry } from "@/server/google/retry";
+import { RUNWAY_PROJECTION_SHEET_SCHEMA, dataRange } from "@/server/google/sheet-schemas";
 import {
   ensureHeaderRow,
   isEmptyRow,

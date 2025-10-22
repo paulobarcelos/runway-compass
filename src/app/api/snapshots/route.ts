@@ -3,16 +3,16 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 
-import { getSession } from "../../../server/auth/session";
-import { createSheetsClient } from "../../../server/google/clients";
+import { getSession } from "@/server/auth/session";
+import { createSheetsClient } from "@/server/google/clients";
 import {
   createSnapshotsRepository,
   type SnapshotRecord,
-} from "../../../server/google/repository/snapshots-repository";
+} from "@/server/google/repository/snapshots-repository";
 import {
   createAccountsRepository,
   type AccountRecord,
-} from "../../../server/google/repository/accounts-repository";
+} from "@/server/google/repository/accounts-repository";
 
 interface FetchSnapshotsOptions {
   spreadsheetId: string;

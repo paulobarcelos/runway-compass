@@ -2,7 +2,7 @@
 // ABOUTME: Validates requests and returns refreshed manifest details.
 import { NextResponse } from "next/server";
 
-import { bootstrapExistingSpreadsheet } from "../../../../server/google/bootstrap";
+import { bootstrapExistingSpreadsheet } from "@/server/google/bootstrap";
 
 type BootstrapHandler = typeof bootstrapExistingSpreadsheet;
 

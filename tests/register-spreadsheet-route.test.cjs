@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function withEnv(run) {
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
@@ -24,7 +24,7 @@ function withEnv(run) {
 
 test("register route validates request payload", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createRegisterHandler } = await jiti.import(
       "../src/app/api/spreadsheet/register/route",
     );
@@ -51,7 +51,7 @@ test("register route validates request payload", async () => {
 
 test("register route maps auth errors to 401", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createRegisterHandler } = await jiti.import(
       "../src/app/api/spreadsheet/register/route",
     );
@@ -78,7 +78,7 @@ test("register route maps auth errors to 401", async () => {
 
 test("register route returns manifest on success", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { createRegisterHandler } = await jiti.import(
       "../src/app/api/spreadsheet/register/route",
     );

@@ -2,8 +2,8 @@
 // ABOUTME: Validates required scheduling fields and normalizes numeric amounts.
 import type { sheets_v4 } from "googleapis";
 
-import { executeWithRetry } from "../retry";
-import { FUTURE_EVENTS_SHEET_SCHEMA, dataRange } from "../sheet-schemas";
+import { executeWithRetry } from "@/server/google/retry";
+import { FUTURE_EVENTS_SHEET_SCHEMA, dataRange } from "@/server/google/sheet-schemas";
 import {
   ensureHeaderRow,
   isEmptyRow,

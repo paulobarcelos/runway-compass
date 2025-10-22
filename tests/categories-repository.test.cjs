@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
   const getCalls = [];
@@ -44,7 +44,7 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
 }
 
 test("categories repository list returns typed records", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub, getCalls } = createSheetsStub({
     values: [
       ["category_id", "label", "color", "rollover_flag", "sort_order", "monthly_budget", "currency_code"],
@@ -91,7 +91,7 @@ test("categories repository list returns typed records", async () => {
 });
 
 test("categories repository list filters empty or malformed rows", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub } = createSheetsStub({
     values: [
       ["category_id", "label", "color", "rollover_flag", "sort_order", "monthly_budget", "currency_code"],
@@ -114,7 +114,7 @@ test("categories repository list filters empty or malformed rows", async () => {
 });
 
 test("categories repository list retries transient errors", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub } = createSheetsStub({
     values: [
       ["category_id", "label", "color", "rollover_flag", "sort_order", "monthly_budget", "currency_code"],
@@ -164,7 +164,7 @@ test("categories repository list retries transient errors", async () => {
 });
 
 test("categories repository save persists header and rows", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub, updateCalls, getStoredValues } = createSheetsStub({
     values: [["category_id", "label", "color", "rollover_flag", "sort_order", "monthly_budget", "currency_code"]],
   });

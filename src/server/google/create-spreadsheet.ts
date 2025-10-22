@@ -2,7 +2,7 @@
 // ABOUTME: Reuses session tokens to persist manifest metadata.
 import type { Session } from "next-auth";
 
-import { getSession } from "../auth/session";
+import { getSession } from "@/server/auth/session";
 
 import type { GoogleAuthTokens } from "./clients";
 import { createSpreadsheet as createDriveSpreadsheet } from "./drive";

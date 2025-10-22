@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function withEnv(run) {
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
@@ -105,7 +105,7 @@ function createSheetsStub({ existingSheets = [], sheetValues = {} } = {}) {
 
 test("bootstrapSpreadsheet creates meta sheet and rows when missing", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { stub, batchUpdateCalls, valueUpdateCalls } = createSheetsStub({
       existingSheets: DATA_SHEETS,
     });
@@ -167,7 +167,7 @@ test("bootstrapSpreadsheet creates meta sheet and rows when missing", async () =
 
 test("bootstrapSpreadsheet preserves existing keys and selected id", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const existingValues = [
       ["selected_spreadsheet_id", "sheet-existing"],
       ["custom_key", "custom"],
@@ -208,7 +208,7 @@ test("bootstrapSpreadsheet preserves existing keys and selected id", async () =>
 
 test("bootstrapExistingSpreadsheet requires authenticated session", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
 
     const { bootstrapExistingSpreadsheet } = await jiti.import(
       "../src/server/google/bootstrap",
@@ -227,7 +227,7 @@ test("bootstrapExistingSpreadsheet requires authenticated session", async () => 
 
 test("bootstrapExistingSpreadsheet requires Google tokens", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
 
     const { bootstrapExistingSpreadsheet } = await jiti.import(
       "../src/server/google/bootstrap",
@@ -246,7 +246,7 @@ test("bootstrapExistingSpreadsheet requires Google tokens", async () => {
 
 test("bootstrapExistingSpreadsheet bootstraps via Sheets client", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const bootstrapCalls = [];
     let receivedTokens;
 
@@ -303,7 +303,7 @@ test("bootstrapExistingSpreadsheet bootstraps via Sheets client", async () => {
 
 test("bootstrapSpreadsheet ensures data sheets exist with headers", async () => {
   await withEnv(async () => {
-    const jiti = createJiti(__filename);
+    const jiti = createTestJiti(__filename);
     const { stub, batchUpdateCalls, valueUpdateCalls } = createSheetsStub({
       existingSheets: [],
     });

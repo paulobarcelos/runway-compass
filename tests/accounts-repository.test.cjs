@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { createJiti } = require("jiti");
+const { createTestJiti } = require("./helpers/create-jiti");
 
 function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
   const getCalls = [];
@@ -44,7 +44,7 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
 }
 
 test("accounts repository list returns typed records", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub, getCalls } = createSheetsStub({
     values: [
       [
@@ -99,7 +99,7 @@ test("accounts repository list returns typed records", async () => {
 });
 
 test("accounts repository listWithDiagnostics coerces invalid sort order and emits warnings", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub } = createSheetsStub({
     values: [
       [
@@ -159,7 +159,7 @@ test("accounts repository listWithDiagnostics coerces invalid sort order and emi
 });
 
 test("accounts repository listWithDiagnostics returns missing sheet error when tab absent", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub } = createSheetsStub({ throwsOnGet: true });
 
   const { createAccountsRepository } = await jiti.import(
@@ -184,7 +184,7 @@ test("accounts repository listWithDiagnostics returns missing sheet error when t
 });
 
 test("accounts repository listWithDiagnostics returns header mismatch error and skips rows", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub } = createSheetsStub({
     values: [
       [
@@ -222,7 +222,7 @@ test("accounts repository listWithDiagnostics returns header mismatch error and 
 });
 
 test("accounts repository list validates required fields", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub } = createSheetsStub({
     values: [
       [
@@ -251,7 +251,7 @@ test("accounts repository list validates required fields", async () => {
 });
 
 test("accounts repository save writes header and rows", async () => {
-  const jiti = createJiti(__filename);
+  const jiti = createTestJiti(__filename);
   const { stub, updateCalls, getStoredValues } = createSheetsStub({
     values: [
       [

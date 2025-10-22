@@ -2,12 +2,12 @@
 // ABOUTME: Validates spreadsheet identifier query string and proxies repository data.
 import { NextResponse } from "next/server";
 
-import { getSession } from "../../../server/auth/session";
-import { createSheetsClient } from "../../../server/google/clients";
+import { getSession } from "@/server/auth/session";
+import { createSheetsClient } from "@/server/google/clients";
 import {
   createBudgetPlanRepository,
   type BudgetPlanRecord,
-} from "../../../server/google/repository/budget-plan-repository";
+} from "@/server/google/repository/budget-plan-repository";
 
 interface FetchBudgetPlanOptions {
   spreadsheetId: string;
