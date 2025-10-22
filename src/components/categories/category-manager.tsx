@@ -328,6 +328,22 @@ export function CategoryManager() {
     void debugLog("Category manager refreshed manifest", stored);
   }, []);
 
+  const blockingMessage = useMemo(() => {
+    if (isHealthBlocked) {
+      return "Spreadsheet health detected issues with the categories tab. Review the health panel above, repair the sheet in Google Sheets, then reload.";
+    }
+
+    if (loadState === "error" && loadError) {
+      return loadError;
+    }
+
+    if (loadState === "error") {
+      return "Categories are temporarily unavailable. Try reloading after fixing the spreadsheet.";
+    }
+
+    return null;
+  }, [isHealthBlocked, loadError, loadState]);
+
   const renderBody = () => {
     if (!spreadsheetId) {
       return (
@@ -347,6 +363,10 @@ export function CategoryManager() {
           </button>
         </div>
       );
+    }
+
+    if (loadState === "error") {
+      return null;
     }
 
     if (loadState === "loading") {
@@ -598,13 +618,32 @@ export function CategoryManager() {
         ) : null}
       </div>
 
-      {isHealthBlocked ? (
+      {blockingMessage ? (
         <div className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-4 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
-          Categories stay read-only until spreadsheet health errors clear. Review the panel above for details, then reload.
+          <p>{blockingMessage}</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void fetchCategories(spreadsheetId)}
+              className="inline-flex items-center rounded-md bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-500"
+            >
+              Reload categories
+            </button>
+            {categoriesSheetUrl ? (
+              <a
+                href={categoriesSheetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center rounded-md border border-rose-300/70 bg-transparent px-4 py-2 text-xs font-semibold text-rose-700 shadow-sm transition hover:bg-rose-100 dark:border-rose-700/60 dark:text-rose-100 dark:hover:bg-rose-900/40"
+              >
+                Open in Google Sheets
+              </a>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
-      {saveError && !isHealthBlocked ? (
+      {saveError && loadState !== "error" && !isHealthBlocked ? (
         <div className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-4 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
           {saveError}
         </div>
