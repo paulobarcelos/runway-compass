@@ -2,7 +2,7 @@
 // ABOUTME: Persists manifest locally and registers selection via API route.
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   clearManifest,
@@ -260,10 +260,6 @@ export function ConnectSpreadsheetCard() {
   const [manifest, setManifest] = useState<ManifestRecord | null>(null);
   const [status, setStatus] = useState<AsyncStatus>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const lastBootstrapRef = useRef<{ spreadsheetId: string; storedAt: number | null } | null>(
-    null,
-  );
 
   const developerKey = useMemo(
     () => process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY ?? "",
@@ -293,9 +289,9 @@ export function ConnectSpreadsheetCard() {
       return;
     }
 
-    saveManifest(window.localStorage, record);
-    setManifest(record);
-    emitManifestChange(record);
+    const stored = saveManifest(window.localStorage, record);
+    setManifest(stored);
+    emitManifestChange(stored);
   }, []);
 
   const registerSpreadsheet = useCallback(async (spreadsheetId: string) => {
@@ -322,7 +318,7 @@ export function ConnectSpreadsheetCard() {
   }, []);
 
   const handleSelect = useCallback(async () => {
-    if (status !== "idle" || syncing) {
+    if (status !== "idle") {
       return;
     }
 
@@ -361,10 +357,10 @@ export function ConnectSpreadsheetCard() {
     } finally {
       setStatus("idle");
     }
-  }, [status, syncing, developerKey, clientId, projectNumber, registerSpreadsheet, persistManifest]);
+  }, [status, developerKey, clientId, projectNumber, registerSpreadsheet, persistManifest]);
 
   const handleCreate = useCallback(async () => {
-    if (status !== "idle" || syncing) {
+    if (status !== "idle") {
       return;
     }
 
@@ -398,101 +394,7 @@ export function ConnectSpreadsheetCard() {
     } finally {
       setStatus("idle");
     }
-  }, [status, syncing, persistManifest]);
-
-  useEffect(() => {
-    const spreadsheetId = manifest?.spreadsheetId;
-    const storedAt = manifest?.storedAt ?? null;
-
-    if (!spreadsheetId) {
-      return;
-    }
-
-    const last = lastBootstrapRef.current;
-    if (last && last.spreadsheetId === spreadsheetId && last.storedAt === storedAt) {
-      return;
-    }
-
-    let cancelled = false;
-
-    const sync = async () => {
-      setSyncing(true);
-      lastBootstrapRef.current = { spreadsheetId, storedAt };
-      void debugLog("Bootstrapping spreadsheet", { spreadsheetId });
-
-      try {
-        const response = await fetch("/api/spreadsheet/bootstrap", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ spreadsheetId }),
-        });
-
-        const payload = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          if (!cancelled) {
-            const message =
-              typeof payload.error === "string"
-                ? payload.error
-                : "Failed to bootstrap spreadsheet";
-            setError(message);
-            void debugLog("Bootstrap error response", { message });
-          }
-          return;
-        }
-
-        if (!payload?.manifest) {
-          if (!cancelled) {
-            setError("Missing bootstrap response");
-          }
-          return;
-        }
-
-        const result = payload.manifest as {
-          spreadsheetId: string;
-          storedAt?: number;
-        };
-
-        if (
-          !cancelled &&
-          result.spreadsheetId === spreadsheetId &&
-          typeof result.storedAt === "number" &&
-          result.storedAt !== storedAt
-        ) {
-          persistManifest({
-            spreadsheetId: result.spreadsheetId,
-            storedAt: result.storedAt,
-          });
-          lastBootstrapRef.current = {
-            spreadsheetId: result.spreadsheetId,
-            storedAt: result.storedAt,
-          };
-          void debugLog("Bootstrap updated manifest", result);
-        }
-      } catch (bootstrapError) {
-        if (!cancelled) {
-          const message =
-            bootstrapError instanceof Error
-              ? bootstrapError.message
-              : "Unable to bootstrap spreadsheet";
-          setError(message);
-          void debugLog("Bootstrap exception", { message });
-        }
-      } finally {
-        if (!cancelled) {
-          setSyncing(false);
-          void debugLog("Bootstrap finished");
-        }
-      }
-    };
-
-    void sync();
-
-    return () => {
-      cancelled = true;
-      void debugLog("Bootstrap cancelled");
-    };
-  }, [manifest?.spreadsheetId, manifest?.storedAt, persistManifest]);
+  }, [status, persistManifest]);
 
   const handleDisconnect = useCallback(() => {
     if (typeof window === "undefined") {
@@ -505,20 +407,17 @@ export function ConnectSpreadsheetCard() {
     emitManifestChange(null);
   }, []);
 
-  const disableActions = status !== "idle" || syncing;
+  const disableActions = status !== "idle";
   const selectLabel =
-    syncing
-      ? "Syncing..."
-      : status === "authorizing"
-        ? "Authorizing..."
-        : status === "registering"
-          ? "Connecting..."
-          : manifest
-            ? "Change spreadsheet"
-            : "Select spreadsheet";
-  const createLabel = syncing
-    ? "Syncing..."
-    : status === "creating"
+    status === "authorizing"
+      ? "Authorizing..."
+      : status === "registering"
+        ? "Connecting..."
+        : manifest
+          ? "Change spreadsheet"
+          : "Select spreadsheet";
+  const createLabel =
+    status === "creating"
       ? "Creating..."
       : "Create new spreadsheet";
 

@@ -2,8 +2,11 @@
 // ABOUTME: Summarizes sheet issues and offers refresh actions for fixes.
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
+import { debugLog } from "@/lib/debug-log";
+import { emitManifestChange } from "@/lib/manifest-events";
+import { saveManifest } from "@/lib/manifest-store";
 import { useSpreadsheetHealth } from "./spreadsheet-health-context";
 import { buildSheetUrl } from "./spreadsheet-health-helpers";
 import type { SpreadsheetIssue } from "./spreadsheet-health-helpers";
@@ -63,6 +66,84 @@ export function SpreadsheetHealthPanel() {
     isFetching,
     reload,
   } = useSpreadsheetHealth();
+
+  const [repairState, setRepairState] = useState<"idle" | "running">("idle");
+  const [repairError, setRepairError] = useState<string | null>(null);
+  const [repairMessage, setRepairMessage] = useState<string | null>(null);
+
+  const isRepairing = repairState === "running";
+
+  const handleRepair = useCallback(
+    async (sheetIds?: string[]) => {
+      if (!spreadsheetId || repairState === "running") {
+        return;
+      }
+
+      setRepairState("running");
+      setRepairError(null);
+      setRepairMessage(null);
+
+      try {
+        const payload = sheetIds && sheetIds.length > 0
+          ? { spreadsheetId, sheets: sheetIds }
+          : { spreadsheetId };
+
+        const response = await fetch("/api/spreadsheet/repair", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const body = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          const message =
+            typeof body?.error === "string" ? body.error : "Failed to repair spreadsheet";
+          setRepairError(message);
+          void debugLog("Spreadsheet repair failed", { message, sheetIds });
+          return;
+        }
+
+        const manifest = body?.manifest as {
+          spreadsheetId?: string;
+          storedAt?: number;
+        } | undefined;
+
+        if (manifest?.spreadsheetId && typeof window !== "undefined") {
+          const saved = saveManifest(window.localStorage, {
+            spreadsheetId: manifest.spreadsheetId,
+            storedAt: manifest.storedAt,
+          });
+          emitManifestChange(saved);
+        }
+
+        const repairedSheets = Array.isArray(body?.repairedSheets)
+          ? body.repairedSheets
+          : [];
+
+        if (repairedSheets.length > 0) {
+          setRepairMessage(`Repair finished for ${repairedSheets.join(", ")}`);
+        } else {
+          setRepairMessage("Repair finished.");
+        }
+
+        void debugLog("Spreadsheet repair succeeded", {
+          spreadsheetId,
+          repairedSheets,
+        });
+
+        await reload();
+      } catch (repairError) {
+        const message =
+          repairError instanceof Error ? repairError.message : "Failed to repair spreadsheet";
+        setRepairError(message);
+        void debugLog("Spreadsheet repair exception", { message, sheetIds });
+      } finally {
+        setRepairState("idle");
+      }
+    },
+    [spreadsheetId, repairState, reload],
+  );
 
   const grouped = useMemo(() => groupIssues(issues), [issues]);
   const hasErrors = grouped.some((group) => group.errors.length > 0);
@@ -142,20 +223,32 @@ export function SpreadsheetHealthPanel() {
           <button
             type="button"
             onClick={() => void reload()}
-            disabled={isFetching || status === "loading"}
+            disabled={isFetching || status === "loading" || isRepairing}
             className="inline-flex items-center rounded-md border border-current/40 bg-white/20 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-current shadow-sm transition hover:bg-white/30 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isFetching || status === "loading" ? "Refreshing…" : "Reload"}
           </button>
           <button
             type="button"
-            disabled
-            className="inline-flex items-center rounded-md border border-dashed border-current/40 bg-transparent px-3 py-2 text-xs font-semibold uppercase tracking-wide text-current/80 opacity-80"
+            onClick={() => void handleRepair()}
+            disabled={isRepairing || status === "loading"}
+            className="inline-flex items-center rounded-md border border-current/40 bg-current/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-current shadow-sm transition hover:bg-current/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Repair (soon)
+            {isRepairing ? "Repairing…" : "Repair all"}
           </button>
         </div>
       </div>
+
+      {repairError ? (
+        <p className="rounded-md border border-rose-200/70 bg-rose-50/80 px-3 py-2 text-sm text-rose-800 shadow-sm dark:border-rose-700/60 dark:bg-rose-900/40 dark:text-rose-100">
+          {repairError}
+        </p>
+      ) : null}
+      {repairMessage && !repairError ? (
+        <p className="rounded-md border border-emerald-200/60 bg-emerald-50/70 px-3 py-2 text-sm text-emerald-800 shadow-sm dark:border-emerald-600/60 dark:bg-emerald-900/30 dark:text-emerald-100">
+          {repairMessage}
+        </p>
+      ) : null}
 
       {error && status === "error" ? (
         <p className="text-sm">
@@ -195,6 +288,16 @@ export function SpreadsheetHealthPanel() {
                     >
                       Open in Google Sheets
                     </a>
+                  ) : null}
+                  {group.errors.length > 0 || group.warnings.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleRepair([group.sheetId])}
+                      disabled={isRepairing || status === "loading"}
+                      className="inline-flex items-center rounded-sm border border-current/30 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-current/80 transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isRepairing ? "Repairing…" : "Repair tab"}
+                    </button>
                   ) : null}
                 </div>
                 {group.sheetId === "snapshots" ? (
