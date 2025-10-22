@@ -589,7 +589,7 @@ export function AccountsManager() {
         ) : null}
       </div>
 
-      {blockingMessage && loadState !== "error" ? (
+      {blockingMessage ? (
         <div className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-4 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
           <p>{blockingMessage}</p>
           <div className="mt-4 flex flex-wrap gap-2">

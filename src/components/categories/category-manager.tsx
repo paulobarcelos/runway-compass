@@ -365,10 +365,6 @@ export function CategoryManager() {
       );
     }
 
-    if (loadState === "error") {
-      return null;
-    }
-
     if (loadState === "loading") {
       return (
         <div className="rounded-lg border border-zinc-200/70 bg-white/70 p-6 text-sm text-zinc-600 shadow-sm shadow-zinc-900/5 dark:border-zinc-700/60 dark:bg-zinc-900/70 dark:text-zinc-300">
@@ -377,36 +373,8 @@ export function CategoryManager() {
       );
     }
 
-    if (loadState === "error") {
-      const guidance = isHealthBlocked
-        ? "Spreadsheet health detected issues with the categories tab. Review the health panel above to repair the sheet, then reload."
-        : loadError ?? "Unable to load categories.";
-
-      return (
-        <div className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-6 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
-          <p className="font-medium">Categories are temporarily read-only.</p>
-          <p className="mt-2 text-sm">{guidance}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void fetchCategories(spreadsheetId)}
-              className="inline-flex items-center rounded-md bg-rose-600 px-4 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-rose-500"
-            >
-              Reload categories
-            </button>
-            {categoriesSheetUrl ? (
-              <a
-                href={categoriesSheetUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center rounded-md border border-rose-300/60 bg-transparent px-4 py-2 text-xs font-medium text-rose-700 shadow-sm transition hover:bg-rose-100 dark:border-rose-600/60 dark:text-rose-100 dark:hover:bg-rose-900/40"
-              >
-                Open in Google Sheets
-              </a>
-            ) : null}
-          </div>
-        </div>
-      );
+    if (loadState === "error" || isHealthBlocked) {
+      return null;
     }
 
     if (drafts.length === 0) {
@@ -415,11 +383,6 @@ export function CategoryManager() {
           <p className="font-medium">
             No categories yet. Add your first category to start planning budgets.
           </p>
-          {isHealthBlocked ? (
-            <p className="text-xs opacity-80">
-              Categories stay read-only until spreadsheet issues clear. Fix them in Sheets, then reload.
-            </p>
-          ) : null}
           <button
             type="button"
             onClick={handleAdd}
@@ -634,7 +597,7 @@ export function CategoryManager() {
                 href={categoriesSheetUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center rounded-md border border-rose-300/70 bg-transparent px-4 py-2 text-xs font-semibold text-rose-700 shadow-sm transition hover:bg-rose-100 dark:border-rose-700/60 dark:text-rose-100 dark:hover:bg-rose-900/40"
+                className="inline-flex items-center rounded-md border border-rose-300/60 bg-transparent px-4 py-2 text-xs font-semibold text-rose-700 shadow-sm transition hover:bg-rose-100 dark:border-rose-600/60 dark:text-rose-100 dark:hover:bg-rose-900/40"
               >
                 Open in Google Sheets
               </a>
