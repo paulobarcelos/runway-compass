@@ -85,8 +85,8 @@ test("createAndRegisterSpreadsheet creates and registers manifest", async () => 
         createCalls.push({ tokens, title });
         return { spreadsheetId: "sheet-created" };
       },
-      registerSpreadsheetSelection: async ({ spreadsheetId }) => {
-        registerCalls.push({ spreadsheetId });
+      registerSpreadsheetSelection: async ({ spreadsheetId, bootstrapSheetTitles }) => {
+        registerCalls.push({ spreadsheetId, bootstrapSheetTitles });
         return { spreadsheetId, storedAt: 555 }; // not used
       },
       now: () => 999,
@@ -105,7 +105,10 @@ test("createAndRegisterSpreadsheet creates and registers manifest", async () => 
       title: "Runway Compass",
     });
     assert.equal(registerCalls.length, 1);
-    assert.deepEqual(registerCalls[0], { spreadsheetId: "sheet-created" });
+    assert.deepEqual(registerCalls[0], {
+      spreadsheetId: "sheet-created",
+      bootstrapSheetTitles: [],
+    });
   } finally {
     process.env.GOOGLE_CLIENT_ID = originalClientId;
     process.env.GOOGLE_CLIENT_SECRET = originalClientSecret;
