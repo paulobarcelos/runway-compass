@@ -8,12 +8,8 @@ import { debugLog } from "@/lib/debug-log";
 import { loadManifest, manifestStorageKey, type ManifestRecord } from "@/lib/manifest-store";
 import { subscribeToManifestChange } from "@/lib/manifest-events";
 import { useBaseCurrency } from "@/components/currency/base-currency-context";
-import {
-  normalizeAccountErrors,
-  normalizeAccountWarnings,
-  type AccountError,
-  type AccountWarning,
-} from "./account-diagnostics";
+import { useSpreadsheetHealth } from "@/components/spreadsheet/spreadsheet-health-context";
+import { filterSheetIssues } from "@/components/spreadsheet/spreadsheet-health-helpers";
 
 interface AccountDraft {
   accountId: string;
@@ -74,9 +70,6 @@ export function AccountsManager() {
   const [snapshotsError, setSnapshotsError] = useState<string | null>(null);
   const [isSnapshotLoading, setIsSnapshotLoading] = useState(false);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
-  const [diagnostics, setDiagnostics] = useState<AccountWarning[]>([]);
-  const [errors, setErrors] = useState<AccountError[]>([]);
-  const [isDiagnosticsDismissed, setIsDiagnosticsDismissed] = useState(false);
 
   const {
     baseCurrency,
@@ -84,7 +77,27 @@ export function AccountsManager() {
     convertAmount,
     formatAmount,
   } = useBaseCurrency();
-  const hasBlockingErrors = errors.length > 0;
+  const { diagnostics: healthDiagnostics } = useSpreadsheetHealth();
+  const accountsHealth = useMemo(
+    () =>
+      filterSheetIssues(healthDiagnostics, {
+        sheetId: "accounts",
+        fallbackTitle: "Accounts",
+      }),
+    [healthDiagnostics],
+  );
+  const snapshotsHealth = useMemo(
+    () =>
+      filterSheetIssues(healthDiagnostics, {
+        sheetId: "snapshots",
+        fallbackTitle: "Snapshots",
+      }),
+    [healthDiagnostics],
+  );
+  const hasAccountBlockingErrors = accountsHealth.hasErrors;
+  const hasSnapshotBlockingErrors = snapshotsHealth.hasErrors;
+  const hasBlockingErrors = hasAccountBlockingErrors;
+  const snapshotActionsDisabled = hasAccountBlockingErrors || hasSnapshotBlockingErrors;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -164,9 +177,6 @@ export function AccountsManager() {
         }
 
         const accounts = Array.isArray(payload?.accounts) ? payload.accounts : [];
-        const warnings = normalizeAccountWarnings(payload?.warnings ?? []);
-        const blockingErrors = normalizeAccountErrors(payload?.errors ?? []);
-
         const normalized: AccountDraft[] = accounts.map((item) => ({
           accountId: String(item.accountId ?? "").trim(),
           name: String(item.name ?? "").trim(),
@@ -195,9 +205,6 @@ export function AccountsManager() {
 
         setOriginal(normalized.map((item) => ({ ...item })));
         setDrafts(normalized);
-        setDiagnostics(warnings);
-        setErrors(blockingErrors);
-        setIsDiagnosticsDismissed(false);
         setLoadState("ready");
         setLastSavedAt(null);
 
@@ -206,8 +213,6 @@ export function AccountsManager() {
         const message = error instanceof Error ? error.message : "Failed to load accounts";
         setLoadState("error");
         setLoadError(message);
-        setDiagnostics([]);
-        setErrors([]);
         void debugLog("Accounts load error", { message });
       }
     },
@@ -257,9 +262,6 @@ export function AccountsManager() {
       setSnapshots([]);
       setLoadState("idle");
       setLoadError(null);
-      setDiagnostics([]);
-      setErrors([]);
-      setIsDiagnosticsDismissed(false);
       return;
     }
 
@@ -268,26 +270,38 @@ export function AccountsManager() {
   }, [spreadsheetId, fetchAccounts, fetchSnapshots]);
 
   useEffect(() => {
-    if (hasBlockingErrors) {
+    if (hasAccountBlockingErrors || hasSnapshotBlockingErrors) {
       setActiveAccountId(null);
     }
-  }, [hasBlockingErrors]);
+  }, [hasAccountBlockingErrors, hasSnapshotBlockingErrors]);
 
   const handleAddAccount = useCallback(() => {
+    if (hasBlockingErrors) {
+      return;
+    }
+
     setDrafts((current) => {
       const nextSortOrder =
         current.length > 0 ? Math.max(...current.map((item) => item.sortOrder)) + 1 : 1;
       return [...current, createBlankAccount(baseCurrency, nextSortOrder)];
     });
-  }, [baseCurrency]);
+  }, [baseCurrency, hasBlockingErrors]);
 
   const handleDelete = useCallback((accountId: string) => {
+    if (hasBlockingErrors) {
+      return;
+    }
+
     setDrafts((current) => current.filter((item) => item.accountId !== accountId));
     setSnapshots((current) => current.filter((item) => item.accountId !== accountId));
-  }, []);
+  }, [hasBlockingErrors]);
 
   const handleFieldChange = useCallback(
     (accountId: string, field: keyof AccountDraft, value: string | boolean) => {
+      if (hasBlockingErrors) {
+        return;
+      }
+
       setDrafts((current) =>
         current.map((account) => {
           if (account.accountId !== accountId) {
@@ -327,17 +341,21 @@ export function AccountsManager() {
         }),
       );
     },
-    [],
+    [hasBlockingErrors],
   );
 
   const handleReset = useCallback(() => {
+    if (hasBlockingErrors) {
+      return;
+    }
+
     setDrafts(original.map((item) => ({ ...item })));
     setSaveError(null);
     setLastSavedAt(null);
-  }, [original]);
+  }, [original, hasBlockingErrors]);
 
   const handleSave = useCallback(async () => {
-    if (!spreadsheetId || drafts.length === 0) {
+    if (!spreadsheetId || drafts.length === 0 || hasBlockingErrors) {
       return;
     }
 
@@ -370,22 +388,23 @@ export function AccountsManager() {
         throw new Error(message);
       }
 
-      const diagnosticsPayload =
-        body && typeof body === "object" ? (body as Record<string, unknown>) : null;
-      const warnings = normalizeAccountWarnings(diagnosticsPayload?.warnings);
-      const blockingErrors = normalizeAccountErrors(diagnosticsPayload?.errors);
+      const records = Array.isArray(body?.accounts) ? body.accounts : payload.accounts;
 
-      setDiagnostics(warnings);
-      setErrors(blockingErrors);
-
-      if (warnings.length > 0) {
-        setIsDiagnosticsDismissed(false);
-      }
-
-      const normalized = payload.accounts
+      const normalized = records
         .map((item) => ({
-          ...item,
-          name: item.name,
+          accountId: String(item.accountId ?? "").trim(),
+          name: String(item.name ?? "").trim(),
+          type: String(item.type ?? "checking").trim() || "checking",
+          currency: String(item.currency ?? baseCurrency).trim().toUpperCase() || baseCurrency,
+          includeInRunway: Boolean(item.includeInRunway),
+          sortOrder:
+            typeof item.sortOrder === "number" && Number.isFinite(item.sortOrder)
+              ? item.sortOrder
+              : 0,
+          lastSnapshotAt:
+            typeof item.lastSnapshotAt === "string" && item.lastSnapshotAt.trim()
+              ? item.lastSnapshotAt.trim()
+              : null,
         }))
         .sort((left, right) => {
           if (left.sortOrder === right.sortOrder) {
@@ -408,7 +427,7 @@ export function AccountsManager() {
     } finally {
       setSaveState("idle");
     }
-  }, [drafts, spreadsheetId, baseCurrency]);
+  }, [drafts, spreadsheetId, baseCurrency, hasBlockingErrors]);
 
   const activeAccount = useMemo(
     () => drafts.find((account) => account.accountId === activeAccountId) ?? null,
@@ -427,7 +446,7 @@ export function AccountsManager() {
 
   const handleCaptureSnapshot = useCallback(
     async (account: AccountDraft, snapshot: { balance: string; date: string; note: string }) => {
-      if (!spreadsheetId) {
+      if (!spreadsheetId || snapshotActionsDisabled) {
         return;
       }
 
@@ -477,7 +496,7 @@ export function AccountsManager() {
         ),
       );
     },
-    [spreadsheetId],
+    [spreadsheetId, snapshotActionsDisabled],
   );
 
   if (!spreadsheetId) {
@@ -496,7 +515,7 @@ export function AccountsManager() {
     );
   }
 
-  if (loadState === "error") {
+  if (loadState === "error" && !hasAccountBlockingErrors) {
     return (
       <section className="rounded-2xl border border-rose-200/70 bg-rose-50/80 p-6 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
         <div className="flex flex-col gap-3">
@@ -531,69 +550,19 @@ export function AccountsManager() {
         </div>
       </div>
 
-      {errors.length > 0 ? (
-        <section className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-4 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
-          <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-200">
-              Spreadsheet errors detected
-            </h3>
-            <p className="mt-1 text-xs text-rose-700/80 dark:text-rose-100/80">
-              Resolve these issues in Google Sheets, then refresh. Fields stay read-only until errors clear.
-            </p>
-          </div>
-          <ol className="mt-3 space-y-2">
-            {errors.map((issue, index) => (
-              <li
-                key={`${issue.code ?? "error"}-${issue.rowNumber ?? "global"}-${index}`}
-                className="flex flex-col gap-1 rounded-md bg-white/80 p-3 text-sm text-rose-900 shadow-sm dark:bg-zinc-900/70 dark:text-rose-100"
-              >
-                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-200">
-                  {issue.code ? <span>{issue.code}</span> : null}
-                  {issue.rowNumber != null ? <span>Row {issue.rowNumber}</span> : null}
-                </div>
-                <span className="text-rose-900 dark:text-rose-50">{issue.message}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
+      {hasAccountBlockingErrors ? (
+        <div className="rounded-lg border border-zinc-200/70 bg-white/80 p-4 text-sm text-zinc-600 shadow-sm shadow-zinc-900/5 dark:border-zinc-700/60 dark:bg-zinc-900/70 dark:text-zinc-300">
+          Accounts stay read-only until spreadsheet health errors clear. Review the health panel above to see which rows need attention.
+        </div>
       ) : null}
 
-      {diagnostics.length > 0 && !isDiagnosticsDismissed ? (
-        <section className="rounded-lg border border-amber-200/70 bg-amber-50/80 p-4 text-sm text-amber-800 shadow-sm shadow-amber-900/10 dark:border-amber-500/60 dark:bg-amber-900/40 dark:text-amber-100">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-200">
-                Spreadsheet warnings
-              </h3>
-              <p className="text-xs text-amber-700/80 dark:text-amber-200/80">
-                Some rows need attention before data can sync cleanly.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsDiagnosticsDismissed(true)}
-              className="rounded-md border border-amber-300/70 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 shadow-sm transition hover:bg-amber-200 dark:border-amber-500/60 dark:bg-amber-900/70 dark:text-amber-100 dark:hover:bg-amber-800/60"
-            >
-              Dismiss
-            </button>
-          </div>
-          <ol className="mt-3 space-y-2">
-            {diagnostics.map((warning, index) => (
-              <li
-                key={`${warning.rowNumber ?? "unknown"}-${index}`}
-                className="flex gap-3 rounded-md bg-white/80 p-3 text-sm text-amber-900 shadow-sm dark:bg-zinc-900/70 dark:text-amber-100"
-              >
-                <span className="font-semibold text-amber-700 dark:text-amber-200">
-                  Row {warning.rowNumber ?? "—"}
-                </span>
-                <span className="text-amber-900 dark:text-amber-50">{warning.message}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
+      {!hasAccountBlockingErrors && accountsHealth.warnings.length > 0 ? (
+        <div className="rounded-lg border border-amber-200/60 bg-amber-50/70 p-4 text-xs text-amber-700 shadow-sm shadow-amber-900/10 dark:border-amber-500/60 dark:bg-amber-900/30 dark:text-amber-100">
+          Heads-up: spreadsheet health lists non-blocking account warnings. Clearing them keeps imports reliable.
+        </div>
       ) : null}
 
-      {saveError ? (
+      {saveError && !hasAccountBlockingErrors ? (
         <div className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-4 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
           {saveError}
         </div>
@@ -695,7 +664,7 @@ export function AccountsManager() {
                     <button
                       type="button"
                       onClick={() => setActiveAccountId(account.accountId)}
-                      disabled={hasBlockingErrors}
+                      disabled={snapshotActionsDisabled}
                       className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-1 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                     >
                       Capture snapshot
@@ -709,6 +678,11 @@ export function AccountsManager() {
                       Delete
                     </button>
                   </div>
+                  {hasSnapshotBlockingErrors && !hasAccountBlockingErrors ? (
+                    <p className="mt-2 text-right text-xs text-rose-600 dark:text-rose-300">
+                      Snapshot capture is disabled until the snapshots tab passes health checks.
+                    </p>
+                  ) : null}
                 </td>
               </tr>
             ))}
@@ -761,7 +735,7 @@ export function AccountsManager() {
         </div>
       </div>
 
-      {activeAccount && !hasBlockingErrors ? (
+      {activeAccount && !snapshotActionsDisabled ? (
         <SnapshotModal
           account={activeAccount}
           snapshots={accountSnapshots}

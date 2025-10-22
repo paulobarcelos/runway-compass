@@ -8,6 +8,8 @@ import { loadManifest, manifestStorageKey, type ManifestRecord } from "@/lib/man
 import { subscribeToManifestChange } from "@/lib/manifest-events";
 import { debugLog } from "@/lib/debug-log";
 import { useBaseCurrency } from "@/components/currency/base-currency-context";
+import { useSpreadsheetHealth } from "@/components/spreadsheet/spreadsheet-health-context";
+import { filterSheetIssues } from "@/components/spreadsheet/spreadsheet-health-helpers";
 import {
   categoriesEqual,
   createBlankCategory,
@@ -32,6 +34,16 @@ export function CategoryManager() {
     convertAmount,
     formatAmount,
   } = useBaseCurrency();
+  const { diagnostics: healthDiagnostics } = useSpreadsheetHealth();
+  const categoriesHealth = useMemo(
+    () =>
+      filterSheetIssues(healthDiagnostics, {
+        sheetId: "categories",
+        fallbackTitle: "Categories",
+      }),
+    [healthDiagnostics],
+  );
+  const isHealthBlocked = categoriesHealth.hasErrors;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -156,6 +168,10 @@ export function CategoryManager() {
   }, [spreadsheetId, fetchCategories]);
 
   const handleAdd = useCallback(() => {
+    if (isHealthBlocked) {
+      return;
+    }
+
     setDrafts((current) => {
       const nextSort =
         current.length > 0
@@ -164,14 +180,22 @@ export function CategoryManager() {
       const blank = createBlankCategory(nextSort);
       return [...current, { ...blank, currencyCode: baseCurrency }];
     });
-  }, [baseCurrency]);
+  }, [baseCurrency, isHealthBlocked]);
 
   const handleDelete = useCallback((categoryId: string) => {
+    if (isHealthBlocked) {
+      return;
+    }
+
     setDrafts((current) => current.filter((item) => item.categoryId !== categoryId));
-  }, []);
+  }, [isHealthBlocked]);
 
   const handleFieldChange = useCallback(
     (categoryId: string, field: keyof CategoryDraft, value: string | boolean) => {
+      if (isHealthBlocked) {
+        return;
+      }
+
       setDrafts((current) =>
         current.map((item) => {
           if (item.categoryId !== categoryId) {
@@ -201,17 +225,21 @@ export function CategoryManager() {
         }),
       );
     },
-    [],
+    [isHealthBlocked],
   );
 
   const handleReset = useCallback(() => {
+    if (isHealthBlocked) {
+      return;
+    }
+
     setDrafts(original.map((item) => ({ ...item })));
     setSaveError(null);
     setLastSavedAt(null);
-  }, [original]);
+  }, [original, isHealthBlocked]);
 
   const handleSave = useCallback(async () => {
-    if (!spreadsheetId || drafts.length === 0) {
+    if (!spreadsheetId || drafts.length === 0 || isHealthBlocked) {
       return;
     }
 
@@ -281,7 +309,7 @@ export function CategoryManager() {
     } finally {
       setSaveState("idle");
     }
-  }, [spreadsheetId, drafts]);
+  }, [spreadsheetId, drafts, isHealthBlocked]);
 
   const handleManifestRefresh = useCallback(() => {
     if (typeof window === "undefined") {
@@ -322,7 +350,7 @@ export function CategoryManager() {
       );
     }
 
-    if (loadState === "error") {
+    if (loadState === "error" && !isHealthBlocked) {
       return (
         <div className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-6 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
           <p className="font-medium">Unable to load categories.</p>
@@ -344,10 +372,16 @@ export function CategoryManager() {
           <p className="font-medium">
             No categories yet. Add your first category to start planning budgets.
           </p>
+          {isHealthBlocked ? (
+            <p className="text-xs opacity-80">
+              Categories stay read-only until spreadsheet issues clear. Fix them in Sheets, then reload.
+            </p>
+          ) : null}
           <button
             type="button"
             onClick={handleAdd}
-            className="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500"
+            disabled={isHealthBlocked}
+            className="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Add category
           </button>
@@ -382,7 +416,8 @@ export function CategoryManager() {
                         handleFieldChange(category.categoryId, "label", event.target.value)
                       }
                       placeholder="Category name"
-                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                      disabled={isHealthBlocked}
+                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -393,7 +428,8 @@ export function CategoryManager() {
                         handleFieldChange(category.categoryId, "color", event.target.value)
                       }
                       placeholder="#RRGGBB"
-                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                      disabled={isHealthBlocked}
+                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -406,7 +442,8 @@ export function CategoryManager() {
                       onChange={(event) =>
                         handleFieldChange(category.categoryId, "monthlyBudget", event.target.value)
                       }
-                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                      disabled={isHealthBlocked}
+                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -415,7 +452,8 @@ export function CategoryManager() {
                       onChange={(event) =>
                         handleFieldChange(category.categoryId, "currencyCode", event.target.value)
                       }
-                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                      disabled={isHealthBlocked}
+                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                     >
                       {availableCurrencies.map((currency) => (
                         <option key={currency} value={currency}>
@@ -435,7 +473,8 @@ export function CategoryManager() {
                         onChange={(event) =>
                           handleFieldChange(category.categoryId, "rolloverFlag", event.target.checked)
                         }
-                        className="h-4 w-4 rounded border border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                        disabled={isHealthBlocked}
+                        className="h-4 w-4 rounded border border-zinc-300 text-emerald-600 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       Allow rollover
                     </label>
@@ -447,14 +486,16 @@ export function CategoryManager() {
                       onChange={(event) =>
                         handleFieldChange(category.categoryId, "sortOrder", event.target.value)
                       }
-                      className="w-24 rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                      disabled={isHealthBlocked}
+                      className="w-24 rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                     />
                   </td>
                   <td className="px-3 py-2 text-right">
                     <button
                       type="button"
                       onClick={() => handleDelete(category.categoryId)}
-                      className="inline-flex items-center rounded-md bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-200 dark:bg-rose-900/50 dark:text-rose-100 dark:hover:bg-rose-900"
+                      disabled={isHealthBlocked}
+                      className="inline-flex items-center rounded-md bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-rose-900/50 dark:text-rose-100 dark:hover:bg-rose-900"
                     >
                       Delete
                     </button>
@@ -470,14 +511,15 @@ export function CategoryManager() {
             <button
               type="button"
               onClick={handleAdd}
-              className="inline-flex items-center rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500"
+              disabled={isHealthBlocked}
+              className="inline-flex items-center rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Add category
             </button>
             <button
               type="button"
               onClick={handleReset}
-              disabled={!isDirty || isSaving}
+              disabled={!isDirty || isSaving || isHealthBlocked}
               className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               Reset changes
@@ -501,7 +543,7 @@ export function CategoryManager() {
             <button
               type="button"
               onClick={handleSave}
-              disabled={!isDirty || isSaving || drafts.length === 0}
+              disabled={!isDirty || isSaving || drafts.length === 0 || isHealthBlocked}
               className="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving ? "Saving…" : "Save changes"}
@@ -531,7 +573,13 @@ export function CategoryManager() {
         ) : null}
       </div>
 
-      {saveError ? (
+      {isHealthBlocked ? (
+        <div className="rounded-lg border border-zinc-200/70 bg-white/80 p-4 text-sm text-zinc-600 shadow-sm shadow-zinc-900/5 dark:border-zinc-700/60 dark:bg-zinc-900/70 dark:text-zinc-300">
+          Categories stay read-only until spreadsheet health errors clear. Review the panel above for details, then reload.
+        </div>
+      ) : null}
+
+      {saveError && !isHealthBlocked ? (
         <div className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-4 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
           {saveError}
         </div>
