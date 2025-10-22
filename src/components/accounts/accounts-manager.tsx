@@ -102,6 +102,22 @@ export function AccountsManager() {
   const hasBlockingErrors = hasAccountBlockingErrors;
   const snapshotActionsDisabled = hasAccountBlockingErrors || hasSnapshotBlockingErrors;
 
+  const blockingMessage = useMemo(() => {
+    if (hasAccountBlockingErrors) {
+      return "Spreadsheet health flagged issues with the accounts tab. Fix the sheet problems above, then reload.";
+    }
+
+    if (loadState === "error" && loadError) {
+      return loadError;
+    }
+
+    if (loadState === "error") {
+      return "Accounts are temporarily unavailable. Try again after fixing the spreadsheet.";
+    }
+
+    return null;
+  }, [hasAccountBlockingErrors, loadError, loadState]);
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -523,16 +539,12 @@ export function AccountsManager() {
   }
 
   if (loadState === "error") {
-    const guidance = hasAccountBlockingErrors
-      ? "Spreadsheet health flagged the accounts tab. Fix the sheet issues listed above, then reload."
-      : loadError ?? "Unable to load accounts.";
-
     return (
       <section className="rounded-2xl border border-rose-200/70 bg-rose-50/80 p-6 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
         <div className="flex flex-col gap-3">
           <div>
             <h2 className="text-base font-semibold">Accounts are temporarily unavailable.</h2>
-            <p className="mt-1 text-sm">{guidance}</p>
+            <p className="mt-1 text-sm">{blockingMessage}</p>
           </div>
           <button
             type="button"
