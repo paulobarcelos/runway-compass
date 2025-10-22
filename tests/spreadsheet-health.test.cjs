@@ -135,6 +135,30 @@ test("filterSheetIssues returns defaults when nothing matches", async () => {
   });
 });
 
+test("shouldRetryAfterRecovery detects blocking error recovery transitions", async () => {
+  const jiti = createTestJiti(__filename);
+  const { shouldRetryAfterRecovery } = await jiti.import(
+    "../src/components/spreadsheet/spreadsheet-health-helpers",
+  );
+
+  assert.equal(shouldRetryAfterRecovery(true, false), true);
+  assert.equal(shouldRetryAfterRecovery(false, false), false);
+  assert.equal(shouldRetryAfterRecovery(false, true), false);
+  assert.equal(shouldRetryAfterRecovery(true, true), false);
+});
+
+test("shouldReloadAfterBootstrap flags manifest storedAt changes", async () => {
+  const jiti = createTestJiti(__filename);
+  const { shouldReloadAfterBootstrap } = await jiti.import(
+    "../src/components/spreadsheet/spreadsheet-health-helpers",
+  );
+
+  assert.equal(shouldReloadAfterBootstrap(null, null), false);
+  assert.equal(shouldReloadAfterBootstrap(null, 1234), false);
+  assert.equal(shouldReloadAfterBootstrap(1111, 1111), false);
+  assert.equal(shouldReloadAfterBootstrap(1111, 2222), true);
+});
+
 test("collectSpreadsheetDiagnostics aggregates repository issues by severity", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);

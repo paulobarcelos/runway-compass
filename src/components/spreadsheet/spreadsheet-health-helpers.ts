@@ -200,6 +200,28 @@ export function filterSheetIssues(
   };
 }
 
+export function shouldRetryAfterRecovery(
+  previousHasErrors: boolean | null | undefined,
+  currentHasErrors: boolean,
+): boolean {
+  return previousHasErrors === true && currentHasErrors === false;
+}
+
+export function shouldReloadAfterBootstrap(
+  previousStoredAt: number | null | undefined,
+  currentStoredAt: number | null | undefined,
+): boolean {
+  if (currentStoredAt == null) {
+    return false;
+  }
+
+  if (previousStoredAt == null) {
+    return false;
+  }
+
+  return currentStoredAt !== previousStoredAt;
+}
+
 export function flattenSpreadsheetIssues(
   diagnostics: SpreadsheetDiagnosticsPayload | null | undefined,
 ): SpreadsheetIssue[] {

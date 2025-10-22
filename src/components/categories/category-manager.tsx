@@ -2,7 +2,7 @@
 // ABOUTME: Supports listing, editing, adding, and deleting categories.
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { loadManifest, manifestStorageKey, type ManifestRecord } from "@/lib/manifest-store";
 import { subscribeToManifestChange } from "@/lib/manifest-events";
@@ -12,6 +12,8 @@ import { useSpreadsheetHealth } from "@/components/spreadsheet/spreadsheet-healt
 import {
   buildSheetUrl,
   filterSheetIssues,
+  shouldRetryAfterRecovery,
+  shouldReloadAfterBootstrap,
 } from "@/components/spreadsheet/spreadsheet-health-helpers";
 import {
   categoriesEqual,
@@ -47,6 +49,9 @@ export function CategoryManager() {
     [healthDiagnostics],
   );
   const isHealthBlocked = categoriesHealth.hasErrors;
+  const previousHealthBlockedRef = useRef(isHealthBlocked);
+  const manifestStoredAt = manifest?.storedAt ?? null;
+  const previousManifestStoredAtRef = useRef<number | null>(manifestStoredAt);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -173,6 +178,32 @@ export function CategoryManager() {
 
     void fetchCategories(spreadsheetId);
   }, [spreadsheetId, fetchCategories]);
+
+  useEffect(() => {
+    const previousStoredAt = previousManifestStoredAtRef.current;
+    previousManifestStoredAtRef.current = manifestStoredAt;
+
+    if (!spreadsheetId) {
+      return;
+    }
+
+    if (shouldReloadAfterBootstrap(previousStoredAt, manifestStoredAt)) {
+      void fetchCategories(spreadsheetId);
+    }
+  }, [fetchCategories, manifestStoredAt, spreadsheetId]);
+
+  useEffect(() => {
+    const previousBlocked = previousHealthBlockedRef.current;
+    previousHealthBlockedRef.current = isHealthBlocked;
+
+    if (!spreadsheetId) {
+      return;
+    }
+
+    if (shouldRetryAfterRecovery(previousBlocked, isHealthBlocked)) {
+      void fetchCategories(spreadsheetId);
+    }
+  }, [fetchCategories, isHealthBlocked, spreadsheetId]);
 
   const handleAdd = useCallback(() => {
     if (isHealthBlocked) {

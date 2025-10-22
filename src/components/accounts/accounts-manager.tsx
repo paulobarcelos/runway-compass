@@ -2,7 +2,7 @@
 // ABOUTME: Loads accounts from Sheets, persists changes, and shows snapshot history.
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { debugLog } from "@/lib/debug-log";
 import { loadManifest, manifestStorageKey, type ManifestRecord } from "@/lib/manifest-store";
@@ -12,6 +12,8 @@ import { useSpreadsheetHealth } from "@/components/spreadsheet/spreadsheet-healt
 import {
   buildSheetUrl,
   filterSheetIssues,
+  shouldRetryAfterRecovery,
+  shouldReloadAfterBootstrap,
 } from "@/components/spreadsheet/spreadsheet-health-helpers";
 
 interface AccountDraft {
@@ -101,6 +103,10 @@ export function AccountsManager() {
   const hasSnapshotBlockingErrors = snapshotsHealth.hasErrors;
   const hasBlockingErrors = hasAccountBlockingErrors;
   const snapshotActionsDisabled = hasAccountBlockingErrors || hasSnapshotBlockingErrors;
+  const previousAccountErrorsRef = useRef(hasAccountBlockingErrors);
+  const previousSnapshotErrorsRef = useRef(hasSnapshotBlockingErrors);
+  const manifestStoredAt = manifest?.storedAt ?? null;
+  const previousManifestStoredAtRef = useRef<number | null>(manifestStoredAt);
 
   const blockingMessage = useMemo(() => {
     if (hasAccountBlockingErrors) {
@@ -293,10 +299,60 @@ export function AccountsManager() {
   }, [spreadsheetId, fetchAccounts, fetchSnapshots]);
 
   useEffect(() => {
+    const previousStoredAt = previousManifestStoredAtRef.current;
+    previousManifestStoredAtRef.current = manifestStoredAt;
+
+    if (!spreadsheetId) {
+      return;
+    }
+
+    if (shouldReloadAfterBootstrap(previousStoredAt, manifestStoredAt)) {
+      void fetchAccounts(spreadsheetId);
+      void fetchSnapshots(spreadsheetId);
+    }
+  }, [fetchAccounts, fetchSnapshots, manifestStoredAt, spreadsheetId]);
+
+  useEffect(() => {
     if (hasAccountBlockingErrors || hasSnapshotBlockingErrors) {
       setActiveAccountId(null);
     }
   }, [hasAccountBlockingErrors, hasSnapshotBlockingErrors]);
+
+  useEffect(() => {
+    const previousAccountHasErrors = previousAccountErrorsRef.current;
+    const previousSnapshotHasErrors = previousSnapshotErrorsRef.current;
+
+    previousAccountErrorsRef.current = hasAccountBlockingErrors;
+    previousSnapshotErrorsRef.current = hasSnapshotBlockingErrors;
+
+    if (!spreadsheetId) {
+      return;
+    }
+
+    const recoveredAccounts = shouldRetryAfterRecovery(
+      previousAccountHasErrors,
+      hasAccountBlockingErrors,
+    );
+
+    const recoveredSnapshots = shouldRetryAfterRecovery(
+      previousSnapshotHasErrors,
+      hasSnapshotBlockingErrors,
+    );
+
+    if (recoveredAccounts) {
+      void fetchAccounts(spreadsheetId);
+    }
+
+    if (recoveredAccounts || recoveredSnapshots) {
+      void fetchSnapshots(spreadsheetId);
+    }
+  }, [
+    fetchAccounts,
+    fetchSnapshots,
+    hasAccountBlockingErrors,
+    hasSnapshotBlockingErrors,
+    spreadsheetId,
+  ]);
 
   const handleAddAccount = useCallback(() => {
     if (hasBlockingErrors) {
