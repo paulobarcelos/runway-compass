@@ -73,30 +73,37 @@ test("spreadsheet health route returns diagnostics payload on success", async ()
       "../src/app/api/spreadsheet/health/route",
     );
 
-    const diagnostics = {
-      warnings: [
-        {
-          sheetId: "accounts",
-          sheetTitle: "Accounts",
-          sheetGid: 110,
-          severity: "warning",
-          code: "invalid_sort_order",
-          message: "Sort order invalid",
-          rowNumber: 5,
-        },
-      ],
-      errors: [
-        {
-          sheetId: "accounts",
-          sheetTitle: "Accounts",
-          sheetGid: 110,
-          severity: "error",
-          code: "missing_sheet",
-          message: "Accounts tab missing",
-          rowNumber: null,
-        },
-      ],
-    };
+  const diagnostics = {
+    warnings: [
+      {
+        sheetId: "accounts",
+        sheetTitle: "Accounts",
+        sheetGid: 110,
+        severity: "warning",
+        code: "invalid_sort_order",
+        message: "Sort order invalid",
+        rowNumber: 5,
+      },
+    ],
+    errors: [
+      {
+        sheetId: "accounts",
+        sheetTitle: "Accounts",
+        sheetGid: 110,
+        severity: "error",
+        code: "missing_sheet",
+        message: "Accounts tab missing",
+        rowNumber: null,
+      },
+    ],
+    sheets: [
+      {
+        sheetId: "accounts",
+        sheetTitle: "Accounts",
+        sheetGid: 110,
+      },
+    ],
+  };
 
     const { GET } = createSpreadsheetHealthHandler({
       fetchDiagnostics: async ({ spreadsheetId }) => {

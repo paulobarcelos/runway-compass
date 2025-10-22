@@ -31,6 +31,7 @@ type HealthStatus = "idle" | "loading" | "ready" | "error";
 interface StoredDiagnostics {
   warnings: Record<string, unknown>[];
   errors: Record<string, unknown>[];
+  sheets: Record<string, unknown>[];
 }
 
 interface SpreadsheetHealthContextValue {
@@ -47,7 +48,7 @@ interface SpreadsheetHealthContextValue {
 const SpreadsheetHealthContext = createContext<SpreadsheetHealthContextValue | null>(null);
 
 function createEmptyDiagnostics(): StoredDiagnostics {
-  return { warnings: [], errors: [] };
+  return { warnings: [], errors: [], sheets: [] };
 }
 
 interface CacheEntry {
@@ -152,7 +153,11 @@ export function SpreadsheetHealthProvider({ children }: { children: ReactNode })
           ? payload.errors.map((item) => (item && typeof item === "object" ? { ...item } : {}))
           : [];
 
-        const normalized: StoredDiagnostics = { warnings, errors };
+        const sheets = Array.isArray(payload?.sheets)
+          ? payload.sheets.map((item) => (item && typeof item === "object" ? { ...item } : {}))
+          : [];
+
+        const normalized: StoredDiagnostics = { warnings, errors, sheets };
         const fetchedAt = Date.now();
 
         cacheRef.current.set(id, { diagnostics: normalized, fetchedAt });

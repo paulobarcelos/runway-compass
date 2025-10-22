@@ -16,6 +16,7 @@ export interface SpreadsheetIssue {
 export interface SpreadsheetDiagnosticsPayload {
   warnings?: unknown;
   errors?: unknown;
+  sheets?: unknown;
 }
 
 export interface SheetIssueGroup {
@@ -34,6 +35,12 @@ interface FilterSheetIssuesOptions {
 }
 
 type RawIssue = Record<string, unknown> | null | undefined;
+
+interface SheetMeta {
+  sheetId: string;
+  sheetTitle: string;
+  sheetGid: number | null;
+}
 
 function asString(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -55,6 +62,43 @@ function asRowNumber(value: unknown): number | null {
   }
 
   return null;
+}
+
+function normalizeSheetMeta(value: unknown): SheetMeta | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const sheetId = asString(record.sheetId);
+
+  if (!sheetId) {
+    return null;
+  }
+
+  return {
+    sheetId,
+    sheetTitle: asString(record.sheetTitle) ?? sheetId,
+    sheetGid: asOptionalNumber(record.sheetGid),
+  };
+}
+
+function getSheetsIndex(source: unknown): Map<string, SheetMeta> {
+  const index = new Map<string, SheetMeta>();
+
+  if (!Array.isArray(source)) {
+    return index;
+  }
+
+  for (const entry of source) {
+    const meta = normalizeSheetMeta(entry);
+
+    if (meta) {
+      index.set(meta.sheetId, meta);
+    }
+  }
+
+  return index;
 }
 
 function asOptionalNumber(value: unknown): number | null {
@@ -123,6 +167,7 @@ export function filterSheetIssues(
 ): SheetIssueGroup {
   const sheetId = options.sheetId;
   const fallbackTitle = options.fallbackTitle ?? sheetId;
+  const sheetsIndex = getSheetsIndex(diagnostics?.sheets);
 
   const warnings = collectIssues(diagnostics?.warnings, "warning").filter(
     (issue) => issue.sheetId === sheetId,
@@ -135,11 +180,13 @@ export function filterSheetIssues(
   const sheetTitle =
     errors[0]?.sheetTitle ??
     warnings[0]?.sheetTitle ??
+    sheetsIndex.get(sheetId)?.sheetTitle ??
     fallbackTitle;
 
   const sheetGid =
     errors[0]?.sheetGid ??
     warnings[0]?.sheetGid ??
+    sheetsIndex.get(sheetId)?.sheetGid ??
     null;
 
   return {
@@ -156,7 +203,33 @@ export function filterSheetIssues(
 export function flattenSpreadsheetIssues(
   diagnostics: SpreadsheetDiagnosticsPayload | null | undefined,
 ): SpreadsheetIssue[] {
+  const sheetsIndex = getSheetsIndex(diagnostics?.sheets);
   const warnings = collectIssues(diagnostics?.warnings, "warning");
   const errors = collectIssues(diagnostics?.errors, "error");
-  return warnings.concat(errors);
+  const issues = warnings.concat(errors);
+
+  for (const issue of issues) {
+    if (issue.sheetGid == null || !issue.sheetTitle) {
+      const meta = sheetsIndex.get(issue.sheetId);
+
+      if (meta) {
+        issue.sheetGid = issue.sheetGid ?? meta.sheetGid;
+        issue.sheetTitle = meta.sheetTitle;
+      }
+    }
+  }
+
+  return issues;
+}
+
+export function buildSheetUrl(spreadsheetId: string | null, sheetGid: number | null) {
+  if (!spreadsheetId) {
+    return null;
+  }
+
+  if (sheetGid != null && Number.isFinite(sheetGid)) {
+    return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit#gid=${sheetGid}`;
+  }
+
+  return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit`;
 }

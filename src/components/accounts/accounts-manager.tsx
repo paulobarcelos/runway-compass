@@ -9,7 +9,10 @@ import { loadManifest, manifestStorageKey, type ManifestRecord } from "@/lib/man
 import { subscribeToManifestChange } from "@/lib/manifest-events";
 import { useBaseCurrency } from "@/components/currency/base-currency-context";
 import { useSpreadsheetHealth } from "@/components/spreadsheet/spreadsheet-health-context";
-import { filterSheetIssues } from "@/components/spreadsheet/spreadsheet-health-helpers";
+import {
+  buildSheetUrl,
+  filterSheetIssues,
+} from "@/components/spreadsheet/spreadsheet-health-helpers";
 
 interface AccountDraft {
   accountId: string;
@@ -131,17 +134,10 @@ export function AccountsManager() {
   }, []);
 
   const spreadsheetId = manifest?.spreadsheetId ?? null;
-  const accountsSheetUrl = useMemo(() => {
-    if (!spreadsheetId) {
-      return null;
-    }
-
-    if (accountsHealth.sheetGid != null) {
-      return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit#gid=${accountsHealth.sheetGid}`;
-    }
-
-    return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit`;
-  }, [accountsHealth.sheetGid, spreadsheetId]);
+  const accountsSheetUrl = useMemo(
+    () => buildSheetUrl(spreadsheetId, accountsHealth.sheetGid),
+    [accountsHealth.sheetGid, spreadsheetId],
+  );
 
   const isDirty = useMemo(() => {
     if (drafts.length !== original.length) {
@@ -526,21 +522,35 @@ export function AccountsManager() {
     );
   }
 
-  if (loadState === "error" && !hasAccountBlockingErrors) {
+  if (loadState === "error") {
+    const guidance = hasAccountBlockingErrors
+      ? "Spreadsheet health flagged the accounts tab. Fix the sheet issues listed above, then reload."
+      : loadError ?? "Unable to load accounts.";
+
     return (
       <section className="rounded-2xl border border-rose-200/70 bg-rose-50/80 p-6 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
         <div className="flex flex-col gap-3">
           <div>
-            <h2 className="text-base font-semibold">Unable to load accounts.</h2>
-            <p className="mt-1 text-sm">{loadError}</p>
+            <h2 className="text-base font-semibold">Accounts are temporarily unavailable.</h2>
+            <p className="mt-1 text-sm">{guidance}</p>
           </div>
           <button
             type="button"
             onClick={() => spreadsheetId && void fetchAccounts(spreadsheetId)}
             className="self-start rounded-md bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-500"
           >
-            Retry
+            Reload accounts
           </button>
+          {accountsSheetUrl ? (
+            <a
+              href={accountsSheetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center rounded-md border border-rose-300/70 bg-transparent px-4 py-2 text-xs font-semibold text-rose-700 shadow-sm transition hover:bg-rose-100 dark:border-rose-700/60 dark:text-rose-100 dark:hover:bg-rose-900/40"
+            >
+              Open in Google Sheets
+            </a>
+          ) : null}
         </div>
       </section>
     );

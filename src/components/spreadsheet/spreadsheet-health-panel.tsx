@@ -5,6 +5,7 @@
 import { useMemo } from "react";
 
 import { useSpreadsheetHealth } from "./spreadsheet-health-context";
+import { buildSheetUrl } from "./spreadsheet-health-helpers";
 import type { SpreadsheetIssue } from "./spreadsheet-health-helpers";
 
 interface IssueGroup {
@@ -129,14 +130,14 @@ export function SpreadsheetHealthPanel() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {spreadsheetId ? (
-            <a
-              href={`https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center rounded-md border border-current/40 bg-white/20 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-current shadow-sm transition hover:bg-white/30"
-            >
-              Open spreadsheet
-            </a>
+          <a
+            href={`https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center rounded-md border border-current/40 bg-white/20 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-current shadow-sm transition hover:bg-white/30"
+          >
+            Open in Google Sheets
+          </a>
           ) : null}
           <button
             type="button"
@@ -192,7 +193,7 @@ export function SpreadsheetHealthPanel() {
                       rel="noopener noreferrer"
                       className="inline-flex items-center rounded-sm border border-current/30 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-current/80 transition hover:bg-white/20"
                     >
-                      Open tab
+                      Open in Google Sheets
                     </a>
                   ) : null}
                 </div>
@@ -208,7 +209,7 @@ export function SpreadsheetHealthPanel() {
                     key={`error-${issue.code ?? "issue"}-${issue.rowNumber ?? "global"}-${index}`}
                     className="rounded-md border border-rose-200/60 bg-rose-50/80 p-3 text-rose-800 shadow-sm dark:border-rose-700/60 dark:bg-rose-900/40 dark:text-rose-100"
                   >
-                    <IssueLine issue={issue} spreadsheetId={spreadsheetId} />
+                    <IssueLine issue={issue} />
                   </li>
                 ))}
                 {group.warnings.map((issue, index) => (
@@ -216,7 +217,7 @@ export function SpreadsheetHealthPanel() {
                     key={`warning-${issue.code ?? "issue"}-${issue.rowNumber ?? "global"}-${index}`}
                     className="rounded-md border border-amber-200/60 bg-amber-50/70 p-3 text-amber-800 shadow-sm dark:border-amber-600/50 dark:bg-amber-900/30 dark:text-amber-100"
                   >
-                    <IssueLine issue={issue} spreadsheetId={spreadsheetId} />
+                    <IssueLine issue={issue} />
                   </li>
                 ))}
               </ul>
@@ -230,42 +231,12 @@ export function SpreadsheetHealthPanel() {
   );
 }
 
-function buildSheetUrl(spreadsheetId: string | null, gid: number | undefined) {
-  if (!spreadsheetId) {
-    return null;
-  }
-
-  if (typeof gid === "number" && Number.isFinite(gid)) {
-    return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit#gid=${gid}`;
-  }
-
-  return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit`;
-}
-
-function IssueLine({
-  issue,
-  spreadsheetId,
-}: {
-  issue: SpreadsheetIssue;
-  spreadsheetId: string | null;
-}) {
-  const sheetUrl = buildSheetUrl(spreadsheetId, issue.sheetGid ?? undefined);
-
+function IssueLine({ issue }: { issue: SpreadsheetIssue }) {
   return (
     <div className="flex flex-col gap-1 text-sm leading-5">
       <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
         {issue.code ? <span>{issue.code}</span> : null}
         {issue.rowNumber != null ? <span>Row {issue.rowNumber}</span> : <span>Sheet</span>}
-        {sheetUrl ? (
-          <a
-            href={sheetUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center rounded-sm border border-current/30 px-2 py-0.5 text-[0.65rem] font-semibold normal-case tracking-normal text-current/80 transition hover:bg-white/20"
-          >
-            Open sheet
-          </a>
-        ) : null}
       </div>
       <span>{issue.message}</span>
     </div>

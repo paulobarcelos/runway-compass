@@ -9,7 +9,10 @@ import { subscribeToManifestChange } from "@/lib/manifest-events";
 import { debugLog } from "@/lib/debug-log";
 import { useBaseCurrency } from "@/components/currency/base-currency-context";
 import { useSpreadsheetHealth } from "@/components/spreadsheet/spreadsheet-health-context";
-import { filterSheetIssues } from "@/components/spreadsheet/spreadsheet-health-helpers";
+import {
+  buildSheetUrl,
+  filterSheetIssues,
+} from "@/components/spreadsheet/spreadsheet-health-helpers";
 import {
   categoriesEqual,
   createBlankCategory,
@@ -77,17 +80,10 @@ export function CategoryManager() {
   }, []);
 
   const spreadsheetId = manifest?.spreadsheetId ?? null;
-  const categoriesSheetUrl = useMemo(() => {
-    if (!spreadsheetId) {
-      return null;
-    }
-
-    if (categoriesHealth.sheetGid != null) {
-      return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit#gid=${categoriesHealth.sheetGid}`;
-    }
-
-    return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit`;
-  }, [categoriesHealth.sheetGid, spreadsheetId]);
+  const categoriesSheetUrl = useMemo(
+    () => buildSheetUrl(spreadsheetId, categoriesHealth.sheetGid),
+    [categoriesHealth.sheetGid, spreadsheetId],
+  );
 
   const isDirty = useMemo(() => !categoriesEqual(drafts, original), [drafts, original]);
   const isSaving = saveState === "saving";
@@ -361,18 +357,34 @@ export function CategoryManager() {
       );
     }
 
-    if (loadState === "error" && !isHealthBlocked) {
+    if (loadState === "error") {
+      const guidance = isHealthBlocked
+        ? "Spreadsheet health detected issues with the categories tab. Review the health panel above to repair the sheet, then reload."
+        : loadError ?? "Unable to load categories.";
+
       return (
         <div className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-6 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
-          <p className="font-medium">Unable to load categories.</p>
-          <p className="mt-2 text-sm">{loadError}</p>
-          <button
-            type="button"
-            onClick={() => void fetchCategories(spreadsheetId)}
-            className="mt-4 inline-flex items-center rounded-md bg-rose-600 px-4 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-rose-500"
-          >
-            Retry
-          </button>
+          <p className="font-medium">Categories are temporarily read-only.</p>
+          <p className="mt-2 text-sm">{guidance}</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void fetchCategories(spreadsheetId)}
+              className="inline-flex items-center rounded-md bg-rose-600 px-4 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-rose-500"
+            >
+              Reload categories
+            </button>
+            {categoriesSheetUrl ? (
+              <a
+                href={categoriesSheetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center rounded-md border border-rose-300/60 bg-transparent px-4 py-2 text-xs font-medium text-rose-700 shadow-sm transition hover:bg-rose-100 dark:border-rose-600/60 dark:text-rose-100 dark:hover:bg-rose-900/40"
+              >
+                Open in Google Sheets
+              </a>
+            ) : null}
+          </div>
         </div>
       );
     }

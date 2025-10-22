@@ -198,6 +198,23 @@ test("collectSpreadsheetDiagnostics aggregates repository issues by severity", a
           rowNumber: null,
         },
       ],
+      sheets: [
+        {
+          sheetId: "accounts",
+          sheetTitle: "Accounts",
+          sheetGid: 110,
+        },
+        {
+          sheetId: "categories",
+          sheetTitle: "Categories",
+          sheetGid: 220,
+        },
+        {
+          sheetId: "snapshots",
+          sheetTitle: "Snapshots",
+          sheetGid: 330,
+        },
+      ],
     });
   });
 });

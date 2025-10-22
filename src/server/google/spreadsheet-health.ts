@@ -29,6 +29,7 @@ export interface SheetDiagnostic {
 export interface SpreadsheetDiagnostics {
   warnings: SheetDiagnostic[];
   errors: SheetDiagnostic[];
+  sheets: SheetContext[];
 }
 
 interface MetadataMapEntry {
@@ -226,6 +227,7 @@ export async function collectSpreadsheetDiagnostics({
   const accountsContext = resolveContext(metadata, "accounts");
   const categoriesContext = resolveContext(metadata, "categories");
   const snapshotsContext = resolveContext(metadata, "snapshots");
+  const sheetContexts: SheetContext[] = [accountsContext, categoriesContext, snapshotsContext];
 
   try {
     const diagnostics = await loadAccountsDiagnostics({ sheets, spreadsheetId });
@@ -253,7 +255,7 @@ export async function collectSpreadsheetDiagnostics({
     errors.push(toErrorDiagnostic(snapshotsContext, error));
   }
 
-  return { warnings, errors };
+  return { warnings, errors, sheets: sheetContexts };
 }
 
 interface FetchSpreadsheetDiagnosticsOptions {
