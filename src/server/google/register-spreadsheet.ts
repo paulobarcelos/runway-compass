@@ -8,6 +8,7 @@ import type { sheets_v4 } from "googleapis";
 
 import { createSheetsClient, type GoogleAuthTokens } from "./clients";
 import { bootstrapSpreadsheet } from "./bootstrap";
+import { META_SHEET_TITLE } from "./sheet-schemas";
 
 interface RegisterSpreadsheetOptions {
   spreadsheetId: string;
@@ -17,13 +18,16 @@ interface RegisterSpreadsheetOptions {
     sheets: sheets_v4.Sheets;
     spreadsheetId: string;
     schemaVersion?: string;
+    sheetTitles?: readonly string[];
     now?: () => number;
   }) => Promise<{
     selectedSpreadsheetId: string;
     schemaVersion: string;
     bootstrappedAt: string;
+    repairedSheets: readonly string[];
   }>;
   schemaVersion?: string;
+  bootstrapSheetTitles?: readonly string[];
   now?: () => number;
 }
 
@@ -38,6 +42,7 @@ export async function registerSpreadsheetSelection({
   createSheetsClient: resolveSheetsClient = createSheetsClient,
   bootstrapSpreadsheet: bootstrap = bootstrapSpreadsheet,
   schemaVersion = "1.0.0",
+  bootstrapSheetTitles = [META_SHEET_TITLE],
   now = Date.now,
 }: RegisterSpreadsheetOptions): Promise<RegisterSpreadsheetResult> {
   if (!spreadsheetId) {
@@ -62,6 +67,7 @@ export async function registerSpreadsheetSelection({
     sheets,
     spreadsheetId,
     schemaVersion,
+    sheetTitles: bootstrapSheetTitles,
     now,
   });
 

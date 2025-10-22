@@ -165,6 +165,38 @@ test("bootstrapSpreadsheet creates meta sheet and rows when missing", async () =
   });
 });
 
+test("bootstrapSpreadsheet limits work to requested sheet titles", async () => {
+  await withEnv(async () => {
+    const jiti = createTestJiti(__filename);
+    const { stub, batchUpdateCalls, valueUpdateCalls } = createSheetsStub({
+      existingSheets: ["_meta", "accounts"],
+    });
+
+    const { bootstrapSpreadsheet } = await jiti.import(
+      "../src/server/google/bootstrap",
+    );
+
+    const result = await bootstrapSpreadsheet({
+      sheets: stub,
+      spreadsheetId: "sheet-abc",
+      sheetTitles: ["categories"],
+      now: () => 1720000000000,
+    });
+
+    assert.deepEqual(result.repairedSheets.sort(), ["_meta", "categories"]);
+    assert.equal(batchUpdateCalls.length, 1);
+    const requests = batchUpdateCalls[0].requestBody.requests;
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].addSheet.properties.title, "categories");
+
+    const headerTargets = valueUpdateCalls.map((call) =>
+      call.range.split("!")[0],
+    );
+
+    assert.deepEqual(headerTargets.sort(), ["_meta", "categories"]);
+  });
+});
+
 test("bootstrapSpreadsheet preserves existing keys and selected id", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
@@ -274,6 +306,7 @@ test("bootstrapExistingSpreadsheet bootstraps via Sheets client", async () => {
           selectedSpreadsheetId: payload.spreadsheetId,
           schemaVersion: payload.schemaVersion ?? "1.0.0",
           bootstrappedAt: "2024-01-01T00:00:00.000Z",
+          repairedSheets: payload.sheetTitles ?? ["_meta"],
         };
       },
       schemaVersion: "2.5.0",
@@ -288,6 +321,7 @@ test("bootstrapExistingSpreadsheet bootstraps via Sheets client", async () => {
     assert.equal(bootstrapCalls.length, 1);
     const args = bootstrapCalls[0];
     assert.deepEqual(args.sheets, { type: "sheets" });
+    assert.equal(args.sheetTitles, undefined);
     assert.equal(args.spreadsheetId, "sheet-123");
     assert.equal(args.schemaVersion, "2.5.0");
     assert.equal(typeof args.now, "function");
@@ -296,6 +330,7 @@ test("bootstrapExistingSpreadsheet bootstraps via Sheets client", async () => {
       spreadsheetId: "sheet-123",
       schemaVersion: "2.5.0",
       bootstrappedAt: "2024-01-01T00:00:00.000Z",
+      repairedSheets: ["_meta"],
       storedAt: 8888,
     });
   });

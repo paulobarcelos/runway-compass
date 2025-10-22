@@ -19,6 +19,7 @@ interface BootstrapSpreadsheetParams {
   sheets: sheets_v4.Sheets;
   spreadsheetId: string;
   schemaVersion?: string;
+  sheetTitles?: readonly string[];
   now?: () => number;
 }
 
@@ -44,6 +45,7 @@ export async function bootstrapSpreadsheet({
   sheets,
   spreadsheetId,
   schemaVersion = "1.0.0",
+  sheetTitles,
   now = Date.now,
 }: BootstrapSpreadsheetParams) {
   if (!spreadsheetId) {
@@ -63,7 +65,28 @@ export async function bootstrapSpreadsheet({
       .filter((title): title is string => Boolean(title)),
   );
 
-  const missingSchemas = REQUIRED_SHEETS.filter(
+  const normalizedTitles = Array.isArray(sheetTitles)
+    ? sheetTitles
+        .map((title) => (typeof title === "string" ? title.trim() : ""))
+        .filter((title) => title.length > 0)
+    : null;
+
+  const targetTitleSet =
+    normalizedTitles && normalizedTitles.length > 0
+      ? new Set(normalizedTitles)
+      : new Set(REQUIRED_SHEETS.map((schema) => schema.title));
+
+  targetTitleSet.add(META_SHEET_TITLE);
+
+  const targetSchemas = REQUIRED_SHEETS.filter((schema) =>
+    targetTitleSet.has(schema.title),
+  );
+
+  if (targetSchemas.length === 0) {
+    throw new Error("No matching sheet schemas requested for bootstrap");
+  }
+
+  const missingSchemas = targetSchemas.filter(
     (schema) => !existingTitles.has(schema.title),
   );
 
@@ -82,7 +105,7 @@ export async function bootstrapSpreadsheet({
     );
   }
 
-  for (const schema of REQUIRED_SHEETS) {
+  for (const schema of targetSchemas) {
     if (schema.title === META_SHEET_TITLE) {
       continue;
     }
@@ -144,6 +167,7 @@ export async function bootstrapSpreadsheet({
     selectedSpreadsheetId,
     schemaVersion,
     bootstrappedAt: isoTimestamp,
+    repairedSheets: targetSchemas.map((schema) => schema.title),
   };
 }
 
@@ -153,6 +177,7 @@ interface BootstrapExistingOptions {
   createSheetsClient?: (tokens: GoogleAuthTokens) => sheets_v4.Sheets;
   bootstrapSpreadsheet?: typeof bootstrapSpreadsheet;
   schemaVersion?: string;
+  sheetTitles?: readonly string[];
   now?: () => number;
 }
 
@@ -162,6 +187,7 @@ export async function bootstrapExistingSpreadsheet({
   createSheetsClient: resolveClient = createSheetsClient,
   bootstrapSpreadsheet: bootstrap = bootstrapSpreadsheet,
   schemaVersion = "1.0.0",
+  sheetTitles,
   now = Date.now,
 }: BootstrapExistingOptions) {
   if (!spreadsheetId) {
@@ -187,6 +213,7 @@ export async function bootstrapExistingSpreadsheet({
     sheets,
     spreadsheetId,
     schemaVersion,
+    sheetTitles,
     now: () => storedAt,
   });
 
@@ -194,6 +221,7 @@ export async function bootstrapExistingSpreadsheet({
     spreadsheetId: result.selectedSpreadsheetId,
     schemaVersion: result.schemaVersion,
     bootstrappedAt: result.bootstrappedAt,
+    repairedSheets: result.repairedSheets,
     storedAt,
   };
 }

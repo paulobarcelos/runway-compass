@@ -16,11 +16,14 @@ const MANIFEST_STORAGE_KEY = "runway-compass:manifest";
 
 export function saveManifest(
   storage: StorageLike,
-  payload: { spreadsheetId: string },
+  payload: { spreadsheetId: string; storedAt?: number },
 ): ManifestRecord {
   const record: ManifestRecord = {
     spreadsheetId: payload.spreadsheetId,
-    storedAt: Date.now(),
+    storedAt:
+      typeof payload.storedAt === "number" && Number.isFinite(payload.storedAt)
+        ? payload.storedAt
+        : Date.now(),
   };
 
   storage.setItem(MANIFEST_STORAGE_KEY, JSON.stringify(record));

@@ -1,9 +1,13 @@
+// ABOUTME: Renders the dashboard layout for the personal runway workspace.
+// ABOUTME: Composes spreadsheet connection, health, and manager sections.
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { requireSession } from "@/server/auth/session";
 import { ConnectSpreadsheetCard } from "@/components/spreadsheet/connect-spreadsheet-card";
 import { BaseCurrencySelector } from "@/components/currency/base-currency-selector";
 import { CategoryManager } from "@/components/categories/category-manager";
 import { AccountsManager } from "@/components/accounts/accounts-manager";
+import { SpreadsheetHealthProvider } from "@/components/spreadsheet/spreadsheet-health-context";
+import { SpreadsheetHealthPanel } from "@/components/spreadsheet/spreadsheet-health-panel";
 
 const featureItems = [
   {
@@ -48,11 +52,17 @@ export default async function Home() {
 
       <ConnectSpreadsheetCard />
 
-      <BaseCurrencySelector />
+      <SpreadsheetHealthProvider>
+        <div className="flex flex-col gap-12">
+          <SpreadsheetHealthPanel />
 
-      <CategoryManager />
+          <BaseCurrencySelector />
 
-      <AccountsManager />
+          <CategoryManager />
+
+          <AccountsManager />
+        </div>
+      </SpreadsheetHealthProvider>
 
       <section className="flex flex-col gap-6 text-balance">
         <span className="text-sm font-semibold uppercase tracking-wide text-emerald-600">

@@ -36,6 +36,17 @@ test("saveManifest stores spreadsheet identifier", async () => {
 
   const reloaded = loadManifest(storage);
   assert.equal(reloaded?.spreadsheetId, "sheet-123");
+
+  const manifestWithStoredAt = saveManifest(storage, {
+    spreadsheetId: "sheet-456",
+    storedAt: 123456,
+  });
+  const storedOverride = JSON.parse(storage.getItem("runway-compass:manifest"));
+
+  assert.equal(manifestWithStoredAt.spreadsheetId, "sheet-456");
+  assert.equal(manifestWithStoredAt.storedAt, 123456);
+  assert.equal(storedOverride.spreadsheetId, "sheet-456");
+  assert.equal(storedOverride.storedAt, 123456);
 });
 
 test("loadManifest handles missing or invalid payloads", async () => {
