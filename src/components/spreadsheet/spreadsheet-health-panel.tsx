@@ -10,6 +10,7 @@ import type { SpreadsheetIssue } from "./spreadsheet-health-helpers";
 interface IssueGroup {
   sheetId: string;
   sheetTitle: string;
+  sheetGid: number | null;
   warnings: SpreadsheetIssue[];
   errors: SpreadsheetIssue[];
 }
@@ -21,9 +22,14 @@ function groupIssues(issues: SpreadsheetIssue[]): IssueGroup[] {
     const existing = groups.get(issue.sheetId) ?? {
       sheetId: issue.sheetId,
       sheetTitle: issue.sheetTitle,
+      sheetGid: issue.sheetGid ?? null,
       warnings: [],
       errors: [],
     };
+
+    if (existing.sheetGid == null && issue.sheetGid != null) {
+      existing.sheetGid = issue.sheetGid;
+    }
 
     if (issue.severity === "error") {
       existing.errors.push(issue);
@@ -122,6 +128,16 @@ export function SpreadsheetHealthPanel() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {spreadsheetId ? (
+            <a
+              href={`https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center rounded-md border border-current/40 bg-white/20 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-current shadow-sm transition hover:bg-white/30"
+            >
+              Open spreadsheet
+            </a>
+          ) : null}
           <button
             type="button"
             onClick={() => void reload()}
@@ -154,18 +170,30 @@ export function SpreadsheetHealthPanel() {
               className="rounded-xl border border-current/20 bg-white/70 p-4 text-sm text-zinc-900 shadow-sm shadow-zinc-900/5 dark:bg-zinc-950/60 dark:text-zinc-100"
             >
               <header className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-900 dark:text-zinc-100">
-                    {group.sheetTitle}
-                  </h3>
-                  {group.errors.length > 0 ? (
-                    <p className="text-xs text-rose-600 dark:text-rose-300">
-                      Resolve these items before editing. Fields stay read-only until errors clear.
-                    </p>
-                  ) : group.warnings.length > 0 ? (
-                    <p className="text-xs text-amber-600 dark:text-amber-300">
-                      These warnings won&apos;t block edits but could cause sync hiccups later.
-                    </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-900 dark:text-zinc-100">
+                      {group.sheetTitle}
+                    </h3>
+                    {group.errors.length > 0 ? (
+                      <p className="text-xs text-rose-600 dark:text-rose-300">
+                        Resolve these items before editing. Fields stay read-only until errors clear.
+                      </p>
+                    ) : group.warnings.length > 0 ? (
+                      <p className="text-xs text-amber-600 dark:text-amber-300">
+                        These warnings won&apos;t block edits but could cause sync hiccups later.
+                      </p>
+                    ) : null}
+                  </div>
+                  {buildSheetUrl(spreadsheetId, group.sheetGid) ? (
+                    <a
+                      href={buildSheetUrl(spreadsheetId, group.sheetGid)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center rounded-sm border border-current/30 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-current/80 transition hover:bg-white/20"
+                    >
+                      Open tab
+                    </a>
                   ) : null}
                 </div>
                 {group.sheetId === "snapshots" ? (
@@ -180,7 +208,7 @@ export function SpreadsheetHealthPanel() {
                     key={`error-${issue.code ?? "issue"}-${issue.rowNumber ?? "global"}-${index}`}
                     className="rounded-md border border-rose-200/60 bg-rose-50/80 p-3 text-rose-800 shadow-sm dark:border-rose-700/60 dark:bg-rose-900/40 dark:text-rose-100"
                   >
-                    <IssueLine issue={issue} />
+                    <IssueLine issue={issue} spreadsheetId={spreadsheetId} />
                   </li>
                 ))}
                 {group.warnings.map((issue, index) => (
@@ -188,7 +216,7 @@ export function SpreadsheetHealthPanel() {
                     key={`warning-${issue.code ?? "issue"}-${issue.rowNumber ?? "global"}-${index}`}
                     className="rounded-md border border-amber-200/60 bg-amber-50/70 p-3 text-amber-800 shadow-sm dark:border-amber-600/50 dark:bg-amber-900/30 dark:text-amber-100"
                   >
-                    <IssueLine issue={issue} />
+                    <IssueLine issue={issue} spreadsheetId={spreadsheetId} />
                   </li>
                 ))}
               </ul>
@@ -202,12 +230,42 @@ export function SpreadsheetHealthPanel() {
   );
 }
 
-function IssueLine({ issue }: { issue: SpreadsheetIssue }) {
+function buildSheetUrl(spreadsheetId: string | null, gid: number | undefined) {
+  if (!spreadsheetId) {
+    return null;
+  }
+
+  if (typeof gid === "number" && Number.isFinite(gid)) {
+    return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit#gid=${gid}`;
+  }
+
+  return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit`;
+}
+
+function IssueLine({
+  issue,
+  spreadsheetId,
+}: {
+  issue: SpreadsheetIssue;
+  spreadsheetId: string | null;
+}) {
+  const sheetUrl = buildSheetUrl(spreadsheetId, issue.sheetGid ?? undefined);
+
   return (
     <div className="flex flex-col gap-1 text-sm leading-5">
       <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
         {issue.code ? <span>{issue.code}</span> : null}
         {issue.rowNumber != null ? <span>Row {issue.rowNumber}</span> : <span>Sheet</span>}
+        {sheetUrl ? (
+          <a
+            href={sheetUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center rounded-sm border border-current/30 px-2 py-0.5 text-[0.65rem] font-semibold normal-case tracking-normal text-current/80 transition hover:bg-white/20"
+          >
+            Open sheet
+          </a>
+        ) : null}
       </div>
       <span>{issue.message}</span>
     </div>

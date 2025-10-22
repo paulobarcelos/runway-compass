@@ -77,6 +77,17 @@ export function CategoryManager() {
   }, []);
 
   const spreadsheetId = manifest?.spreadsheetId ?? null;
+  const categoriesSheetUrl = useMemo(() => {
+    if (!spreadsheetId) {
+      return null;
+    }
+
+    if (categoriesHealth.sheetGid != null) {
+      return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit#gid=${categoriesHealth.sheetGid}`;
+    }
+
+    return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit`;
+  }, [categoriesHealth.sheetGid, spreadsheetId]);
 
   const isDirty = useMemo(() => !categoriesEqual(drafts, original), [drafts, original]);
   const isSaving = saveState === "saving";
@@ -563,18 +574,20 @@ export function CategoryManager() {
             Edit category labels, colors, rollover behavior, and ordering. These updates sync directly to your Google Sheet.
           </p>
         </div>
-        {spreadsheetId ? (
-          <div className="flex flex-col items-end text-right text-xs text-zinc-500 dark:text-zinc-400">
-            <span className="font-medium text-zinc-600 dark:text-zinc-200">
-              Spreadsheet ID
-            </span>
-            <span className="break-all font-mono text-xs">{spreadsheetId}</span>
-          </div>
+        {categoriesSheetUrl ? (
+          <a
+            href={categoriesSheetUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            Open in Google Sheets
+          </a>
         ) : null}
       </div>
 
       {isHealthBlocked ? (
-        <div className="rounded-lg border border-zinc-200/70 bg-white/80 p-4 text-sm text-zinc-600 shadow-sm shadow-zinc-900/5 dark:border-zinc-700/60 dark:bg-zinc-900/70 dark:text-zinc-300">
+        <div className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-4 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
           Categories stay read-only until spreadsheet health errors clear. Review the panel above for details, then reload.
         </div>
       ) : null}

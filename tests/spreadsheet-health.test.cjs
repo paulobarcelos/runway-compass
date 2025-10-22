@@ -80,6 +80,7 @@ test("filterSheetIssues extracts severity-normalized issues", async () => {
   assert.deepEqual(result, {
     sheetId: "accounts",
     sheetTitle: "Accounts",
+    sheetGid: null,
     warnings: [
       {
         sheetId: "accounts",
@@ -88,6 +89,7 @@ test("filterSheetIssues extracts severity-normalized issues", async () => {
         message: "Headers mismatch",
         rowNumber: 4,
         severity: "warning",
+        sheetGid: null,
       },
     ],
     errors: [
@@ -98,6 +100,7 @@ test("filterSheetIssues extracts severity-normalized issues", async () => {
         message: "Accounts tab missing",
         rowNumber: null,
         severity: "error",
+        sheetGid: null,
       },
     ],
     hasIssues: true,
@@ -124,6 +127,7 @@ test("filterSheetIssues returns defaults when nothing matches", async () => {
   assert.deepEqual(result, {
     sheetId: "categories",
     sheetTitle: "Categories",
+    sheetGid: null,
     warnings: [],
     errors: [],
     hasIssues: false,

@@ -10,6 +10,7 @@ export interface SpreadsheetIssue {
   message: string;
   rowNumber: number | null;
   severity: SpreadsheetIssueSeverity;
+  sheetGid: number | null;
 }
 
 export interface SpreadsheetDiagnosticsPayload {
@@ -20,6 +21,7 @@ export interface SpreadsheetDiagnosticsPayload {
 export interface SheetIssueGroup {
   sheetId: string;
   sheetTitle: string;
+  sheetGid: number | null;
   warnings: SpreadsheetIssue[];
   errors: SpreadsheetIssue[];
   hasIssues: boolean;
@@ -55,6 +57,19 @@ function asRowNumber(value: unknown): number | null {
   return null;
 }
 
+function asOptionalNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number.parseInt(value.trim(), 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 function normalizeIssue(raw: RawIssue, severity: SpreadsheetIssueSeverity): SpreadsheetIssue | null {
   if (!raw || typeof raw !== "object") {
     return null;
@@ -77,6 +92,7 @@ function normalizeIssue(raw: RawIssue, severity: SpreadsheetIssueSeverity): Spre
     message,
     rowNumber: asRowNumber(record.rowNumber),
     severity,
+    sheetGid: asOptionalNumber(record.sheetGid),
   };
 }
 
@@ -121,9 +137,15 @@ export function filterSheetIssues(
     warnings[0]?.sheetTitle ??
     fallbackTitle;
 
+  const sheetGid =
+    errors[0]?.sheetGid ??
+    warnings[0]?.sheetGid ??
+    null;
+
   return {
     sheetId,
     sheetTitle,
+    sheetGid,
     warnings,
     errors,
     hasIssues: warnings.length > 0 || errors.length > 0,
