@@ -32,28 +32,48 @@ test("auth route wires NextAuth with shared config", async () => {
     const routeModule = await jiti.import(
       "../src/app/api/auth/[...nextauth]/route",
     );
-    const { authConfig } = await jiti.import("../src/server/auth/config");
+    const { getAuthConfig } = await jiti.import("../src/server/auth/config");
+    const authConfig = getAuthConfig();
 
     assert.equal(typeof routeModule.GET, "function", "GET handler exported");
     assert.equal(routeModule.GET, routeModule.POST, "GET and POST share handler");
     assert.equal(
-      routeModule.GET,
-      nextAuthStub.__getLastHandler(),
-      "Handler returned from NextAuth stub",
+      nextAuthStub.__getLastOptions(),
+      undefined,
+      "NextAuth not invoked until handler executes",
     );
+
+    const result = routeModule.GET();
+
+    assert.equal(result, handlerResponse, "Handler delegates to stub");
+
     const receivedOptions = nextAuthStub.__getLastOptions();
     assert.ok(receivedOptions, "NextAuth invoked with config");
+
+    const receivedProvider = receivedOptions?.providers?.find(
+      (provider) => provider.id === "google",
+    );
+    const expectedProvider = authConfig.providers.find(
+      (provider) => provider.id === "google",
+    );
+
+    assert.ok(receivedProvider, "Google provider forwarded");
+    assert.ok(expectedProvider, "Expected provider resolved");
     assert.deepEqual(
-      receivedOptions?.providers,
-      authConfig.providers,
-      "Providers list forwarded",
+      receivedProvider?.options?.authorization?.params,
+      expectedProvider?.options?.authorization?.params,
+      "Provider scope and prompts forwarded",
     );
     assert.equal(
       receivedOptions?.session?.strategy,
       authConfig.session?.strategy,
       "Session strategy forwarded",
     );
-    assert.equal(routeModule.GET(), handlerResponse, "Handler delegates to stub");
+    assert.equal(
+      nextAuthStub.__getLastHandler(),
+      global.__NEXT_AUTH_HANDLER__,
+      "Memoized handler returned from NextAuth stub",
+    );
   } finally {
     process.env.GOOGLE_CLIENT_ID = originalClientId;
     process.env.GOOGLE_CLIENT_SECRET = originalClientSecret;
