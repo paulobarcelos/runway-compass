@@ -94,6 +94,7 @@ If you catch yourself writing "new", "old", "legacy", "wrapper", "unified", or i
 - You must never implement mocks in end to end tests. We always use real data and real APIs.
 - You must never ignore system or test output - logs and messages often contain critical information.
 - Test output must be pristine to pass. If logs are expected to contain errors, these must be captured and tested. If a test is intentionally triggering an error, we must capture and validate that the error output is as we expect
+- For every change, run the full verification loop locally: `npm run lint`, `npm test`, and `npm run build`. Treat a clean lint/test/build as the minimal bar before asking Paulo to review or merging anything. If any command fails, stop and fix the issue instead of proceeding.
 
 ## Systematic Debugging Process
 
@@ -164,7 +165,6 @@ For commands that don't return quickly (e.g., dev servers, tests, or interactive
 
 Example: For a dev server, use "tmux new-session -d -s dev-server 'npm run dev'". Later, fetch logs with "tmux capture-pane -t dev-server -p | tail -n 50". If you need to stop it, run "tmux kill-session -t dev-server".
 
-Always detach after interacting to free the loop.
 
 ### Launching Subagents
 When work can be parallelized, spawn subagents in dedicated TMUX sessions:
@@ -172,7 +172,7 @@ When work can be parallelized, spawn subagents in dedicated TMUX sessions:
 - Inspect output: tmux capture-pane -t <agent-name> -p | tail -n 10
 
 Send follow-up messages with exactly two tmux calls every time:
-1) tmux send-keys -t <agent-name> '<Coordinator>${MESSAGE}</Coordinator>'
+1) tmux send-keys -t <agent-name> '${MESSAGE}'
 2) tmux send-keys -t <agent-name> C-m
 
-Never wrap these calls in scripts, combine them on one line, or replace the second command with newline escapes or text versions of C-m.
+Never wrap these follow-up messages calls in scripts, combine them on one line, or replace the second command with newline escapes or text versions of C-m. You should always use the exact two commands above to ensure proper delivery.
