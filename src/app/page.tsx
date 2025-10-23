@@ -5,6 +5,7 @@ import { requireSession } from "@/server/auth/session";
 import { ConnectSpreadsheetCard } from "@/components/spreadsheet/connect-spreadsheet-card";
 import { BaseCurrencySelector } from "@/components/currency/base-currency-selector";
 import { CategoryManager } from "@/components/categories/category-manager";
+import { BudgetPlanManager } from "@/components/budget-plan/budget-plan-manager";
 import { AccountsManager } from "@/components/accounts/accounts-manager";
 import { SpreadsheetHealthProvider } from "@/components/spreadsheet/spreadsheet-health-context";
 import { SpreadsheetHealthPanel } from "@/components/spreadsheet/spreadsheet-health-panel";
@@ -59,6 +60,8 @@ export default async function Home() {
           <BaseCurrencySelector />
 
           <CategoryManager />
+
+          <BudgetPlanManager />
 
           <AccountsManager />
         </div>
