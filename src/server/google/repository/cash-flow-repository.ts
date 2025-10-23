@@ -36,6 +36,9 @@ export interface CashFlowEntry {
   note: string;
 }
 
+// Maintain compatibility with modules that import CashFlowRecord from this file.
+export type CashFlowRecord = CashFlowEntry;
+
 interface CashFlowRepositoryOptions {
   sheets: sheets_v4.Sheets;
   spreadsheetId: string;

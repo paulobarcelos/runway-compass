@@ -193,6 +193,7 @@ export const SNAPSHOTS_SHEET_SCHEMA = requireSchema("snapshots");
 export const CASH_FLOWS_SHEET_SCHEMA = requireSchema("cash_flows");
 export const ACTUALS_SHEET_SCHEMA = requireSchema("actuals");
 export const FUTURE_EVENTS_SHEET_SCHEMA = requireSchema("future_events");
+export const CASH_FLOWS_SHEET_SCHEMA = requireSchema("cash_flows");
 export const RUNWAY_PROJECTION_SHEET_SCHEMA = requireSchema("runway_projection");
 
 export function columnIndexToLetter(index: number) {
