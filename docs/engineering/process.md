@@ -10,6 +10,11 @@
 - Run available unit/integration tests locally before requesting review.
 - Require at least one approval (self-review acceptable for solo development, but document rationale).
 
+## Continuous Integration
+- Every pull request triggers `.github/workflows/ci.yml` (lint, test, build). Keep the workflow green; branch protection blocks merges when CI fails.
+- Vercel preview builds run in parallel. Treat the Actions workflow as the source of truth for regression checks; Vercel ensures deployability.
+- If a run flakes, rerun via the GitHub Actions UI and note the retry in the PR discussion.
+
 ## Documentation
 - Update relevant files in `docs/` whenever scope or architecture changes.
 - Record major decisions in `docs/notes/decision-log.md`.
@@ -34,3 +39,4 @@
 - Maintain daily status updates on the project board or decision log for asynchronous alignment.
 - When multiple agents work in parallel, coordinate tab/feature ownership to minimize merge conflicts.
 - Use draft PRs for visibility when work is ongoing.
+- For end-to-end auth QA, temporarily assign `staging.runway.paulobarcelos.com` to the target preview (`vercel alias <preview-url> staging.runway.paulobarcelos.com`). Release the alias once review completes so others can reuse it.

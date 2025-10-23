@@ -15,20 +15,18 @@ Google Sheets & Drive
 ```
 
 ## Data Tabs
-- `categories`: category_id, label, color, rollover_flag, sort_order.
+- `categories`: category_id, label, color, monthly_budget, sort_order.
 - `accounts`: account_id, name, type, currency, include_in_runway, sort_order, last_snapshot_at.
 - `snapshots`: snapshot_id, account_id, date, balance, note.
-- `budget_plan`: record_id, category_id, month, year, amount, rollover_balance.
-- `actuals`: txn_id, account_id, date, category_id, amount, status, entry_mode, note.
-- `future_events`: event_id, type (income/expense), account_id, category_id, schedule (start_month, end_month, frequency), amount, status, linked_txn_id.
+- `cash_flows`: flow_id, type (income/expense), category_id, planned_date, planned_amount, actual_date, actual_amount, status (planned/posted/void), account_id (optional), note.
 - `runway_projection`: month, year, starting_balance, income_total, expense_total, ending_balance, stoplight_status, notes.
 - `_meta`: key-value pairs (selected_spreadsheet_id, schema_version, last_migration_at).
 
 ## Core Modules
 - **Auth Layer:** NextAuth configuration with Google provider requesting `openid email profile`, `https://www.googleapis.com/auth/drive.file`, `https://www.googleapis.com/auth/spreadsheets` plus offline access.
 - **Sheets Client:** Wrapper around Google Sheets/Drive APIs handling batching, retries, and error normalization. See [Google Sheets reference](../notes/google-sheets-reference.md) for quotas, batching, and scope guidance.
-- **Repository Layer:** Typed functions for each tab (e.g., `BudgetRepository`, `AccountRepository`) encapsulating read/write logic and schema coercion.
-- **Projection Engine:** Aggregates data to compute monthly runway timeline and persists derived results in `runway_projection`.
+- **Repository Layer:** Typed functions for each tab (e.g., `CategoryRepository`, `CashFlowRepository`, `AccountRepository`) encapsulating read/write logic and schema coercion.
+- **Projection Engine:** Aggregates category budgets, cash flows, and snapshots to produce the runway timeline, optionally persisting derived results in `runway_projection`.
 - **UI Components:** Form editors, tables, charts, and status widgets aligned with Tailwind design system.
 
 ## Runtime Considerations

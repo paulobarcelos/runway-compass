@@ -46,3 +46,21 @@ NEXT_PUBLIC_GOOGLE_PICKER_PROJECT_NUMBER=<project-number-optional>
 6. Create an API key restricted to the Picker API and use it for `NEXT_PUBLIC_GOOGLE_PICKER_API_KEY`. Retrieve the project number from Google Cloud and assign it to `NEXT_PUBLIC_GOOGLE_PICKER_PROJECT_NUMBER` if desired.
 
 > These steps establish the baseline so the Auth & Sheet handshake milestone can focus on application wiring instead of console setup.
+
+## Deploying to Vercel
+- Import the GitHub repository into Vercel and use the default build command (`npm run build`) with output directory `.next`.
+- Add environment variables via the Vercel CLI or dashboard:
+  - Production: `NEXTAUTH_URL=https://runway.paulobarcelos.com`.
+  - Preview: `NEXTAUTH_URL=https://$VERCEL_URL`.
+  - Mirror the remaining secrets (`NEXTAUTH_SECRET`, Google OAuth credentials, Picker API key/number, debug flags) across Production and Preview.
+- Configure DNS with CNAME records:
+  - `app.runway.paulobarcelos.com → cname.vercel-dns.com`
+  - `staging.runway.paulobarcelos.com → cname.vercel-dns.com`
+- In Google Cloud OAuth settings, add redirect URIs for both hosted domains:
+  - `https://runway.paulobarcelos.com/api/auth/callback/google`
+  - `https://staging.runway.paulobarcelos.com/api/auth/callback/google`
+
+### Preview Testing Workflow
+- Vercel automatically builds a preview for every pull request; GitHub Actions CI runs independently.
+- Use the default preview URL for most QA. When end-to-end auth testing is required, assign `staging.runway.paulobarcelos.com` to the target preview via the Vercel dashboard or CLI (`vercel alias <preview-url> staging.runway.paulobarcelos.com`).
+- Production stays locked to the latest `main` deployment served at `runway.paulobarcelos.com`.

@@ -26,20 +26,18 @@
 
 ## Product Scope (MVP)
 ### Budget Planning
-- Capture annual allocations per category with monthly breakdown and automatic rollover of unused amounts.
+- Capture per-category monthly allocations that fuel runway projections.
+- Surface variance warnings when actual spending exceeds the allocated amount.
 - Support editing category labels and ordering.
 
 ### Accounts & Snapshots
 - Manage multiple accounts (bank, digital wallets, cash) with snapshot history.
 - Allow monthly baseline updates and ad-hoc captures for cash reserves.
 
-### Actuals Entry
-- Manual logging of transactions by account, category, amount, date, and notes.
-- Track status (`planned`, `posted`) and entry mode (`manual`, `cash`).
-
-### Future Events
-- Schedule future income/expenses with ability to mark as posted and link to actuals.
-- Handle recurring or one-off events within the 12–24 month horizon.
+### Cash Flow Planning
+- Maintain a single ledger of income and expense items with status (`planned`, `posted`, `void`).
+- Log future cash flows ahead of time, then reconcile them by flipping status and capturing final amounts.
+- Allow ad-hoc actual entries when spending deviates from the original plan.
 
 ### Runway Dashboard
 - Present monthly projection table and chart with green/yellow/red segments.
@@ -49,14 +47,13 @@
 1. **Foundation:** Project scaffold, Google auth setup, environment documentation.
 2. **Auth & Sheet Handshake:** Sign-in flow, picker, `_meta` manifest.
 3. **Schema & Repository:** Create/validate Sheet tabs, batching helpers, schema guards.
-4. **Budget Planner:** UI and server actions for categories and budgets.
+4. **Budget Planner:** Category budgets, cash-flow ledger, runway timeline projection.
 5. **Accounts & Snapshots:** Account CRUD and snapshot capture/history.
-6. **Actuals & Future Events:** Manual entry flows and reconciliation.
+6. **Actuals & Adjustments:** Manual reconciliation flows and variance reporting.
 7. **Runway Dashboard:** Projection engine, stoplight visualization, variance insights.
 8. **Polish & Deploy:** UX cleanup, docs, deployment to Vercel.
 
 ## Open Questions
 - Do we store scenario toggles alongside projections or defer entirely to backlog?
 - What threshold defines acceptable variance between projected and actual balances?
-- Should rollover logic allow per-category exceptions in the future?
-
+- Should we offer recurring cash-flow helpers or continue with manual duplication?

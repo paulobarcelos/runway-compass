@@ -27,3 +27,15 @@ This journal is optional but encouraged—treat it as shared memory that makes t
 ## 2025-10-22  – Accounts diagnostics structural errors
 - Sheets `values.get` 400/404 responses or "Unable to parse range" now map to `missing_sheet`/`range_error` diagnostics instead of throwing so API clients can surface actionable messaging.
 - Header mismatches short-circuit repository parsing with `header_mismatch` plus the expected column list; client workflows should read the `errors` array alongside `warnings`.
+
+## 2025-10-23 – Cash-flow ledger + projection plan
+- Milestone 3 pivots to a single `cash_flows` sheet with statuses (`planned`, `posted`, `void`) replacing the budget grid and split actual/future tabs.
+- Runway timeline will be computed server-side from category monthly budgets, ledger entries, and account snapshots; projected balances extend beyond the latest snapshot.
+- Planned entries flip to posted in place, capturing actual dates/amounts so projections and actuals stay in one record.
+- Documentation, API routes, and repositories must align before implementation so multiple agents can tackle ledger, projection, and UI work in parallel.
+
+## 2025-10-23 – Hosted environment baseline
+- Vercel project now exposes production (`runway.paulobarcelos.com`) and floating staging (`staging.runway.paulobarcelos.com`) domains with matching Google OAuth redirect URIs.
+- Environment variables mirror the local `.env.local` values across Production and Preview (`NEXTAUTH_URL` uses `$VERCEL_URL` for previews).
+- GitHub Actions CI runs `npm ci`, `npm run lint`, `npm test`, and `npm run build` on every PR update; Vercel previews remain independent.
+- When full auth QA is needed, reassign `staging.runway.paulobarcelos.com` to the desired preview; otherwise the default preview URL is sufficient.
