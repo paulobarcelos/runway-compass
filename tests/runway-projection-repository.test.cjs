@@ -28,7 +28,7 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
         },
         update: async (request) => {
           updateCalls.push(request);
-          storedValues = request.resource?.values ?? [];
+          storedValues = request.requestBody?.values ?? [];
           return { status: 200 };
         },
       },
@@ -189,7 +189,7 @@ test("runway projection repository save writes header and rows", async () => {
   assert.equal(call.range, "runway_projection!A1:H3");
   assert.equal(call.valueInputOption, "RAW");
 
-  assert.deepEqual(call.resource.values, [
+  assert.deepEqual(call.requestBody.values, [
     [
       "month",
       "year",
@@ -204,5 +204,5 @@ test("runway projection repository save writes header and rows", async () => {
     ["2", "2025", "12000", "4000", "6000", "10000", "yellow", ""],
   ]);
 
-  assert.deepEqual(getStoredValues(), call.resource.values);
+  assert.deepEqual(getStoredValues(), call.requestBody.values);
 });

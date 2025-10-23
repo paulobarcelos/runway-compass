@@ -85,7 +85,7 @@ function createSheetsStub({ existingSheets = [], sheetValues = {} } = {}) {
           valueUpdateCalls.push(request);
           const range = String(request.range ?? "");
           const [title] = range.split("!");
-          sheetValues[title] = request.resource?.values ?? [];
+          sheetValues[title] = request.requestBody?.values ?? [];
           return { status: 200 };
         },
       },
@@ -153,7 +153,7 @@ test("bootstrapSpreadsheet creates meta sheet and rows when missing", async () =
       spreadsheetId: "sheet-123",
       range: "_meta!A1:B4",
       valueInputOption: "RAW",
-      resource: {
+      requestBody: {
         values: [
           ["key", "value"],
           ["selected_spreadsheet_id", "sheet-123"],
@@ -228,7 +228,7 @@ test("bootstrapSpreadsheet preserves existing keys and selected id", async () =>
       call.range.startsWith("_meta!"),
     );
     assert.ok(updateRequest, "meta sheet update issued");
-    const rows = updateRequest.resource.values;
+    const rows = updateRequest.requestBody.values;
 
     assert.deepEqual(rows[0], ["key", "value"]);
     assert.deepEqual(rows[1], ["selected_spreadsheet_id", "sheet-existing"]);
@@ -435,7 +435,7 @@ test("bootstrapSpreadsheet ensures data sheets exist with headers", async () => 
       );
 
       assert.ok(headerUpdate, `expected header update for ${title}`);
-      assert.deepEqual(headerUpdate.resource.values[0], headers);
+      assert.deepEqual(headerUpdate.requestBody.values[0], headers);
     }
   });
 });

@@ -28,7 +28,7 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
         },
         update: async (request) => {
           updateCalls.push(request);
-          storedValues = request.resource?.values ?? [];
+          storedValues = request.requestBody?.values ?? [];
           return { status: 200 };
         },
       },
@@ -154,11 +154,11 @@ test("budget plan repository save writes header and rows", async () => {
   assert.equal(call.range, "budget_plan!A1:F3");
   assert.equal(call.valueInputOption, "RAW");
 
-  assert.deepEqual(call.resource.values, [
+  assert.deepEqual(call.requestBody.values, [
     ["record_id", "category_id", "month", "year", "amount", "rollover_balance"],
     ["rec-1", "cat-1", "1", "2025", "1200.5", "100"],
     ["rec-2", "cat-2", "2", "2025", "300", "0"],
   ]);
 
-  assert.deepEqual(getStoredValues(), call.resource.values);
+  assert.deepEqual(getStoredValues(), call.requestBody.values);
 });

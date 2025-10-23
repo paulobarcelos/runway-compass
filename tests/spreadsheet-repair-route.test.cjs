@@ -26,7 +26,7 @@ test("repair route validates spreadsheet id", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createRepairHandler } = await jiti.import(
-      "../src/app/api/spreadsheet/repair/route",
+      "../src/app/api/spreadsheet/repair/repair-handler",
     );
 
     const handler = createRepairHandler({
@@ -49,7 +49,7 @@ test("repair route forwards sheet list to handler", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createRepairHandler } = await jiti.import(
-      "../src/app/api/spreadsheet/repair/route",
+      "../src/app/api/spreadsheet/repair/repair-handler",
     );
 
     const calls = [];
@@ -100,7 +100,7 @@ test("repair route maps auth failures to 401", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createRepairHandler } = await jiti.import(
-      "../src/app/api/spreadsheet/repair/route",
+      "../src/app/api/spreadsheet/repair/repair-handler",
     );
 
     const handler = createRepairHandler({

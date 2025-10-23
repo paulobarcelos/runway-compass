@@ -28,7 +28,7 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
         },
         update: async (request) => {
           updateCalls.push(request);
-          storedValues = request.resource?.values ?? [];
+          storedValues = request.requestBody?.values ?? [];
           return { status: 200 };
         },
       },
@@ -208,11 +208,11 @@ test("categories repository save persists header and rows", async () => {
   assert.equal(call.range, "categories!A1:G3");
   assert.equal(call.valueInputOption, "RAW");
 
-  assert.deepEqual(call.resource.values, [
+  assert.deepEqual(call.requestBody.values, [
     ["category_id", "label", "color", "rollover_flag", "sort_order", "monthly_budget", "currency_code"],
     ["cat-123", "Housing", "#FF0000", "TRUE", "5", "1500", "SEK"],
     ["cat-456", "Food", "#00FF00", "FALSE", "10", "", ""],
   ]);
 
-  assert.deepEqual(getStoredValues(), call.resource.values);
+  assert.deepEqual(getStoredValues(), call.requestBody.values);
 });

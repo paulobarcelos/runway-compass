@@ -50,7 +50,6 @@ export async function createAndRegisterSpreadsheet({
   const manifest = await registerSelection({
     spreadsheetId,
     getSession: async () => session,
-    bootstrapSheetTitles: [],
     now,
   });
 

@@ -132,7 +132,7 @@ export function CategoryManager() {
         const categories = Array.isArray(payload?.categories) ? payload.categories : [];
 
         const normalized: CategoryDraft[] = categories
-          .map((item) => ({
+          .map((item: Record<string, unknown>) => ({
             categoryId: String(item.categoryId ?? "").trim(),
             label: String(item.label ?? "").trim(),
             color: String(item.color ?? "").trim() || "#999999",
@@ -148,9 +148,9 @@ export function CategoryManager() {
             currencyCode:
               String(item.currencyCode ?? "").trim().toUpperCase() || baseCurrency.toUpperCase(),
           }))
-          .sort((left, right) => left.sortOrder - right.sortOrder);
+          .sort((left: CategoryDraft, right: CategoryDraft) => left.sortOrder - right.sortOrder);
 
-        setOriginal(normalized.map((item) => ({ ...item })));
+        setOriginal(normalized.map((item: CategoryDraft) => ({ ...item })));
         setDrafts(normalized);
         setLoadState("ready");
         setLastSavedAt(null);
@@ -213,7 +213,7 @@ export function CategoryManager() {
     setDrafts((current) => {
       const nextSort =
         current.length > 0
-          ? Math.max(...current.map((item) => item.sortOrder)) + 1
+          ? Math.max(...current.map((item: CategoryDraft) => item.sortOrder)) + 1
           : 1;
       const blank = createBlankCategory(nextSort);
       return [...current, { ...blank, currencyCode: baseCurrency }];
@@ -225,7 +225,7 @@ export function CategoryManager() {
       return;
     }
 
-    setDrafts((current) => current.filter((item) => item.categoryId !== categoryId));
+    setDrafts((current) => current.filter((item: CategoryDraft) => item.categoryId !== categoryId));
   }, [isHealthBlocked]);
 
   const handleFieldChange = useCallback(
@@ -235,7 +235,7 @@ export function CategoryManager() {
       }
 
       setDrafts((current) =>
-        current.map((item) => {
+        current.map((item: CategoryDraft) => {
           if (item.categoryId !== categoryId) {
             return item;
           }
@@ -271,7 +271,7 @@ export function CategoryManager() {
       return;
     }
 
-    setDrafts(original.map((item) => ({ ...item })));
+    setDrafts(original.map((item: CategoryDraft) => ({ ...item })));
     setSaveError(null);
     setLastSavedAt(null);
   }, [original, isHealthBlocked]);
@@ -316,7 +316,7 @@ export function CategoryManager() {
       const updated = Array.isArray(body?.categories) ? body.categories : payload.categories;
 
       const normalized: CategoryDraft[] = updated
-        .map((item) => ({
+        .map((item: Record<string, unknown>) => ({
           categoryId: String(item.categoryId ?? "").trim(),
           label: String(item.label ?? "").trim(),
           color: String(item.color ?? "").trim() || "#999999",
@@ -331,9 +331,9 @@ export function CategoryManager() {
               : "",
           currencyCode: String(item.currencyCode ?? "").trim().toUpperCase(),
         }))
-        .sort((left, right) => left.sortOrder - right.sortOrder);
+        .sort((left: CategoryDraft, right: CategoryDraft) => left.sortOrder - right.sortOrder);
 
-      setOriginal(normalized.map((item) => ({ ...item })));
+      setOriginal(normalized.map((item: CategoryDraft) => ({ ...item })));
       setDrafts(normalized);
 
       const savedAt = new Date().toISOString();
@@ -618,8 +618,9 @@ export function CategoryManager() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => void fetchCategories(spreadsheetId)}
-              className="inline-flex items-center rounded-md bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-500"
+              onClick={spreadsheetId ? () => void fetchCategories(spreadsheetId) : undefined}
+              disabled={!spreadsheetId}
+              className="inline-flex items-center rounded-md bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Reload categories
             </button>

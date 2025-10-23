@@ -24,7 +24,7 @@ test("categories route requires spreadsheetId query", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createCategoriesHandler } = await jiti.import(
-      "../src/app/api/categories/route",
+      "../src/app/api/categories/categories-handler",
     );
 
     const { GET } = createCategoriesHandler({
@@ -46,7 +46,7 @@ test("categories route maps auth errors to 401", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createCategoriesHandler } = await jiti.import(
-      "../src/app/api/categories/route",
+      "../src/app/api/categories/categories-handler",
     );
 
     const { GET } = createCategoriesHandler({
@@ -68,7 +68,7 @@ test("categories route returns data on success", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createCategoriesHandler } = await jiti.import(
-      "../src/app/api/categories/route",
+      "../src/app/api/categories/categories-handler",
     );
 
     const { GET } = createCategoriesHandler({
@@ -113,7 +113,7 @@ test("categories update route requires spreadsheetId query", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createCategoriesHandler } = await jiti.import(
-      "../src/app/api/categories/route",
+      "../src/app/api/categories/categories-handler",
     );
 
     const { POST } = createCategoriesHandler({
@@ -140,7 +140,7 @@ test("categories update route validates payload shape", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createCategoriesHandler } = await jiti.import(
-      "../src/app/api/categories/route",
+      "../src/app/api/categories/categories-handler",
     );
 
     const { POST } = createCategoriesHandler({
@@ -167,7 +167,7 @@ test("categories update route persists records and returns payload", async () =>
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createCategoriesHandler } = await jiti.import(
-      "../src/app/api/categories/route",
+      "../src/app/api/categories/categories-handler",
     );
 
     const saved = [];

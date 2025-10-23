@@ -180,7 +180,7 @@ export function createRunwayProjectionRepository({
           spreadsheetId,
           range,
           valueInputOption: "RAW",
-          resource: {
+          requestBody: {
             values: rows,
           },
         }),

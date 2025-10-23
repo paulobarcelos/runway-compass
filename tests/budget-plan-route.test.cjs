@@ -24,7 +24,7 @@ test("budget plan route requires spreadsheetId query", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createBudgetPlanHandler } = await jiti.import(
-      "../src/app/api/budget-plan/route",
+      "../src/app/api/budget-plan/budget-plan-handler",
     );
 
     const { GET } = createBudgetPlanHandler({
@@ -46,7 +46,7 @@ test("budget plan route maps auth errors to 401", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createBudgetPlanHandler } = await jiti.import(
-      "../src/app/api/budget-plan/route",
+      "../src/app/api/budget-plan/budget-plan-handler",
     );
 
     const { GET } = createBudgetPlanHandler({
@@ -68,7 +68,7 @@ test("budget plan route returns data on success", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createBudgetPlanHandler } = await jiti.import(
-      "../src/app/api/budget-plan/route",
+      "../src/app/api/budget-plan/budget-plan-handler",
     );
 
     const { GET } = createBudgetPlanHandler({
@@ -111,7 +111,7 @@ test("budget plan update route requires spreadsheetId query", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createBudgetPlanHandler } = await jiti.import(
-      "../src/app/api/budget-plan/route",
+      "../src/app/api/budget-plan/budget-plan-handler",
     );
 
     const { POST } = createBudgetPlanHandler({
@@ -138,7 +138,7 @@ test("budget plan update route validates payload shape", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createBudgetPlanHandler } = await jiti.import(
-      "../src/app/api/budget-plan/route",
+      "../src/app/api/budget-plan/budget-plan-handler",
     );
 
     const { POST } = createBudgetPlanHandler({
@@ -165,7 +165,7 @@ test("budget plan update route persists records and returns payload", async () =
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createBudgetPlanHandler } = await jiti.import(
-      "../src/app/api/budget-plan/route",
+      "../src/app/api/budget-plan/budget-plan-handler",
     );
 
     const saved = [];

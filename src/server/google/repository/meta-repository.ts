@@ -95,7 +95,7 @@ export function createMetaRepository({
           spreadsheetId,
           range,
           valueInputOption: "RAW",
-          resource: {
+          requestBody: {
             values: rows,
           },
         }),

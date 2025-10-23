@@ -131,7 +131,7 @@ export function createBudgetPlanRepository({
           spreadsheetId,
           range,
           valueInputOption: "RAW",
-          resource: {
+          requestBody: {
             values: rows,
           },
         }),

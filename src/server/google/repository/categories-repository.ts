@@ -151,7 +151,7 @@ export function createCategoriesRepository({
           spreadsheetId,
           range,
           valueInputOption: "RAW",
-          resource: {
+          requestBody: {
             values: rows,
           },
         }),

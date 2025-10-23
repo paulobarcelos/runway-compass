@@ -39,9 +39,9 @@ interface MetadataMapEntry {
 
 type MetadataMap = Map<string, MetadataMapEntry>;
 
-interface SessionWithGoogleTokens extends Session {
+type SessionWithGoogleTokens = Session & {
   googleTokens?: GoogleAuthTokens | null;
-}
+};
 
 interface SheetContext {
   sheetId: string;
