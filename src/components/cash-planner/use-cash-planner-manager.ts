@@ -42,6 +42,12 @@ type FetchCashFlows = (options: FetchCashFlowsOptions) => Promise<CashFlowRecord
 
 type SaveCashFlows = (options: SaveCashFlowsOptions) => Promise<void>;
 
+const defaultFetchCashFlows: FetchCashFlows = ({ spreadsheetId }) =>
+  fetchCashFlowsFromApi(spreadsheetId);
+
+const defaultSaveCashFlows: SaveCashFlows = ({ spreadsheetId, flows }) =>
+  saveCashFlowsToApi(spreadsheetId, flows);
+
 function cloneFlows(flows: CashFlowRecord[]) {
   return flows.map((flow) => ({ ...flow }));
 }
@@ -66,8 +72,8 @@ function serializeFlows(flows: CashFlowRecord[]) {
 
 export function useCashPlannerManager({
   spreadsheetId: spreadsheetIdProp = null,
-  fetchCashFlows = fetchCashFlowsFromApi,
-  saveCashFlows = saveCashFlowsToApi,
+  fetchCashFlows = defaultFetchCashFlows,
+  saveCashFlows = defaultSaveCashFlows,
 }: {
   spreadsheetId?: string | null;
   fetchCashFlows?: FetchCashFlows;
