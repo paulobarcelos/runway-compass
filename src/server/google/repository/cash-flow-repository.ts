@@ -178,7 +178,9 @@ export interface MonthlyCashFlowSummary {
 export function summarizeCashFlowsByMonth(entries: CashFlowEntry[]) {
   const accumulator = new Map<string, MonthlyCashFlowSummary>();
 
-  function add(month: string | null, field: keyof MonthlyCashFlowSummary, amount: number) {
+  type MonthlySummaryField = Exclude<keyof MonthlyCashFlowSummary, "month">;
+
+  function add(month: string | null, field: MonthlySummaryField, amount: number) {
     if (!month) {
       return;
     }
