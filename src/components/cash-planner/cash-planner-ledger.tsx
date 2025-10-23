@@ -149,7 +149,10 @@ export function CashPlannerLedger({ manager }: { manager: CashPlannerManagerStat
   const totals = useMemo(
     () => ({
       planned: plannedFlows.reduce((sum, flow) => sum + flow.plannedAmount, 0),
-      posted: postedFlows.reduce((sum, flow) => sum + flow.actualAmount, 0),
+      posted: postedFlows.reduce(
+        (sum, flow) => sum + (flow.actualAmount ?? flow.plannedAmount),
+        0,
+      ),
       voided: voidFlows.reduce((sum, flow) => sum + flow.plannedAmount, 0),
     }),
     [plannedFlows, postedFlows, voidFlows],
@@ -270,20 +273,25 @@ export function CashPlannerLedger({ manager }: { manager: CashPlannerManagerStat
                 </tr>
               </thead>
               <tbody>
-                {postedFlows.map((flow) => (
-                  <tr
-                    key={flow.flowId}
-                    className="rounded-lg border border-transparent bg-white/80 text-sm shadow-sm dark:bg-zinc-900/70"
-                  >
-                    <td className="px-2 py-2 text-zinc-700 dark:text-zinc-200">{flow.note || flow.type}</td>
-                    <td className="px-2 py-2 text-zinc-500 dark:text-zinc-400">{formatDate(flow.actualDate)}</td>
-                    <td className="px-2 py-2 text-right font-semibold text-zinc-700 dark:text-zinc-100">
-                      {formatCurrency(flow.actualAmount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                {postedFlows.map((flow) => {
+                  const renderedDate = formatDate(flow.actualDate ?? flow.plannedDate);
+                  const renderedAmount = flow.actualAmount ?? flow.plannedAmount;
+
+                  return (
+                    <tr
+                      key={flow.flowId}
+                      className="rounded-lg border border-transparent bg-white/80 text-sm shadow-sm dark:bg-zinc-900/70"
+                    >
+                      <td className="px-2 py-2 text-zinc-700 dark:text-zinc-200">{flow.note || flow.type}</td>
+                      <td className="px-2 py-2 text-zinc-500 dark:text-zinc-400">{renderedDate}</td>
+                      <td className="px-2 py-2 text-right font-semibold text-zinc-700 dark:text-zinc-100">
+                        {formatCurrency(renderedAmount)}
+                      </td>
+                    </tr>
+                  );
+                })}
+             </tbody>
+           </table>
           ) : (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">No posted entries.</p>
           )}

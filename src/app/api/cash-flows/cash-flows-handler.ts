@@ -6,14 +6,16 @@ import { getSession } from "@/server/auth/session";
 import { createSheetsClient } from "@/server/google/clients";
 import {
   createCashFlowRepository,
-  type CashFlowRecord,
+  type CashFlowEntry,
+  type CashFlowStatus,
+  type CashFlowType,
 } from "@/server/google/repository/cash-flow-repository";
 
 interface FetchCashFlowsOptions {
   spreadsheetId: string;
 }
 
-type FetchCashFlows = (options: FetchCashFlowsOptions) => Promise<CashFlowRecord[]>;
+type FetchCashFlows = (options: FetchCashFlowsOptions) => Promise<CashFlowEntry[]>;
 
 async function fetchCashFlowsFromSheets({ spreadsheetId }: FetchCashFlowsOptions) {
   const session = await getSession();
@@ -35,7 +37,7 @@ async function fetchCashFlowsFromSheets({ spreadsheetId }: FetchCashFlowsOptions
 }
 
 interface SaveCashFlowsOptions extends FetchCashFlowsOptions {
-  flows: CashFlowRecord[];
+  flows: CashFlowEntry[];
 }
 
 type SaveCashFlows = (options: SaveCashFlowsOptions) => Promise<void>;
@@ -59,6 +61,10 @@ async function saveCashFlowsToSheets({ spreadsheetId, flows }: SaveCashFlowsOpti
   await repository.save(flows);
 }
 
+const ALLOWED_TYPES: ReadonlySet<CashFlowType> = new Set(["income", "expense"]);
+const ALLOWED_STATUSES: ReadonlySet<CashFlowStatus> =
+  new Set(["planned", "posted", "void"]);
+
 function parseCashFlowsPayload(value: unknown) {
   if (!value || typeof value !== "object") {
     return null;
@@ -71,7 +77,7 @@ function parseCashFlowsPayload(value: unknown) {
     return null;
   }
 
-  const flows: CashFlowRecord[] = [];
+  const flows: CashFlowEntry[] = [];
 
   for (let index = 0; index < rawFlows.length; index += 1) {
     const item = rawFlows[index];
@@ -113,20 +119,41 @@ function parseCashFlowsPayload(value: unknown) {
       return null;
     }
 
+    const typeNormalized = type.trim().toLowerCase() as CashFlowType;
+
+    if (!ALLOWED_TYPES.has(typeNormalized)) {
+      return null;
+    }
+
+    const statusNormalized = status.trim().toLowerCase() as CashFlowStatus;
+
+    if (!ALLOWED_STATUSES.has(statusNormalized)) {
+      return null;
+    }
+
     const sanitizedActualAmount =
-      typeof actualAmount === "number" && Number.isFinite(actualAmount) ? actualAmount : 0;
+      typeof actualAmount === "number" && Number.isFinite(actualAmount)
+        ? actualAmount
+        : null;
+    const sanitizedActualDate =
+      typeof actualDate === "string" && actualDate.trim() ? actualDate.trim() : null;
+    const sanitizedAccountId =
+      typeof accountId === "string" && accountId.trim() ? accountId.trim() : null;
+    const sanitizedCategoryId =
+      typeof categoryId === "string" && categoryId.trim() ? categoryId.trim() : "";
+    const sanitizedNote = typeof note === "string" ? note.trim() : "";
 
     flows.push({
       flowId: flowId.trim(),
-      type: type.trim(),
-      categoryId: typeof categoryId === "string" ? categoryId.trim() : "",
+      type: typeNormalized,
+      categoryId: sanitizedCategoryId,
       plannedDate: plannedDate.trim(),
       plannedAmount,
-      actualDate: typeof actualDate === "string" ? actualDate.trim() : "",
+      actualDate: sanitizedActualDate,
       actualAmount: sanitizedActualAmount,
-      status: status.trim(),
-      accountId: typeof accountId === "string" ? accountId.trim() : "",
-      note: typeof note === "string" ? note.trim() : "",
+      status: statusNormalized,
+      accountId: sanitizedAccountId,
+      note: sanitizedNote,
     });
   }
 
@@ -171,7 +198,7 @@ export function createCashFlowsHandler({
       return NextResponse.json({ error: "Missing spreadsheetId" }, { status: 400 });
     }
 
-    let flows: CashFlowRecord[] | null = null;
+    let flows: CashFlowEntry[] | null = null;
 
     try {
       const payload = await request.json();
