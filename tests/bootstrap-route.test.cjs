@@ -26,7 +26,7 @@ test("bootstrap route validates request payload", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createBootstrapHandler } = await jiti.import(
-      "../src/app/api/spreadsheet/bootstrap/route",
+      "../src/app/api/spreadsheet/bootstrap/bootstrap-handler",
     );
 
     const handler = createBootstrapHandler({
@@ -49,7 +49,7 @@ test("bootstrap route maps auth failures to 401", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createBootstrapHandler } = await jiti.import(
-      "../src/app/api/spreadsheet/bootstrap/route",
+      "../src/app/api/spreadsheet/bootstrap/bootstrap-handler",
     );
 
     const handler = createBootstrapHandler({
@@ -76,7 +76,7 @@ test("bootstrap route returns manifest on success", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createBootstrapHandler } = await jiti.import(
-      "../src/app/api/spreadsheet/bootstrap/route",
+      "../src/app/api/spreadsheet/bootstrap/bootstrap-handler",
     );
 
     const handler = createBootstrapHandler({
@@ -113,7 +113,7 @@ test("bootstrap route maps unexpected errors to 500", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createBootstrapHandler } = await jiti.import(
-      "../src/app/api/spreadsheet/bootstrap/route",
+      "../src/app/api/spreadsheet/bootstrap/bootstrap-handler",
     );
 
     const handler = createBootstrapHandler({

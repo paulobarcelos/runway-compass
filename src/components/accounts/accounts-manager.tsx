@@ -206,7 +206,7 @@ export function AccountsManager() {
         }
 
         const accounts = Array.isArray(payload?.accounts) ? payload.accounts : [];
-        const normalized: AccountDraft[] = accounts.map((item) => ({
+        const normalized: AccountDraft[] = accounts.map((item: Record<string, unknown>) => ({
           accountId: String(item.accountId ?? "").trim(),
           name: String(item.name ?? "").trim(),
           type: String(item.type ?? "checking").trim() || "checking",
@@ -232,7 +232,7 @@ export function AccountsManager() {
 
         normalized.sort((left, right) => left.sortOrder - right.sortOrder);
 
-        setOriginal(normalized.map((item) => ({ ...item })));
+        setOriginal(normalized.map((item: AccountDraft) => ({ ...item })));
         setDrafts(normalized);
         setLoadState("ready");
         setLastSavedAt(null);
@@ -265,7 +265,7 @@ export function AccountsManager() {
 
         const records = Array.isArray(payload?.snapshots) ? payload.snapshots : [];
         setSnapshots(
-          records.map((item) => ({
+          records.map((item: Record<string, unknown>) => ({
             snapshotId: String(item.snapshotId ?? "").trim(),
             accountId: String(item.accountId ?? "").trim(),
             date: String(item.date ?? "").trim(),
@@ -360,8 +360,10 @@ export function AccountsManager() {
     }
 
     setDrafts((current) => {
-      const nextSortOrder =
-        current.length > 0 ? Math.max(...current.map((item) => item.sortOrder)) + 1 : 1;
+        const nextSortOrder =
+          current.length > 0
+            ? Math.max(...current.map((item: AccountDraft) => item.sortOrder)) + 1
+            : 1;
       return [...current, createBlankAccount(baseCurrency, nextSortOrder)];
     });
   }, [baseCurrency, hasBlockingErrors]);
@@ -428,7 +430,7 @@ export function AccountsManager() {
       return;
     }
 
-    setDrafts(original.map((item) => ({ ...item })));
+    setDrafts(original.map((item: AccountDraft) => ({ ...item })));
     setSaveError(null);
     setLastSavedAt(null);
   }, [original, hasBlockingErrors]);
@@ -470,7 +472,7 @@ export function AccountsManager() {
       const records = Array.isArray(body?.accounts) ? body.accounts : payload.accounts;
 
       const normalized = records
-        .map((item) => ({
+        .map((item: Record<string, unknown>) => ({
           accountId: String(item.accountId ?? "").trim(),
           name: String(item.name ?? "").trim(),
           type: String(item.type ?? "checking").trim() || "checking",
@@ -485,7 +487,7 @@ export function AccountsManager() {
               ? item.lastSnapshotAt.trim()
               : null,
         }))
-        .sort((left, right) => {
+        .sort((left: AccountDraft, right: AccountDraft) => {
           if (left.sortOrder === right.sortOrder) {
             return left.name.localeCompare(right.name);
           }
@@ -493,7 +495,7 @@ export function AccountsManager() {
           return left.sortOrder - right.sortOrder;
         });
 
-      setOriginal(normalized.map((item) => ({ ...item })));
+      setOriginal(normalized.map((item: AccountDraft) => ({ ...item })));
       setDrafts(normalized);
 
       const savedAt = new Date().toISOString();
@@ -561,14 +563,14 @@ export function AccountsManager() {
 
       setSnapshots((current) => [...current, stored]);
       setDrafts((current) =>
-        current.map((item) =>
+        current.map((item: AccountDraft) =>
           item.accountId === account.accountId
             ? { ...item, lastSnapshotAt: stored.date }
             : item,
         ),
       );
       setOriginal((current) =>
-        current.map((item) =>
+        current.map((item: AccountDraft) =>
           item.accountId === account.accountId
             ? { ...item, lastSnapshotAt: stored.date }
             : item,

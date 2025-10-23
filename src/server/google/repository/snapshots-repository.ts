@@ -125,7 +125,7 @@ export function createSnapshotsRepository({
           spreadsheetId,
           range,
           valueInputOption: "RAW",
-          resource: {
+          requestBody: {
             values: rows,
           },
         }),

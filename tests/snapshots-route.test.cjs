@@ -24,7 +24,7 @@ test("snapshots route requires spreadsheetId query", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createSnapshotsHandler } = await jiti.import(
-      "../src/app/api/snapshots/route",
+      "../src/app/api/snapshots/snapshots-handler",
     );
 
     const { GET } = createSnapshotsHandler({
@@ -46,7 +46,7 @@ test("snapshots route returns data on success", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createSnapshotsHandler } = await jiti.import(
-      "../src/app/api/snapshots/route",
+      "../src/app/api/snapshots/snapshots-handler",
     );
 
     const { GET } = createSnapshotsHandler({
@@ -87,7 +87,7 @@ test("snapshots create route validates payload", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createSnapshotsHandler } = await jiti.import(
-      "../src/app/api/snapshots/route",
+      "../src/app/api/snapshots/snapshots-handler",
     );
 
     const { POST } = createSnapshotsHandler({
@@ -114,7 +114,7 @@ test("snapshots create route appends snapshot and returns payload", async () => 
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createSnapshotsHandler } = await jiti.import(
-      "../src/app/api/snapshots/route",
+      "../src/app/api/snapshots/snapshots-handler",
     );
 
     const saved = [];

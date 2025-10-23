@@ -24,7 +24,7 @@ test("accounts route requires spreadsheetId query", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
-      "../src/app/api/accounts/route",
+      "../src/app/api/accounts/accounts-handler",
     );
 
     const { GET } = createAccountsHandler({
@@ -46,7 +46,7 @@ test("accounts route maps auth errors to 401", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
-      "../src/app/api/accounts/route",
+      "../src/app/api/accounts/accounts-handler",
     );
 
     const { GET } = createAccountsHandler({
@@ -68,7 +68,7 @@ test("accounts route returns data on success with warnings and errors", async ()
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
-      "../src/app/api/accounts/route",
+      "../src/app/api/accounts/accounts-handler",
     );
 
     const { GET } = createAccountsHandler({
@@ -141,7 +141,7 @@ test("accounts update route requires spreadsheetId query", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
-      "../src/app/api/accounts/route",
+      "../src/app/api/accounts/accounts-handler",
     );
 
     const { POST } = createAccountsHandler({
@@ -168,7 +168,7 @@ test("accounts update route validates payload shape", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
-      "../src/app/api/accounts/route",
+      "../src/app/api/accounts/accounts-handler",
     );
 
     const { POST } = createAccountsHandler({
@@ -195,7 +195,7 @@ test("accounts update route persists records and returns payload with diagnostic
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
-      "../src/app/api/accounts/route",
+      "../src/app/api/accounts/accounts-handler",
     );
 
     const saved = [];
@@ -296,7 +296,7 @@ test("accounts update route removes snapshots for deleted accounts", async () =>
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createAccountsHandler } = await jiti.import(
-      "../src/app/api/accounts/route",
+      "../src/app/api/accounts/accounts-handler",
     );
 
     const savedSnapshots = [];

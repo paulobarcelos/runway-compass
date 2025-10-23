@@ -26,7 +26,7 @@ test("create route maps auth failures to 401", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createCreateHandler } = await jiti.import(
-      "../src/app/api/spreadsheet/create/route",
+      "../src/app/api/spreadsheet/create/create-handler",
     );
 
     const handler = createCreateHandler({
@@ -47,7 +47,7 @@ test("create route returns manifest on success", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createCreateHandler } = await jiti.import(
-      "../src/app/api/spreadsheet/create/route",
+      "../src/app/api/spreadsheet/create/create-handler",
     );
 
     const handler = createCreateHandler({
@@ -71,7 +71,7 @@ test("create route maps unexpected errors to 500", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createCreateHandler } = await jiti.import(
-      "../src/app/api/spreadsheet/create/route",
+      "../src/app/api/spreadsheet/create/create-handler",
     );
 
     const handler = createCreateHandler({

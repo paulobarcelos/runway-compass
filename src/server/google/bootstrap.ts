@@ -133,7 +133,7 @@ export async function bootstrapSpreadsheet({
         spreadsheetId,
         range: headerRange(schema),
         valueInputOption: "RAW",
-        resource: {
+        requestBody: {
           values: [Array.from(schema.headers)],
         },
       }),

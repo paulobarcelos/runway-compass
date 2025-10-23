@@ -28,7 +28,7 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
         },
         update: async (request) => {
           updateCalls.push(request);
-          storedValues = request.resource?.values ?? [];
+          storedValues = request.requestBody?.values ?? [];
           return { status: 200 };
         },
       },
@@ -162,11 +162,11 @@ test("actuals repository save writes header and rows", async () => {
   assert.equal(call.range, "actuals!A1:H3");
   assert.equal(call.valueInputOption, "RAW");
 
-  assert.deepEqual(call.resource.values, [
+  assert.deepEqual(call.requestBody.values, [
     ["txn_id", "account_id", "date", "category_id", "amount", "status", "entry_mode", "note"],
     ["txn-1", "acct-1", "2025-01-05", "cat-1", "-45.67", "posted", "manual", "Groceries"],
     ["txn-2", "acct-2", "2025-01-10", "", "1200", "planned", "cash", ""],
   ]);
 
-  assert.deepEqual(getStoredValues(), call.resource.values);
+  assert.deepEqual(getStoredValues(), call.requestBody.values);
 });

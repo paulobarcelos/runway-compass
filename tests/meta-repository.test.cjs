@@ -28,7 +28,7 @@ function createSheetsStub({ values = [], throwOnGet = false } = {}) {
         },
         update: async (request) => {
           valueUpdateCalls.push(request);
-          storedValues = request.resource?.values ?? [];
+          storedValues = request.requestBody?.values ?? [];
           return { status: 200 };
         },
       },
@@ -118,7 +118,7 @@ test("meta repository save writes header and entries in order", async () => {
   assert.equal(update.range, "_meta!A1:B4");
   assert.equal(update.valueInputOption, "RAW");
 
-  const rows = update.resource.values;
+  const rows = update.requestBody.values;
 
   assert.deepEqual(rows, [
     ["key", "value"],

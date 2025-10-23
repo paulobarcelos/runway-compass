@@ -28,7 +28,7 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
         },
         update: async (request) => {
           updateCalls.push(request);
-          storedValues = request.resource?.values ?? [];
+          storedValues = request.requestBody?.values ?? [];
           return { status: 200 };
         },
       },
@@ -225,7 +225,7 @@ test("future events repository save writes header and rows", async () => {
   assert.equal(call.range, "future_events!A1:J3");
   assert.equal(call.valueInputOption, "RAW");
 
-  assert.deepEqual(call.resource.values, [
+  assert.deepEqual(call.requestBody.values, [
     [
       "event_id",
       "type",
@@ -253,5 +253,5 @@ test("future events repository save writes header and rows", async () => {
     ["evt-2", "expense", "acct-2", "", "2025-03", "", "once", "-450", "planned", ""],
   ]);
 
-  assert.deepEqual(getStoredValues(), call.resource.values);
+  assert.deepEqual(getStoredValues(), call.requestBody.values);
 });

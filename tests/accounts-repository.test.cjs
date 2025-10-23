@@ -28,7 +28,7 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
         },
         update: async (request) => {
           updateCalls.push(request);
-          storedValues = request.resource?.values ?? [];
+          storedValues = request.requestBody?.values ?? [];
           return { status: 200 };
         },
       },
@@ -305,7 +305,7 @@ test("accounts repository save writes header and rows", async () => {
   assert.equal(call.range, "accounts!A1:G3");
   assert.equal(call.valueInputOption, "RAW");
 
-  assert.deepEqual(call.resource.values, [
+  assert.deepEqual(call.requestBody.values, [
     [
       "account_id",
       "name",
@@ -319,5 +319,5 @@ test("accounts repository save writes header and rows", async () => {
     ["acct-456", "Savings", "savings", "USD", "FALSE", "2", ""],
   ]);
 
-  assert.deepEqual(getStoredValues(), call.resource.values);
+  assert.deepEqual(getStoredValues(), call.requestBody.values);
 });

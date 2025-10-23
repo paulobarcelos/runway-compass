@@ -16,7 +16,7 @@ function createResponse(status, json) {
 test("exchange rates route returns fetched rates with caching headers", async () => {
   const jiti = createTestJiti(__filename);
   const { createExchangeRatesHandler } = await jiti.import(
-    "../src/app/api/exchange-rates/route",
+    "../src/app/api/exchange-rates/exchange-rates-handler",
   );
 
   const fetchCalls = [];
@@ -51,29 +51,43 @@ test("exchange rates route returns fetched rates with caching headers", async ()
 test("exchange rates route falls back on error", async () => {
   const jiti = createTestJiti(__filename);
   const { createExchangeRatesHandler, FALLBACK_RATES } = await jiti.import(
-    "../src/app/api/exchange-rates/route",
+    "../src/app/api/exchange-rates/exchange-rates-handler",
   );
 
-  const handler = createExchangeRatesHandler(async () => {
-    throw new Error("network failure");
-  });
+  const originalError = console.error;
+  console.error = () => {};
 
-  const response = await handler();
-  const payload = await response.json();
+  try {
+    const handler = createExchangeRatesHandler(async () => {
+      throw new Error("network failure");
+    });
 
-  assert.deepEqual(payload, { rates: FALLBACK_RATES });
+    const response = await handler();
+    const payload = await response.json();
+
+    assert.deepEqual(payload, { rates: FALLBACK_RATES });
+  } finally {
+    console.error = originalError;
+  }
 });
 
 test("exchange rates route falls back when payload missing rates", async () => {
   const jiti = createTestJiti(__filename);
   const { createExchangeRatesHandler, FALLBACK_RATES } = await jiti.import(
-    "../src/app/api/exchange-rates/route",
+    "../src/app/api/exchange-rates/exchange-rates-handler",
   );
 
-  const handler = createExchangeRatesHandler(async () => createResponse(200, { foo: "bar" }));
+  const originalError = console.error;
+  console.error = () => {};
 
-  const response = await handler();
-  const payload = await response.json();
+  try {
+    const handler = createExchangeRatesHandler(async () => createResponse(200, { foo: "bar" }));
 
-  assert.deepEqual(payload, { rates: FALLBACK_RATES });
+    const response = await handler();
+    const payload = await response.json();
+
+    assert.deepEqual(payload, { rates: FALLBACK_RATES });
+  } finally {
+    console.error = originalError;
+  }
 });

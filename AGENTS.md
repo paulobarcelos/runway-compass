@@ -156,13 +156,23 @@ If you catch yourself writing "new", "old", "legacy", "wrapper", "unified", or i
 - Update issue task checkboxes (`- [x]`) instead of posting completion comments; reserve comments for blockers or clarifications.
 - Capture reusable insights (not status updates) in [docs/notes/journal.md](docs/notes/journal.md) when they aid future work.
 
-## Handling Long-Running or Interactive Commands
+## TMUX for Long-Running Work and Subagent Coordination
 For commands that don't return quickly (e.g., dev servers, tests, or interactive CLIs), run them in TMUX to avoid blocking:
 - Start: tmux new-session -d -s <session-name> '<command>'
-- Attach/Check Logs: tmux attach -t <session-name> or tmux capture-pane -t <session-name> -p (to get output)
+- Check Logs: tmux capture-pane -t <session-name> -p (to get output)
 - Kill: tmux kill-session -t <session-name>
-- For browser testing, use `chrome-devtools inspect <url>` in a separate TMUX session.
 
-Example: For a dev server, use "tmux new-session -d -s dev-server 'npm run dev'". Later, fetch logs with "tmux capture-pane -t dev-server -p | tail -n 50".
+Example: For a dev server, use "tmux new-session -d -s dev-server 'npm run dev'". Later, fetch logs with "tmux capture-pane -t dev-server -p | tail -n 50". If you need to stop it, run "tmux kill-session -t dev-server".
 
 Always detach after interacting to free the loop.
+
+### Launching Subagents
+When work can be parallelized, spawn subagents in dedicated TMUX sessions:
+- Launch: tmux new-session -d -s <agent-name> 'codex --yolo ${PROMPT}'
+- Inspect output: tmux capture-pane -t <agent-name> -p | tail -n 10
+
+Send follow-up messages with exactly two tmux calls every time:
+1) tmux send-keys -t <agent-name> '<Coordinator>${MESSAGE}</Coordinator>'
+2) tmux send-keys -t <agent-name> C-m
+
+Never wrap these calls in scripts, combine them on one line, or replace the second command with newline escapes or text versions of C-m.

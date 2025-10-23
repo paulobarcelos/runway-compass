@@ -90,7 +90,7 @@ test("storeSelectedSpreadsheetMeta writes key-value pair", async () => {
         },
         update: async (request) => {
           updateCalls.push(request);
-          storedValues = request.resource.values;
+          storedValues = request.requestBody.values;
           return { status: 200 };
         },
       },
@@ -115,7 +115,7 @@ test("storeSelectedSpreadsheetMeta writes key-value pair", async () => {
     spreadsheetId: "sheet-123",
     range: "_meta!A1:B2",
     valueInputOption: "RAW",
-    resource: {
+    requestBody: {
       values: [
         ["key", "value"],
         ["selected_spreadsheet_id", "sheet-123"],
@@ -155,7 +155,7 @@ test("storeSelectedSpreadsheetMeta creates _meta sheet when missing", async () =
             throw error;
           }
 
-          storedValues = request.resource.values;
+          storedValues = request.requestBody.values;
           return { status: 200 };
         },
       },

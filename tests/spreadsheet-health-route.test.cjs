@@ -24,7 +24,7 @@ test("spreadsheet health route requires spreadsheetId query", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createSpreadsheetHealthHandler } = await jiti.import(
-      "../src/app/api/spreadsheet/health/route",
+      "../src/app/api/spreadsheet/health/health-handler",
     );
 
     const { GET } = createSpreadsheetHealthHandler({
@@ -46,7 +46,7 @@ test("spreadsheet health route maps authentication errors to 401", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createSpreadsheetHealthHandler } = await jiti.import(
-      "../src/app/api/spreadsheet/health/route",
+      "../src/app/api/spreadsheet/health/health-handler",
     );
 
     const { GET } = createSpreadsheetHealthHandler({
@@ -70,7 +70,7 @@ test("spreadsheet health route returns diagnostics payload on success", async ()
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
     const { createSpreadsheetHealthHandler } = await jiti.import(
-      "../src/app/api/spreadsheet/health/route",
+      "../src/app/api/spreadsheet/health/health-handler",
     );
 
   const diagnostics = {
