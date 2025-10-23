@@ -75,6 +75,27 @@ export const REQUIRED_SHEETS: SheetSchema[] = [
     freezeHeader: true,
   },
   {
+    title: "cash_flows",
+    headers: [
+      "flow_id",
+      "type",
+      "category_id",
+      "planned_date",
+      "planned_amount",
+      "actual_date",
+      "actual_amount",
+      "status",
+      "account_id",
+      "note",
+    ],
+    gridProperties: {
+      rowCount: DEFAULT_GRID_ROWS,
+      columnCount: 16,
+      frozenRowCount: 1,
+    },
+    freezeHeader: true,
+  },
+  {
     title: "budget_plan",
     headers: [
       "record_id",
@@ -171,6 +192,7 @@ export const BUDGET_PLAN_SHEET_SCHEMA = requireSchema("budget_plan");
 export const SNAPSHOTS_SHEET_SCHEMA = requireSchema("snapshots");
 export const ACTUALS_SHEET_SCHEMA = requireSchema("actuals");
 export const FUTURE_EVENTS_SHEET_SCHEMA = requireSchema("future_events");
+export const CASH_FLOWS_SHEET_SCHEMA = requireSchema("cash_flows");
 export const RUNWAY_PROJECTION_SHEET_SCHEMA = requireSchema("runway_projection");
 
 export function columnIndexToLetter(index: number) {

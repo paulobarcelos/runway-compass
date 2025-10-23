@@ -38,6 +38,21 @@ const EXPECTED_SCHEMAS = [
     headers: ["snapshot_id", "account_id", "date", "balance", "note"],
   },
   {
+    title: "cash_flows",
+    headers: [
+      "flow_id",
+      "type",
+      "category_id",
+      "planned_date",
+      "planned_amount",
+      "actual_date",
+      "actual_amount",
+      "status",
+      "account_id",
+      "note",
+    ],
+  },
+  {
     title: "budget_plan",
     headers: [
       "record_id",
