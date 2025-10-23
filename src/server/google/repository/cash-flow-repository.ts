@@ -308,6 +308,13 @@ export function createCashFlowRepository({
       );
 
       await executeWithRetry(() =>
+        sheets.spreadsheets.values.clear({
+          spreadsheetId,
+          range: CASH_FLOW_RANGE,
+        }),
+      );
+
+      await executeWithRetry(() =>
         sheets.spreadsheets.values.update({
           spreadsheetId,
           range,

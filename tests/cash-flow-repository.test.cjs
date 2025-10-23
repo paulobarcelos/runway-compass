@@ -6,6 +6,7 @@ const { createTestJiti } = require("./helpers/create-jiti");
 function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
   const getCalls = [];
   const updateCalls = [];
+  const clearCalls = [];
   let storedValues = values;
 
   const stub = {
@@ -33,6 +34,11 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
           storedValues = request.requestBody?.values ?? [];
           return { status: 200 };
         },
+        clear: async (request) => {
+          clearCalls.push(request);
+          storedValues = [];
+          return { status: 200 };
+        },
       },
     },
   };
@@ -41,6 +47,7 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
     stub,
     getCalls,
     updateCalls,
+    clearCalls,
     getStoredValues: () => storedValues,
   };
 }
@@ -344,9 +351,9 @@ test("summarizeCashFlowsByMonth aggregates planned and posted totals", async () 
   ]);
 });
 
-test("cash flow repository save writes headers and rows", async () => {
+test("cash flow repository save clears existing rows before writing", async () => {
   const jiti = createTestJiti(__filename);
-  const { stub, updateCalls, getStoredValues } = createSheetsStub();
+  const { stub, updateCalls, clearCalls, getStoredValues } = createSheetsStub();
 
   const { createCashFlowRepository } = await jiti.import(
     "../src/server/google/repository/cash-flow-repository",
@@ -384,6 +391,9 @@ test("cash flow repository save writes headers and rows", async () => {
     },
   ]);
 
+  assert.equal(clearCalls.length, 1);
+  assert.equal(clearCalls[0].spreadsheetId, "sheet-123");
+  assert.equal(clearCalls[0].range, "cash_flows!A1:J4000");
   assert.equal(updateCalls.length, 1);
   assert.equal(updateCalls[0].spreadsheetId, "sheet-123");
   assert.equal(updateCalls[0].range, "cash_flows!A1:J3");
