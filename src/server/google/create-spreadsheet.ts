@@ -18,6 +18,7 @@ interface CreateAndRegisterOptions {
   registerSpreadsheetSelection?: (params: {
     spreadsheetId: string;
     getSession?: () => Promise<Session | null>;
+    bootstrapSheetTitles?: readonly string[];
     now?: () => number;
   }) => Promise<{ spreadsheetId: string; storedAt: number }>;
   now?: () => number;
