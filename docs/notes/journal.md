@@ -39,3 +39,7 @@ This journal is optional but encouraged—treat it as shared memory that makes t
 - Environment variables mirror the local `.env.local` values across Production and Preview (`NEXTAUTH_URL` uses `$VERCEL_URL` for previews).
 - GitHub Actions CI runs `npm ci`, `npm run lint`, `npm test`, and `npm run build` on every PR update; Vercel previews remain independent.
 - When full auth QA is needed, reassign `staging.runway.paulobarcelos.com` to the desired preview; otherwise the default preview URL is sufficient.
+
+## 2025-10-24 – CI checks vs branch protection
+- GitHub’s pending/yellow check can persist when required contexts don’t match; we removed the stale "CI" context via the API and set the rule to the exact workflow name (`CI / build-and-test (pull_request)`).
+- For solo development, review requirements cause self-approval blockers; we temporarily removed the approval gate while keeping CI enforced.
