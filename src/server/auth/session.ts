@@ -3,14 +3,25 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
-import { authConfig } from "./config";
+import { getAuthConfig } from "./config";
 
 export const SIGN_IN_ROUTE = "/auth/sign-in";
 
 type SessionFetcher = typeof getServerSession;
 
+function hasGoogleCredentials(): boolean {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  return Boolean(clientId && clientSecret);
+}
+
 export async function getSession(fetchSession: SessionFetcher = getServerSession) {
-  return fetchSession(authConfig);
+  if (!hasGoogleCredentials()) {
+    return null;
+  }
+
+  return fetchSession(getAuthConfig());
 }
 
 export async function requireSession(fetchSession?: SessionFetcher) {

@@ -9,6 +9,8 @@ import { BudgetPlanManager } from "@/components/budget-plan/budget-plan-manager"
 import { AccountsManager } from "@/components/accounts/accounts-manager";
 import { SpreadsheetHealthProvider } from "@/components/spreadsheet/spreadsheet-health-context";
 import { SpreadsheetHealthPanel } from "@/components/spreadsheet/spreadsheet-health-panel";
+import { CashPlannerManager } from "@/components/cash-planner/cash-planner-manager";
+import { RunwayTimeline } from "@/components/runway-timeline/runway-timeline";
 
 const featureItems = [
   {
@@ -63,7 +65,11 @@ export default async function Home() {
 
           <BudgetPlanManager />
 
+          <CashPlannerManager />
+
           <AccountsManager />
+
+          <RunwayTimeline />
         </div>
       </SpreadsheetHealthProvider>
 

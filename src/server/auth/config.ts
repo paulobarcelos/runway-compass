@@ -11,56 +11,60 @@ const REQUIRED_GOOGLE_SCOPE = [
   "https://www.googleapis.com/auth/spreadsheets",
 ].join(" ");
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID ?? "";
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET ?? "";
+const CALLBACKS: NextAuthOptions["callbacks"] = {
+  async jwt({ token, account }) {
+    if (account?.provider === "google") {
+      token.googleAccessToken = account.access_token ?? token.googleAccessToken;
+      token.googleRefreshToken = account.refresh_token ?? token.googleRefreshToken;
+      token.googleAccessTokenExpires =
+        account.expires_at ?? token.googleAccessTokenExpires;
+    }
 
-if (!googleClientId || !googleClientSecret) {
-  throw new Error("Missing Google OAuth client credentials");
-}
-
-export const authConfig: NextAuthOptions = {
-  providers: [
-    GoogleProvider({
-      clientId: googleClientId,
-      clientSecret: googleClientSecret,
-      authorization: {
-        params: {
-          scope: REQUIRED_GOOGLE_SCOPE,
-          prompt: "consent",
-          access_type: "offline",
-        },
-      },
-    }),
-  ],
-  session: {
-    strategy: "jwt",
+    return token;
   },
-  callbacks: {
-    async jwt({ token, account }) {
-      if (account?.provider === "google") {
-        token.googleAccessToken = account.access_token ?? token.googleAccessToken;
-        token.googleRefreshToken = account.refresh_token ?? token.googleRefreshToken;
-        token.googleAccessTokenExpires =
-          account.expires_at ?? token.googleAccessTokenExpires;
-      }
+  async session({ session, token }) {
+    if (
+      token.googleAccessToken &&
+      token.googleRefreshToken &&
+      token.googleAccessTokenExpires
+    ) {
+      session.googleTokens = {
+        accessToken: token.googleAccessToken,
+        refreshToken: token.googleRefreshToken,
+        expiresAt: token.googleAccessTokenExpires,
+      };
+    }
 
-      return token;
-    },
-    async session({ session, token }) {
-      if (
-        token.googleAccessToken &&
-        token.googleRefreshToken &&
-        token.googleAccessTokenExpires
-      ) {
-        session.googleTokens = {
-          accessToken: token.googleAccessToken,
-          refreshToken: token.googleRefreshToken,
-          expiresAt: token.googleAccessTokenExpires,
-        };
-      }
-
-      return session;
-    },
+    return session;
   },
-  secret: process.env.NEXTAUTH_SECRET,
 };
+
+export function getAuthConfig(): NextAuthOptions {
+  const googleClientId = process.env.GOOGLE_CLIENT_ID ?? "";
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET ?? "";
+
+  if (!googleClientId || !googleClientSecret) {
+    throw new Error("Missing Google OAuth client credentials");
+  }
+
+  return {
+    providers: [
+      GoogleProvider({
+        clientId: googleClientId,
+        clientSecret: googleClientSecret,
+        authorization: {
+          params: {
+            scope: REQUIRED_GOOGLE_SCOPE,
+            prompt: "consent",
+            access_type: "offline",
+          },
+        },
+      }),
+    ],
+    session: {
+      strategy: "jwt",
+    },
+    callbacks: CALLBACKS,
+    secret: process.env.NEXTAUTH_SECRET,
+  };
+}
