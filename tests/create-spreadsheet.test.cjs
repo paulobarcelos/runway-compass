@@ -111,6 +111,17 @@ test("createAndRegisterSpreadsheet creates and registers manifest", async () => 
     assert.equal(registerCalls.length, 1);
     assert.deepEqual(registerCalls[0], {
       spreadsheetId: "sheet-created",
+      bootstrapSheetTitles: [
+        "_meta",
+        "categories",
+        "accounts",
+        "snapshots",
+        "cash_flows",
+        "budget_plan",
+        "actuals",
+        "future_events",
+        "runway_projection",
+      ],
     });
   } finally {
     process.env.GOOGLE_CLIENT_ID = originalClientId;

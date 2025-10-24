@@ -7,6 +7,7 @@ import { getSession } from "@/server/auth/session";
 import type { GoogleAuthTokens } from "./clients";
 import { createSpreadsheet as createDriveSpreadsheet } from "./drive";
 import { registerSpreadsheetSelection } from "./register-spreadsheet";
+import { META_SHEET_TITLE, REQUIRED_SHEETS } from "./sheet-schemas";
 
 interface CreateAndRegisterOptions {
   getSession?: () => Promise<Session | null>;
@@ -47,9 +48,17 @@ export async function createAndRegisterSpreadsheet({
     title: defaultTitle,
   });
 
+  const allSheetTitles = Array.from(
+    new Set([
+      META_SHEET_TITLE,
+      ...REQUIRED_SHEETS.map((schema) => schema.title),
+    ]),
+  );
+
   const manifest = await registerSelection({
     spreadsheetId,
     getSession: async () => session,
+    bootstrapSheetTitles: allSheetTitles,
     now,
   });
 
