@@ -11,13 +11,13 @@ Personal cash runway planner built with Next.js and Google Sheets. Track rolling
 
 ## Documentation
 
+- Journal (GitHub Discussions): https://github.com/paulobarcelos/runway-compass/discussions/categories/journal
+- Decision Log (GitHub Discussions): https://github.com/paulobarcelos/runway-compass/discussions/categories/decision-log
 - [Product Requirements](docs/product/PRD.md)
 - [Use Cases](docs/product/use-cases.md)
 - [Architecture Overview](docs/engineering/architecture.md)
 - [Engineering Process](docs/engineering/process.md)
 - [Local Development Setup](docs/engineering/setup.md)
-- [Decision Log](docs/notes/decision-log.md)
-- [Engineering Journal](docs/notes/journal.md)
 
 ## Roadmap
 
@@ -25,6 +25,6 @@ High-level milestones are outlined in the [PRD](docs/product/PRD.md). Track day-
 
 ## Knowledge Sharing
 
-- Use GitHub Issues + project board as the single source of truth for active work.
-- Record irreversible choices in the [Decision Log](docs/notes/decision-log.md).
-- Capture reusable insights in the [Engineering Journal](docs/notes/journal.md).
+- Use GitHub Issues + Project board as the single source of truth for active work.
+- Record irreversible choices in the Decision Log (Discussions).
+- Capture reusable insights in the Journal (Discussions).
