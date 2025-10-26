@@ -21,3 +21,8 @@ Rule #1: If you want an exception to any rule here, stop and get explicit permis
 
 ## Progress Tracking
 - Use GitHub Projects as status source of truth; see `project-engineering-process`.
+
+<Skills>
+Read ~/.codex/skills/INSTRUCTIONS.md now.
+If that file is missing, read ./skills/INSTRUCTIONS.md.
+</Skills>
