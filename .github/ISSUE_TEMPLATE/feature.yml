@@ -1,0 +1,38 @@
+name: Feature Request
+description: Capture a scoped enhancement with acceptance criteria
+title: "[enh] <short title>"
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context & User Problem
+      description: Who is blocked and why? Link related journal/decision entries.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired Outcome
+      description: What success looks like (metrics, UX change, sheet delta)?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Bullet list of behaviors, validations, or sheet states that must hold true.
+      value: |
+        - [ ] 
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies / Links
+      description: Blocking Issues, PRs, discussions, or external approvals.
+  - type: textarea
+    id: qa
+    attributes:
+      label: Test & Rollout Plan
+      description: Manual steps, automated coverage expectations, toggles/rollback.

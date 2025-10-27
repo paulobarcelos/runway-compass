@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Daily Journal
+    url: https://github.com/paulobarcelos/runway-compass/discussions/new?category=Journal
+    about: Post quick updates, blockers, or experiment logs before opening Issues.
+  - name: Decision Log
+    url: https://github.com/paulobarcelos/runway-compass/discussions/new?category=Decision%20Log
+    about: Record irreversible choices with context and rationale.
