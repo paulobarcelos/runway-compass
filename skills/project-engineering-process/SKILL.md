@@ -14,7 +14,7 @@ description: Use when coordinating day-to-day work on Runway Compass — defines
 
 ## Branching & Commits
 - Branch: `feature/<slug>` or `chore/<slug>`
-- Keep commits atomic; reference Issue (and PR auto-closes where appropriate)
+- Keep commits atomic; every PR must reference its primary Issue via `Closes #<id>` so automation updates Projects/Milestones
 - Default merge: squash, PR title as commit subject
 
 ## CI Discipline
@@ -35,4 +35,3 @@ description: Use when coordinating day-to-day work on Runway Compass — defines
 ## Tools
 - `gh` CLI for Issues/PRs/Projects/Discussions
 - Pair with superpowers:github-program-manager (templates and scripts) and superpowers:tmux-orchestration for parallel agents
-

@@ -1,0 +1,35 @@
+name: Bug Report
+description: Report a defect with clear reproduction steps
+title: "[bug] <short title>"
+labels: ["bug"]
+body:
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, browser, branch (commit) and sheet state if relevant
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Numbered list with concrete data inputs
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Result
+      description: Include screenshots, console logs, or sheet warnings
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+      description: Related Issues/PRs, suspected root cause, mitigations tried
