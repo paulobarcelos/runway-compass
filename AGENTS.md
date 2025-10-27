@@ -8,7 +8,7 @@ Rule #1: If you want an exception to any rule here, stop and get explicit permis
 <ACTIVATE_SUPERPOWERS>
 Read the Superpowers introduction completely before taking further action:
 
-`cat ~/superpowers/skills/using-superpowers/SKILL.md`
+`cat ~/Lab/Agents/superpowers/skills/using-superpowers/SKILL.md`
 </ACTIVATE_SUPERPOWERS>
 
 ## How We Work (See Skills)
