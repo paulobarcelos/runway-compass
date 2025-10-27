@@ -15,7 +15,7 @@ Read the Superpowers introduction completely before taking further action:
 - Principles: superpowers:principles
 - Code style: superpowers:code-style
 - Git rules: superpowers:git-rules
-- Journaling/Decisions: superpowers:journaling-and-decisions (always keep notes!)
+- Journaling/Decisions/Ideas: superpowers:journaling-and-decisions (always keep notes!) - if working from Paulo's computer, the wiki is at `../runway-compass.wiki`
 - TDD: superpowers:test-driven-development
 - Debug/verify: superpowers:systematic-debugging, superpowers:verification-before-completion
 - Parallel/long-running: superpowers:tmux-orchestration

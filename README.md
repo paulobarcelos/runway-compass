@@ -1,3 +1,4 @@
+
 # Runway Compass
 
 Personal cash runway planner built with Next.js and Google Sheets. Track rolling budgets, manual actuals, future events, and account balances to understand when income covers expenses and when savings will deplete.
@@ -35,19 +36,13 @@ Personal cash runway planner built with Next.js and Google Sheets. Track rolling
 - Set environment variables for Production + Preview (`NEXTAUTH_URL`, Google secrets, Picker keys).
 - Configure OAuth redirect URIs for production domains (e.g., `https://runway.paulobarcelos.com/api/auth/callback/google`).
 
-## Source-of-Truth Links
-- Journal category: https://github.com/paulobarcelos/runway-compass/discussions/categories/journal
-- Decision Log: https://github.com/paulobarcelos/runway-compass/discussions/categories/decision-log
-- Budget Planner milestone archive: https://github.com/paulobarcelos/runway-compass/discussions/47
-- Product Requirements (MVP): https://github.com/paulobarcelos/runway-compass/discussions/48
-- Core Use Cases: https://github.com/paulobarcelos/runway-compass/discussions/49
-- Architecture overview: [docs/engineering/architecture.md](docs/engineering/architecture.md)
-
-## Roadmap
-
-Track milestone status in the GitHub Project boards (Roadmap + Milestone execution). High-level scope lives in the Product Requirements discussion.
-
-## Knowledge Sharing
-
-- Issues + Projects are the single source of truth for active work.
-- Journal/Decision Discussions replace in-repo notes; add entries there before shipping code.
+## Source-of-Truth
+- Journal: https://github.com/paulobarcelos/runway-compass/wiki/Journal
+- Decisions: https://github.com/paulobarcelos/runway-compass/wiki/Decisions
+- Product Requirements (MVP): https://github.com/paulobarcelos/runway-compass/wiki/Product-PRD
+- Core Use Cases: https://github.com/paulobarcelos/runway-compass/wiki/Product-Use-Cases
+- Engineering Setup: https://github.com/paulobarcelos/runway-compass/wiki/Engineering-Setup
+- Architecture Overview: https://github.com/paulobarcelos/runway-compass/wiki/Engineering-Architecture
+- Feature Ideas & Experiments: https://github.com/paulobarcelos/runway-compass/discussions/categories/ideas
+- Active Issues backlog: https://github.com/paulobarcelos/runway-compass/issues
+- Roadmap board: https://github.com/users/paulobarcelos/projects/1
