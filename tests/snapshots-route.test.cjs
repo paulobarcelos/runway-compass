@@ -150,3 +150,38 @@ test("snapshots create route appends snapshot and returns payload", async () => 
     assert.ok(saved[0].snapshotId, "snapshot should have id");
   });
 });
+
+test("snapshots create route surfaces account validation errors", async () => {
+  await withEnv(async () => {
+    const jiti = createTestJiti(__filename);
+    const {
+      createSnapshotsHandler,
+      SnapshotValidationError,
+    } = await jiti.import("../src/app/api/snapshots/snapshots-handler");
+
+    const { POST } = createSnapshotsHandler({
+      appendSnapshot: async () => {
+        throw new SnapshotValidationError("Snapshot account not found");
+      },
+    });
+
+    const request = new Request("http://localhost/api/snapshots?spreadsheetId=sheet-123", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        snapshot: {
+          accountId: "acct-new",
+          date: "2025-01-31",
+          balance: 100,
+          note: "Test",
+        },
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.error, "Snapshot account not found");
+  });
+});
