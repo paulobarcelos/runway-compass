@@ -156,6 +156,17 @@ function deriveSheetError(context: SheetContext, error: unknown): SheetDiagnosti
     };
   }
 
+  if (
+    normalizedMessage.includes("unable to parse range") ||
+    normalizedMessage.includes("range error") ||
+    normalizedMessage.includes("invalid range")
+  ) {
+    return {
+      ...diagnostic,
+      code: "range_error",
+    };
+  }
+
   return diagnostic;
 }
 

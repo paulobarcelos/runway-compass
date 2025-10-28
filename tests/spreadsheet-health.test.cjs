@@ -344,3 +344,42 @@ test("collectSpreadsheetDiagnostics converts thrown errors into sheet diagnostic
     ]);
   });
 });
+
+test("collectSpreadsheetDiagnostics maps range errors to repairable code", async () => {
+  await withEnv(async () => {
+    const jiti = createTestJiti(__filename);
+    const { collectSpreadsheetDiagnostics } = await jiti.import(
+      "../src/server/google/spreadsheet-health",
+    );
+
+    const { stub: sheets } = createSheetsStub({
+      metadata: {
+        sheets: [
+          { properties: { title: "cash_flows", sheetId: 440 } },
+        ],
+      },
+    });
+
+    const result = await collectSpreadsheetDiagnostics({
+      sheets,
+      spreadsheetId: "sheet-range",
+      loadAccountsDiagnostics: async () => ({ accounts: [], warnings: [], errors: [] }),
+      loadCategories: async () => {},
+      loadSnapshots: async () => {},
+      loadCashFlows: async () => {
+        throw new Error("Unable to parse range: cash_flows!A1:J4000");
+      },
+    });
+
+    assert.equal(result.errors.length, 1);
+    assert.deepEqual(result.errors[0], {
+      sheetId: "cash_flows",
+      sheetTitle: "Cash Flows",
+      sheetGid: 440,
+      severity: "error",
+      code: "range_error",
+      message: "Unable to parse range: cash_flows!A1:J4000",
+      rowNumber: null,
+    });
+  });
+});
