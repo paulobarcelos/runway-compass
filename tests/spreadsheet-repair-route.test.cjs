@@ -96,6 +96,49 @@ test("repair route forwards sheet list to handler", async () => {
   });
 });
 
+test("repair route accepts sheet titles case-insensitively", async () => {
+  await withEnv(async () => {
+    const jiti = createTestJiti(__filename);
+    const { createRepairHandler } = await jiti.import(
+      "../src/app/api/spreadsheet/repair/repair-handler",
+    );
+
+    const calls = [];
+
+    const handler = createRepairHandler({
+      repair: async (params) => {
+        calls.push(params);
+        return {
+          spreadsheetId: params.spreadsheetId,
+          schemaVersion: "1.0.0",
+          bootstrappedAt: "2024-01-02T00:00:00.000Z",
+          repairedSheets: params.sheetTitles ?? [],
+          storedAt: 12345,
+        };
+      },
+    });
+
+    const response = await handler(
+      new Request("http://localhost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          spreadsheetId: "sheet-xyz",
+          sheets: ["Accounts", "CATEGORIES", "unknown"],
+        }),
+      }),
+    );
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(calls[0], {
+      spreadsheetId: "sheet-xyz",
+      sheetTitles: ["accounts", "categories"],
+    });
+    assert.deepEqual(payload.repairedSheets, ["accounts", "categories"]);
+  });
+});
+
 test("repair route maps auth failures to 401", async () => {
   await withEnv(async () => {
     const jiti = createTestJiti(__filename);
