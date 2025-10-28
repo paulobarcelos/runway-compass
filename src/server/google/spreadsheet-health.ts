@@ -131,6 +131,34 @@ function toErrorDiagnostic(context: SheetContext, error: unknown): SheetDiagnost
   };
 }
 
+function deriveSheetError(context: SheetContext, error: unknown): SheetDiagnostic {
+  const diagnostic = toErrorDiagnostic(context, error);
+  if (diagnostic.code !== "exception") {
+    return diagnostic;
+  }
+
+  const normalizedMessage = diagnostic.message.toLowerCase();
+
+  if (
+    normalizedMessage.includes("header does not match expected schema") ||
+    normalizedMessage.includes("header mismatch")
+  ) {
+    return {
+      ...diagnostic,
+      code: "header_mismatch",
+    };
+  }
+
+  if (normalizedMessage.includes("missing sheet") || normalizedMessage.includes("sheet not found")) {
+    return {
+      ...diagnostic,
+      code: "missing_sheet",
+    };
+  }
+
+  return diagnostic;
+}
+
 function toWarningDiagnostic(context: SheetContext, warning: { code: string; message: string; rowNumber?: number | null }): SheetDiagnostic {
   return {
     sheetId: context.sheetId,
@@ -259,19 +287,19 @@ export async function collectSpreadsheetDiagnostics({
   try {
     await loadCategories({ sheets, spreadsheetId });
   } catch (error) {
-    errors.push(toErrorDiagnostic(categoriesContext, error));
+    errors.push(deriveSheetError(categoriesContext, error));
   }
 
   try {
     await loadSnapshots({ sheets, spreadsheetId });
   } catch (error) {
-    errors.push(toErrorDiagnostic(snapshotsContext, error));
+    errors.push(deriveSheetError(snapshotsContext, error));
   }
 
   try {
     await loadCashFlows({ sheets, spreadsheetId });
   } catch (error) {
-    errors.push(toErrorDiagnostic(cashFlowsContext, error));
+    errors.push(deriveSheetError(cashFlowsContext, error));
   }
 
   return { warnings, errors, sheets: sheetContexts };

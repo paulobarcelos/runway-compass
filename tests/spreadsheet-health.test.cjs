@@ -300,6 +300,7 @@ test("collectSpreadsheetDiagnostics converts thrown errors into sheet diagnostic
       },
     });
 
+
     assert.equal(result.warnings.length, 0);
     assert.equal(result.errors.length, 4);
 
@@ -318,7 +319,7 @@ test("collectSpreadsheetDiagnostics converts thrown errors into sheet diagnostic
         sheetTitle: "Categories",
         sheetGid: 220,
         severity: "error",
-        code: "exception",
+        code: "header_mismatch",
         message: "categories header does not match expected schema",
         rowNumber: null,
       },
@@ -336,7 +337,7 @@ test("collectSpreadsheetDiagnostics converts thrown errors into sheet diagnostic
         sheetTitle: "Cash Flows",
         sheetGid: 440,
         severity: "error",
-        code: "exception",
+        code: "header_mismatch",
         message: "cash_flows header mismatch",
         rowNumber: null,
       },
