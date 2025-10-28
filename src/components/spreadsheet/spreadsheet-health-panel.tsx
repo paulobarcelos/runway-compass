@@ -76,7 +76,7 @@ export function SpreadsheetHealthPanel() {
   const isRepairing = repairState === "running";
 
   const handleRepair = useCallback(
-    async (sheetIds?: string[]) => {
+    async (sheetTitles?: string[]) => {
       if (!spreadsheetId || repairState === "running") {
         return;
       }
@@ -86,8 +86,10 @@ export function SpreadsheetHealthPanel() {
       setRepairMessage(null);
 
       try {
-        const payload = sheetIds && sheetIds.length > 0
-          ? { spreadsheetId, sheets: sheetIds }
+        const sanitizedTitles = sheetTitles?.filter((title) => title && title.trim().length > 0);
+
+        const payload = sanitizedTitles && sanitizedTitles.length > 0
+          ? { spreadsheetId, sheets: sanitizedTitles }
           : { spreadsheetId };
 
         const response = await fetch("/api/spreadsheet/repair", {
@@ -102,7 +104,7 @@ export function SpreadsheetHealthPanel() {
           const message =
             typeof body?.error === "string" ? body.error : "Failed to repair spreadsheet";
           setRepairError(message);
-          void debugLog("Spreadsheet repair failed", { message, sheetIds });
+          void debugLog("Spreadsheet repair failed", { message, sheetTitles: sanitizedTitles });
           return;
         }
 
@@ -132,6 +134,7 @@ export function SpreadsheetHealthPanel() {
         void debugLog("Spreadsheet repair succeeded", {
           spreadsheetId,
           repairedSheets,
+          sheetTitles: sanitizedTitles,
         });
 
         await reload();
@@ -139,7 +142,7 @@ export function SpreadsheetHealthPanel() {
         const message =
           repairError instanceof Error ? repairError.message : "Failed to repair spreadsheet";
         setRepairError(message);
-        void debugLog("Spreadsheet repair exception", { message, sheetIds });
+        void debugLog("Spreadsheet repair exception", { message, sheetTitles: sanitizedTitles });
       } finally {
         setRepairState("idle");
       }
@@ -241,7 +244,11 @@ export function SpreadsheetHealthPanel() {
           {hasRepairableIssues ? (
             <button
               type="button"
-              onClick={() => void handleRepair(repairableGroups.map((group) => group.sheetId))}
+              onClick={() =>
+                void handleRepair(
+                  repairableGroups.map((group) => group.sheetTitle || group.sheetId),
+                )
+              }
               disabled={isRepairing || status === "loading"}
               className="inline-flex items-center rounded-md border border-current/40 bg-current/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-current shadow-sm transition hover:bg-current/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -304,7 +311,11 @@ export function SpreadsheetHealthPanel() {
                   {group.errors.some((issue) => (issue.code ? REPAIRABLE_CODES.has(issue.code) : false)) ? (
                     <button
                       type="button"
-                      onClick={() => void handleRepair([group.sheetId])}
+                      onClick={() =>
+                        void handleRepair([
+                          group.sheetTitle || group.sheetId,
+                        ])
+                      }
                       disabled={isRepairing || status === "loading"}
                       className="inline-flex items-center rounded-sm border border-current/30 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-current/80 transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
                     >

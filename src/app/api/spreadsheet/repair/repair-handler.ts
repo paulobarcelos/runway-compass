@@ -7,7 +7,14 @@ import { REQUIRED_SHEETS } from "@/server/google/sheet-schemas";
 
 type RepairHandler = typeof bootstrapExistingSpreadsheet;
 
-const VALID_SHEET_TITLES = new Set(REQUIRED_SHEETS.map((schema) => schema.title));
+const CANONICAL_TITLES = new Map(
+  REQUIRED_SHEETS.map((schema) => [schema.title.toLowerCase(), schema.title] as const),
+);
+
+function toCanonicalSheetTitle(value: string) {
+  const lookupKey = value.trim().toLowerCase();
+  return lookupKey ? CANONICAL_TITLES.get(lookupKey) ?? null : null;
+}
 
 function normalizeSheetList(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) {
@@ -21,14 +28,14 @@ function normalizeSheetList(value: unknown): string[] | undefined {
       continue;
     }
 
-    const trimmed = entry.trim();
+    const canonical = toCanonicalSheetTitle(entry);
 
-    if (!trimmed || !VALID_SHEET_TITLES.has(trimmed)) {
+    if (!canonical) {
       continue;
     }
 
-    if (!normalized.includes(trimmed)) {
-      normalized.push(trimmed);
+    if (!normalized.includes(canonical)) {
+      normalized.push(canonical);
     }
   }
 
