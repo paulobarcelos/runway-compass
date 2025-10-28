@@ -223,3 +223,31 @@ test("useCashPlannerManager saves changes and resets dirty state", async () => {
   assert.ok(finalState.lastSavedAt);
   harness.unmount();
 });
+
+test("useCashPlannerManager blocks when disabled", async () => {
+  const fetchCalls = [];
+  const harness = await renderManager({
+    spreadsheetId: "sheet-123",
+    disabled: true,
+    disabledMessage: "Spreadsheet health flagged issues with the Cash Flows tab.",
+    fetchCashFlows: async ({ spreadsheetId }) => {
+      fetchCalls.push(spreadsheetId);
+      return [];
+    },
+  });
+
+  await harness.flush();
+
+  const manager = harness.manager;
+
+  assert.equal(fetchCalls.length, 0);
+  assert.equal(manager.status, "blocked");
+  assert.equal(
+    manager.blockingMessage,
+    "Spreadsheet health flagged issues with the Cash Flows tab.",
+  );
+
+  await manager.reload();
+  assert.equal(fetchCalls.length, 0, "disabled reload should not refetch");
+  harness.unmount();
+});

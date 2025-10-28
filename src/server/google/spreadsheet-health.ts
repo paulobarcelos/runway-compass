@@ -12,6 +12,7 @@ import {
   type AccountsDiagnostics,
 } from "./repository/accounts-repository";
 import { createCategoriesRepository } from "./repository/categories-repository";
+import { createCashFlowRepository } from "./repository/cash-flow-repository";
 import { createSnapshotsRepository } from "./repository/snapshots-repository";
 
 export type SpreadsheetDiagnosticSeverity = "warning" | "error";
@@ -53,6 +54,7 @@ const SHEET_LABELS: Record<string, string> = {
   accounts: "Accounts",
   categories: "Categories",
   snapshots: "Snapshots",
+  cash_flows: "Cash Flows",
 };
 
 function toMetadataMap(response: sheets_v4.Schema$Spreadsheet | undefined): MetadataMap {
@@ -211,6 +213,7 @@ interface CollectSpreadsheetDiagnosticsOptions {
   loadAccountsDiagnostics?: LoadAccountsDiagnostics;
   loadCategories?: LoadSheet;
   loadSnapshots?: LoadSheet;
+  loadCashFlows?: LoadSheet;
 }
 
 export async function collectSpreadsheetDiagnostics({
@@ -219,6 +222,10 @@ export async function collectSpreadsheetDiagnostics({
   loadAccountsDiagnostics = defaultLoadAccountsDiagnostics,
   loadCategories = defaultLoadCategories,
   loadSnapshots = defaultLoadSnapshots,
+  loadCashFlows = async ({ sheets: sheetsClient, spreadsheetId: id }) => {
+    const repository = createCashFlowRepository({ sheets: sheetsClient, spreadsheetId: id });
+    await repository.list();
+  },
 }: CollectSpreadsheetDiagnosticsOptions): Promise<SpreadsheetDiagnostics> {
   const metadata = await loadMetadata({ sheets, spreadsheetId });
   const warnings: SheetDiagnostic[] = [];
@@ -227,7 +234,13 @@ export async function collectSpreadsheetDiagnostics({
   const accountsContext = resolveContext(metadata, "accounts");
   const categoriesContext = resolveContext(metadata, "categories");
   const snapshotsContext = resolveContext(metadata, "snapshots");
-  const sheetContexts: SheetContext[] = [accountsContext, categoriesContext, snapshotsContext];
+  const cashFlowsContext = resolveContext(metadata, "cash_flows");
+  const sheetContexts: SheetContext[] = [
+    accountsContext,
+    categoriesContext,
+    snapshotsContext,
+    cashFlowsContext,
+  ];
 
   try {
     const diagnostics = await loadAccountsDiagnostics({ sheets, spreadsheetId });
@@ -253,6 +266,12 @@ export async function collectSpreadsheetDiagnostics({
     await loadSnapshots({ sheets, spreadsheetId });
   } catch (error) {
     errors.push(toErrorDiagnostic(snapshotsContext, error));
+  }
+
+  try {
+    await loadCashFlows({ sheets, spreadsheetId });
+  } catch (error) {
+    errors.push(toErrorDiagnostic(cashFlowsContext, error));
   }
 
   return { warnings, errors, sheets: sheetContexts };

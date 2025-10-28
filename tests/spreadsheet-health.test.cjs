@@ -172,6 +172,7 @@ test("collectSpreadsheetDiagnostics aggregates repository issues by severity", a
           { properties: { title: "accounts", sheetId: 110 } },
           { properties: { title: "categories", sheetId: 220 } },
           { properties: { title: "snapshots", sheetId: 330 } },
+          { properties: { title: "cash_flows", sheetId: 440 } },
         ],
       },
     });
@@ -197,6 +198,11 @@ test("collectSpreadsheetDiagnostics aggregates repository issues by severity", a
       }),
       loadCategories: async () => {},
       loadSnapshots: async () => {},
+      loadCashFlows: async () => {
+        const error = new Error("cash_flows header does not match expected schema");
+        error.code = "header_mismatch";
+        throw error;
+      },
     });
 
     assert.deepEqual(result, {
@@ -221,6 +227,15 @@ test("collectSpreadsheetDiagnostics aggregates repository issues by severity", a
           message: "Accounts tab missing",
           rowNumber: null,
         },
+        {
+          sheetId: "cash_flows",
+          sheetTitle: "Cash Flows",
+          sheetGid: 440,
+          severity: "error",
+          code: "header_mismatch",
+          message: "cash_flows header does not match expected schema",
+          rowNumber: null,
+        },
       ],
       sheets: [
         {
@@ -237,6 +252,11 @@ test("collectSpreadsheetDiagnostics aggregates repository issues by severity", a
           sheetId: "snapshots",
           sheetTitle: "Snapshots",
           sheetGid: 330,
+        },
+        {
+          sheetId: "cash_flows",
+          sheetTitle: "Cash Flows",
+          sheetGid: 440,
         },
       ],
     });
@@ -256,6 +276,7 @@ test("collectSpreadsheetDiagnostics converts thrown errors into sheet diagnostic
           { properties: { title: "accounts", sheetId: 110 } },
           { properties: { title: "categories", sheetId: 220 } },
           { properties: { title: "snapshots", sheetId: 330 } },
+          { properties: { title: "cash_flows", sheetId: 440 } },
         ],
       },
     });
@@ -274,10 +295,13 @@ test("collectSpreadsheetDiagnostics converts thrown errors into sheet diagnostic
         error.code = 404;
         throw error;
       },
+      loadCashFlows: async () => {
+        throw new Error("cash_flows header mismatch");
+      },
     });
 
     assert.equal(result.warnings.length, 0);
-    assert.equal(result.errors.length, 3);
+    assert.equal(result.errors.length, 4);
 
     assert.deepEqual(result.errors, [
       {
@@ -305,6 +329,15 @@ test("collectSpreadsheetDiagnostics converts thrown errors into sheet diagnostic
         severity: "error",
         code: "404",
         message: "Missing snapshot sheet",
+        rowNumber: null,
+      },
+      {
+        sheetId: "cash_flows",
+        sheetTitle: "Cash Flows",
+        sheetGid: 440,
+        severity: "error",
+        code: "exception",
+        message: "cash_flows header mismatch",
         rowNumber: null,
       },
     ]);

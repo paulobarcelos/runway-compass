@@ -74,10 +74,14 @@ export function useCashPlannerManager({
   spreadsheetId: spreadsheetIdProp = null,
   fetchCashFlows = defaultFetchCashFlows,
   saveCashFlows = defaultSaveCashFlows,
+  disabled = false,
+  disabledMessage,
 }: {
   spreadsheetId?: string | null;
   fetchCashFlows?: FetchCashFlows;
   saveCashFlows?: SaveCashFlows;
+  disabled?: boolean;
+  disabledMessage?: string | null;
 } = {}): CashPlannerManagerState {
   const spreadsheetId = spreadsheetIdProp?.trim() || null;
 
@@ -87,11 +91,19 @@ export function useCashPlannerManager({
   fetchRef.current = fetchCashFlows;
   saveRef.current = saveCashFlows;
 
-  const [status, setStatus] = useState<CashPlannerManagerStatus>(
-    spreadsheetId ? "loading" : "blocked",
-  );
+  const [status, setStatus] = useState<CashPlannerManagerStatus>(() => {
+    if (disabled) {
+      return "blocked";
+    }
+
+    return spreadsheetId ? "loading" : "blocked";
+  });
   const [blockingMessage, setBlockingMessage] = useState<string | null>(
-    spreadsheetId ? null : "Connect a spreadsheet to manage cash flows.",
+    disabled
+      ? disabledMessage ?? "Spreadsheet health flagged issues with the cash_flows tab. Fix the problems above, then reload."
+      : spreadsheetId
+      ? null
+      : "Connect a spreadsheet to manage cash flows.",
   );
   const [error, setError] = useState<string | null>(null);
   const [flows, setFlows] = useState<CashFlowRecord[]>([]);
@@ -101,9 +113,13 @@ export function useCashPlannerManager({
 
   const loadCashFlows = useCallback(
     async (options?: { skipStatusReset?: boolean; cancelCheck?: () => boolean }) => {
-      if (!spreadsheetId) {
+      if (!spreadsheetId || disabled) {
         setStatus("blocked");
-        setBlockingMessage("Connect a spreadsheet to manage cash flows.");
+        setBlockingMessage(
+          disabled && disabledMessage
+            ? disabledMessage
+            : "Connect a spreadsheet to manage cash flows.",
+        );
         setError(null);
         setFlows([]);
         setBaselineFlows([]);
@@ -138,10 +154,29 @@ export function useCashPlannerManager({
         setStatus("error");
       }
     },
-    [spreadsheetId],
+    [disabled, disabledMessage, spreadsheetId],
   );
 
   useEffect(() => {
+    if (disabled) {
+      setStatus("blocked");
+      setBlockingMessage(
+        disabledMessage ??
+          "Spreadsheet health flagged issues with the cash_flows tab. Fix the problems above, then reload.",
+      );
+      setError(null);
+      return;
+    }
+
+    if (!spreadsheetId) {
+      setStatus("blocked");
+      setBlockingMessage("Connect a spreadsheet to manage cash flows.");
+      setError(null);
+      setFlows([]);
+      setBaselineFlows([]);
+      return;
+    }
+
     let cancelled = false;
 
     loadCashFlows({
@@ -151,14 +186,18 @@ export function useCashPlannerManager({
     return () => {
       cancelled = true;
     };
-  }, [loadCashFlows]);
+  }, [disabled, disabledMessage, loadCashFlows, spreadsheetId]);
 
   const reload = useCallback(async () => {
+    if (disabled) {
+      return;
+    }
+
     await loadCashFlows();
-  }, [loadCashFlows]);
+  }, [disabled, loadCashFlows]);
 
   const save = useCallback(async () => {
-    if (!spreadsheetId) {
+    if (!spreadsheetId || disabled) {
       return;
     }
 
@@ -176,7 +215,7 @@ export function useCashPlannerManager({
     } finally {
       setIsSaving(false);
     }
-  }, [flows, spreadsheetId]);
+  }, [disabled, flows, spreadsheetId]);
 
   const addFlow = useCallback((draft: CashFlowDraft) => {
     setFlows((current) => [
