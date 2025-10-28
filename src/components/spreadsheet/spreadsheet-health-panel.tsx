@@ -85,9 +85,9 @@ export function SpreadsheetHealthPanel() {
       setRepairError(null);
       setRepairMessage(null);
 
-      try {
-        const sanitizedTitles = sheetTitles?.filter((title) => title && title.trim().length > 0);
+      const sanitizedTitles = sheetTitles?.filter((title) => title && title.trim().length > 0);
 
+      try {
         const payload = sanitizedTitles && sanitizedTitles.length > 0
           ? { spreadsheetId, sheets: sanitizedTitles }
           : { spreadsheetId };
