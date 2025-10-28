@@ -2,8 +2,6 @@
 // ABOUTME: Surfaces planned, posted, and void entries plus save controls.
 "use client";
 
-import { useMemo } from "react";
-
 import type { CashPlannerManagerState } from "./use-cash-planner-manager";
 
 function formatCurrency(amount: number) {
@@ -133,102 +131,18 @@ function Section({
 }
 
 export function CashPlannerLedger({ manager }: { manager: CashPlannerManagerState }) {
-  const plannedFlows = useMemo(
-    () => manager.flows.filter((flow) => flow.status === "planned"),
-    [manager.flows],
-  );
-  const postedFlows = useMemo(
-    () => manager.flows.filter((flow) => flow.status === "posted"),
-    [manager.flows],
-  );
-  const voidFlows = useMemo(
-    () => manager.flows.filter((flow) => flow.status === "void"),
-    [manager.flows],
-  );
-
-  const totals = useMemo(
-    () => ({
-      planned: plannedFlows.reduce((sum, flow) => sum + flow.plannedAmount, 0),
-      posted: postedFlows.reduce(
-        (sum, flow) => sum + (flow.actualAmount ?? flow.plannedAmount),
-        0,
-      ),
-      voided: voidFlows.reduce((sum, flow) => sum + flow.plannedAmount, 0),
-    }),
-    [plannedFlows, postedFlows, voidFlows],
-  );
-
-  if (manager.status === "loading") {
-    return (
-      <section className="rounded-xl border border-zinc-200/70 bg-white/70 p-6 text-sm text-zinc-600 shadow-sm dark:border-zinc-700/60 dark:bg-zinc-900/70 dark:text-zinc-300">
-        Loading cash planner…
-      </section>
-    );
+  if (manager.status !== "ready") {
+    return null;
   }
 
-  if (manager.status === "blocked") {
-    return (
-      <section className="rounded-xl border border-amber-300/60 bg-amber-50/80 p-6 text-sm text-amber-900 shadow-sm dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-100">
-        {manager.blockingMessage ?? "Connect a spreadsheet to manage cash flows."}
-      </section>
-    );
-  }
-
-  if (manager.status === "error") {
-    return (
-      <section className="rounded-xl border border-rose-400/70 bg-rose-50/80 p-6 text-sm text-rose-900 shadow-sm dark:border-rose-500/40 dark:bg-rose-900/20 dark:text-rose-100">
-        {manager.error ?? "Cash planner is temporarily unavailable. Try again shortly."}
-      </section>
-    );
-  }
-
-  const handleSave = () => {
-    void manager.save();
-  };
-
-  const handleReload = () => {
-    void manager.reload();
-  };
+  const plannedFlows = manager.flows.filter((flow) => flow.status === "planned");
+  const postedFlows = manager.flows.filter((flow) => flow.status === "posted");
+  const voidFlows = manager.flows.filter((flow) => flow.status === "void");
 
   const showEmpty = manager.flows.length === 0;
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl border border-zinc-200/70 bg-white/70 p-6 shadow-sm dark:border-zinc-700/60 dark:bg-zinc-900/70">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100">Cash planner</h2>
-          <div className="text-xs text-zinc-500 dark:text-zinc-400">
-            <span className="mr-3">Projected total: {formatCurrency(totals.planned)}</span>
-            <span className="mr-3">Posted total: {formatCurrency(totals.posted)}</span>
-            <span>Voided total: {formatCurrency(totals.voided)}</span>
-          </div>
-          {manager.lastSavedAt ? (
-            <div className="text-xs text-zinc-400 dark:text-zinc-500">
-              Last saved {formatDate(manager.lastSavedAt)}
-            </div>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <button
-            type="button"
-            data-action="reload"
-            onClick={handleReload}
-            className="rounded border border-zinc-300/70 px-3 py-1 transition hover:border-zinc-400 dark:border-zinc-700/60 dark:hover:border-zinc-500"
-          >
-            Reload
-          </button>
-          <button
-            type="button"
-            data-action="save"
-            disabled={!manager.isDirty || manager.isSaving}
-            onClick={handleSave}
-            className="rounded border border-emerald-500/70 bg-emerald-500/10 px-3 py-1 font-semibold text-emerald-600 transition disabled:cursor-not-allowed disabled:border-emerald-200/60 disabled:bg-emerald-100/30 disabled:text-emerald-300 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-200 dark:disabled:border-emerald-400/20 dark:disabled:bg-emerald-400/5 dark:disabled:text-emerald-400"
-          >
-            {manager.isSaving ? "Saving…" : "Save changes"}
-          </button>
-        </div>
-      </header>
-
+    <div className="flex flex-col gap-4">
       {showEmpty ? (
         <div className="rounded-lg border border-dashed border-zinc-300/70 bg-zinc-50/70 p-6 text-sm text-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:text-zinc-400">
           No cash flows captured yet. Add planned income and expenses to start projecting your runway.
@@ -310,6 +224,6 @@ export function CashPlannerLedger({ manager }: { manager: CashPlannerManagerStat
           </ul>
         </Section>
       ) : null}
-    </section>
+    </div>
   );
 }

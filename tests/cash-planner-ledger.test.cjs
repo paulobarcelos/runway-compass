@@ -52,7 +52,7 @@ function renderComponent(element) {
   };
 }
 
-test("CashPlannerLedger shows loading state", async () => {
+test("CashPlannerLedger renders nothing when loading", async () => {
   const { CashPlannerLedger } = await loadComponent();
 
   const manager = {
@@ -75,11 +75,11 @@ test("CashPlannerLedger shows loading state", async () => {
     React.createElement(CashPlannerLedger, { manager }),
   );
 
-  assert.match(container.textContent ?? "", /Loading cash planner/i);
+  assert.equal((container.textContent ?? "").trim(), "");
   unmount();
 });
 
-test("CashPlannerLedger renders blocking state", async () => {
+test("CashPlannerLedger renders nothing when blocked", async () => {
   const { CashPlannerLedger } = await loadComponent();
 
   const manager = {
@@ -102,18 +102,16 @@ test("CashPlannerLedger renders blocking state", async () => {
     React.createElement(CashPlannerLedger, { manager }),
   );
 
-  assert.match(container.textContent ?? "", /Connect a sheet/);
+  assert.equal((container.textContent ?? "").trim(), "");
   unmount();
 });
 
-test("CashPlannerLedger wires actions and shows totals", async () => {
+test("CashPlannerLedger wires actions for ready state", async () => {
   const { CashPlannerLedger } = await loadComponent();
 
   const duplicateCalls = [];
   const updateCalls = [];
   const removeCalls = [];
-  const saveCalls = [];
-  const reloadCalls = [];
 
   const manager = {
     status: "ready",
@@ -151,9 +149,7 @@ test("CashPlannerLedger wires actions and shows totals", async () => {
     reload: async () => {
       reloadCalls.push(true);
     },
-    save: async () => {
-      saveCalls.push(true);
-    },
+    save: async () => {},
     addFlow: () => {},
     updateFlow: (id, changes) => {
       updateCalls.push({ id, changes });
@@ -180,29 +176,20 @@ test("CashPlannerLedger wires actions and shows totals", async () => {
   const postButton = container.querySelector('button[data-flow="flow-1"][data-action="mark-posted"]');
   const voidButton = container.querySelector('button[data-flow="flow-1"][data-action="void"]');
   const removeButton = container.querySelector('button[data-flow="flow-1"][data-action="remove"]');
-  const saveButton = container.querySelector('button[data-action="save"]');
-  const reloadButton = container.querySelector('button[data-action="reload"]');
-
   assert.ok(duplicateButton);
   assert.ok(postButton);
   assert.ok(voidButton);
   assert.ok(removeButton);
-  assert.ok(saveButton);
-  assert.ok(reloadButton);
 
   await act(async () => {
     duplicateButton.click();
     postButton.click();
     voidButton.click();
     removeButton.click();
-    saveButton.click();
-    reloadButton.click();
   });
 
   assert.deepEqual(duplicateCalls, ["flow-1"]);
   assert.equal(removeCalls[0], "flow-1");
-  assert.equal(saveCalls.length, 1);
-  assert.equal(reloadCalls.length, 1);
   assert.deepEqual(updateCalls, [
     {
       id: "flow-1",
