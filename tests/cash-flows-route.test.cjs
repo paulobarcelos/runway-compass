@@ -2,6 +2,9 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { createTestJiti } = require("./helpers/create-jiti");
+const {
+  CASH_FLOW_EXPECTED_ENTRIES,
+} = require("./fixtures/cash-flow-ledger-fixture.cjs");
 
 function withEnv(run) {
   const originalClientId = process.env.GOOGLE_CLIENT_ID;
@@ -52,20 +55,7 @@ test("cash flows route returns data on success", async () => {
     const { GET } = createCashFlowsHandler({
       fetchCashFlows: async ({ spreadsheetId }) => {
         assert.equal(spreadsheetId, "sheet-123");
-        return [
-          {
-            flowId: "flow-1",
-            type: "income",
-            categoryId: "cat-1",
-            plannedDate: "2025-02-15",
-            plannedAmount: 2500,
-            actualDate: "2025-02-20",
-            actualAmount: 2550,
-            status: "posted",
-            accountId: "acct-1",
-            note: "Paycheck",
-          },
-        ];
+        return CASH_FLOW_EXPECTED_ENTRIES;
       },
     });
 
@@ -75,20 +65,7 @@ test("cash flows route returns data on success", async () => {
 
     assert.equal(response.status, 200);
     assert.deepEqual(payload, {
-      flows: [
-        {
-          flowId: "flow-1",
-          type: "income",
-          categoryId: "cat-1",
-          plannedDate: "2025-02-15",
-          plannedAmount: 2500,
-          actualDate: "2025-02-20",
-          actualAmount: 2550,
-          status: "posted",
-          accountId: "acct-1",
-          note: "Paycheck",
-        },
-      ],
+      flows: CASH_FLOW_EXPECTED_ENTRIES,
     });
   });
 });
@@ -136,18 +113,7 @@ test("cash flows save route persists flows", async () => {
       },
     });
 
-    const payload = {
-      flowId: "flow-1",
-      type: "income",
-      categoryId: "cat-1",
-      plannedDate: "2025-02-15",
-      plannedAmount: 2500,
-      actualDate: "2025-02-20",
-      actualAmount: 2550,
-      status: "posted",
-      accountId: "acct-1",
-      note: "Paycheck",
-    };
+    const payload = CASH_FLOW_EXPECTED_ENTRIES[1];
 
     const request = new Request("http://localhost/api/cash-flows?spreadsheetId=sheet-123", {
       method: "POST",

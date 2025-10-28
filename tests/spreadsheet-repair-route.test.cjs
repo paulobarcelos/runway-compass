@@ -165,3 +165,53 @@ test("repair route maps auth failures to 401", async () => {
     assert.equal(payload.error, "Missing authenticated session");
   });
 });
+
+test("repair route forwards cash_flows sheet and reports it in results", async () => {
+  await withEnv(async () => {
+    const jiti = createTestJiti(__filename);
+    const { createRepairHandler } = await jiti.import(
+      "../src/app/api/spreadsheet/repair/repair-handler",
+    );
+
+    const calls = [];
+
+    const handler = createRepairHandler({
+      repair: async (params) => {
+        calls.push(params);
+        return {
+          spreadsheetId: params.spreadsheetId,
+          schemaVersion: "3.2.0",
+          bootstrappedAt: "2025-10-28T16:00:00.000Z",
+          repairedSheets: ["_meta", "cash_flows"],
+          storedAt: 98765,
+        };
+      },
+    });
+
+    const response = await handler(
+      new Request("http://localhost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          spreadsheetId: "sheet-ledger",
+          sheets: ["cash_flows"],
+        }),
+      }),
+    );
+
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(calls[0], {
+      spreadsheetId: "sheet-ledger",
+      sheetTitles: ["cash_flows"],
+    });
+    assert.deepEqual(payload.repairedSheets, ["_meta", "cash_flows"]);
+    assert.deepEqual(payload.manifest, {
+      spreadsheetId: "sheet-ledger",
+      schemaVersion: "3.2.0",
+      bootstrappedAt: "2025-10-28T16:00:00.000Z",
+      storedAt: 98765,
+    });
+  });
+});

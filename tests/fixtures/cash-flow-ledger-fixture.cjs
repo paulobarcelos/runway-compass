@@ -1,0 +1,97 @@
+// ABOUTME: Sheet fixture with mixed cash flow rows for repository tests.
+// ABOUTME: Ensures parsing handles planned, posted, and void entries with nulls.
+
+const CASH_FLOW_SHEET_VALUES = [
+  [
+    "flow_id",
+    "type",
+    "category_id",
+    "planned_date",
+    "planned_amount",
+    "actual_date",
+    "actual_amount",
+    "status",
+    "account_id",
+    "note",
+  ],
+  [
+    "flow-planned",
+    "income",
+    "cat-consulting",
+    "2025-02-05",
+    "3500",
+    "",
+    "",
+    "planned",
+    "acct-operating",
+    "Consulting retainer",
+  ],
+  [
+    "flow-posted",
+    "expense",
+    "cat-rent",
+    "2025-02-01",
+    "1800",
+    "2025-02-02",
+    "1825",
+    "posted",
+    "",
+    "Rent invoice",
+  ],
+  [
+    "flow-void",
+    "expense",
+    "cat-subscriptions",
+    "2025-02-15",
+    "90",
+    "",
+    "",
+    "void",
+    "",
+    "Duplicate entry cleared",
+  ],
+];
+
+const CASH_FLOW_EXPECTED_ENTRIES = [
+  {
+    flowId: "flow-planned",
+    type: "income",
+    categoryId: "cat-consulting",
+    plannedDate: "2025-02-05",
+    plannedAmount: 3500,
+    actualDate: null,
+    actualAmount: null,
+    status: "planned",
+    accountId: "acct-operating",
+    note: "Consulting retainer",
+  },
+  {
+    flowId: "flow-posted",
+    type: "expense",
+    categoryId: "cat-rent",
+    plannedDate: "2025-02-01",
+    plannedAmount: 1800,
+    actualDate: "2025-02-02",
+    actualAmount: 1825,
+    status: "posted",
+    accountId: null,
+    note: "Rent invoice",
+  },
+  {
+    flowId: "flow-void",
+    type: "expense",
+    categoryId: "cat-subscriptions",
+    plannedDate: "2025-02-15",
+    plannedAmount: 90,
+    actualDate: null,
+    actualAmount: null,
+    status: "void",
+    accountId: null,
+    note: "Duplicate entry cleared",
+  },
+];
+
+module.exports = {
+  CASH_FLOW_SHEET_VALUES,
+  CASH_FLOW_EXPECTED_ENTRIES,
+};

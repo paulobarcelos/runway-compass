@@ -2,6 +2,10 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { createTestJiti } = require("./helpers/create-jiti");
+const {
+  CASH_FLOW_SHEET_VALUES,
+  CASH_FLOW_EXPECTED_ENTRIES,
+} = require("./fixtures/cash-flow-ledger-fixture.cjs");
 
 function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
   const getCalls = [];
@@ -52,47 +56,10 @@ function createSheetsStub({ values = [], throwsOnGet = false } = {}) {
   };
 }
 
-test("cash flow repository list returns typed entries", async () => {
+test("cash flow repository list parses mixed planned and posted rows", async () => {
   const jiti = createTestJiti(__filename);
   const { stub, getCalls } = createSheetsStub({
-    values: [
-      [
-        "flow_id",
-        "type",
-        "category_id",
-        "planned_date",
-        "planned_amount",
-        "actual_date",
-        "actual_amount",
-        "status",
-        "account_id",
-        "note",
-      ],
-      [
-        "flow-1",
-        "income",
-        "cat-1",
-        "2025-01-05",
-        "1500",
-        "",
-        "",
-        "planned",
-        "acct-1",
-        "Consulting retainer",
-      ],
-      [
-        "flow-2",
-        "expense",
-        "cat-2",
-        "2025-01-08",
-        "300",
-        "2025-01-10",
-        "320",
-        "posted",
-        "",
-        "Supplies",
-      ],
-    ],
+    values: CASH_FLOW_SHEET_VALUES,
   });
 
   const { createCashFlowRepository } = await jiti.import(
@@ -110,32 +77,7 @@ test("cash flow repository list returns typed entries", async () => {
   assert.equal(getCalls[0].spreadsheetId, "sheet-123");
   assert.equal(getCalls[0].range, "cash_flows!A1:J4000");
 
-  assert.deepEqual(entries, [
-    {
-      flowId: "flow-1",
-      type: "income",
-      categoryId: "cat-1",
-      plannedDate: "2025-01-05",
-      plannedAmount: 1500,
-      actualDate: null,
-      actualAmount: null,
-      status: "planned",
-      accountId: "acct-1",
-      note: "Consulting retainer",
-    },
-    {
-      flowId: "flow-2",
-      type: "expense",
-      categoryId: "cat-2",
-      plannedDate: "2025-01-08",
-      plannedAmount: 300,
-      actualDate: "2025-01-10",
-      actualAmount: 320,
-      status: "posted",
-      accountId: null,
-      note: "Supplies",
-    },
-  ]);
+  assert.deepEqual(entries, CASH_FLOW_EXPECTED_ENTRIES);
 });
 
 test("cash flow repository list throws on missing flow id", async () => {
@@ -180,6 +122,63 @@ test("cash flow repository list throws on missing flow id", async () => {
 
   await assert.rejects(() => repository.list(), {
     message: "Invalid cash flow row at index 2: missing flow_id",
+  });
+});
+
+test("cash flow repository list rejects invalid actual_amount strings", async () => {
+  const jiti = createTestJiti(__filename);
+  const { stub } = createSheetsStub({
+    values: [
+      [
+        "flow_id",
+        "type",
+        "category_id",
+        "planned_date",
+        "planned_amount",
+        "actual_date",
+        "actual_amount",
+        "status",
+        "account_id",
+        "note",
+      ],
+      [
+        "flow-1",
+        "income",
+        "cat-1",
+        "2025-02-05",
+        "2000",
+        "",
+        "",
+        "planned",
+        "",
+        "",
+      ],
+      [
+        "flow-2",
+        "expense",
+        "cat-2",
+        "2025-02-10",
+        "150",
+        "2025-02-12",
+        "not-a-number",
+        "posted",
+        "",
+        "",
+      ],
+    ],
+  });
+
+  const { createCashFlowRepository } = await jiti.import(
+    "../src/server/google/repository/cash-flow-repository",
+  );
+
+  const repository = createCashFlowRepository({
+    sheets: stub,
+    spreadsheetId: "sheet-123",
+  });
+
+  await assert.rejects(() => repository.list(), {
+    message: "Invalid cash flow row at index 3: actual_amount must be a number",
   });
 });
 
@@ -434,5 +433,55 @@ test("cash flow repository save clears existing rows before writing", async () =
       "",
       "Supplies",
     ],
+  ]);
+});
+
+test("cash flow repository save writes header row exactly once per call", async () => {
+  const jiti = createTestJiti(__filename);
+  const { stub, updateCalls, clearCalls, getStoredValues } = createSheetsStub();
+
+  const { createCashFlowRepository } = await jiti.import(
+    "../src/server/google/repository/cash-flow-repository",
+  );
+
+  const repository = createCashFlowRepository({
+    sheets: stub,
+    spreadsheetId: "sheet-xyz",
+  });
+
+  const firstBatch = CASH_FLOW_EXPECTED_ENTRIES;
+  const secondBatch = CASH_FLOW_EXPECTED_ENTRIES.slice(0, 2);
+
+  await repository.save(firstBatch);
+  await repository.save(secondBatch);
+
+  assert.equal(clearCalls.length, 2);
+  assert.equal(updateCalls.length, 2);
+
+  const headerRow = CASH_FLOW_SHEET_VALUES[0];
+
+  for (let index = 0; index < updateCalls.length; index += 1) {
+    const call = updateCalls[index];
+    const rows = call.requestBody.values;
+
+    assert.deepEqual(rows[0], headerRow);
+    const expectedLength = index === 0 ? firstBatch.length + 1 : secondBatch.length + 1;
+    assert.equal(rows.length, expectedLength);
+  }
+
+  assert.deepEqual(getStoredValues(), [
+    headerRow,
+    ...secondBatch.map((entry) => [
+      entry.flowId,
+      entry.type,
+      entry.categoryId,
+      entry.plannedDate,
+      String(entry.plannedAmount),
+      entry.actualDate ?? "",
+      entry.actualAmount != null ? String(entry.actualAmount) : "",
+      entry.status,
+      entry.accountId ?? "",
+      entry.note ?? "",
+    ]),
   ]);
 });
