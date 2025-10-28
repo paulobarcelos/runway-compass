@@ -12,6 +12,7 @@ import {
   type AccountsDiagnostics,
 } from "./repository/accounts-repository";
 import { createCategoriesRepository } from "./repository/categories-repository";
+import { createCashFlowRepository } from "./repository/cash-flow-repository";
 import { createSnapshotsRepository } from "./repository/snapshots-repository";
 
 export type SpreadsheetDiagnosticSeverity = "warning" | "error";
@@ -53,6 +54,7 @@ const SHEET_LABELS: Record<string, string> = {
   accounts: "Accounts",
   categories: "Categories",
   snapshots: "Snapshots",
+  cash_flows: "Cash Flows",
 };
 
 function toMetadataMap(response: sheets_v4.Schema$Spreadsheet | undefined): MetadataMap {
@@ -127,6 +129,45 @@ function toErrorDiagnostic(context: SheetContext, error: unknown): SheetDiagnost
     message: extractErrorMessage(error),
     rowNumber: null,
   };
+}
+
+function deriveSheetError(context: SheetContext, error: unknown): SheetDiagnostic {
+  const diagnostic = toErrorDiagnostic(context, error);
+  if (diagnostic.code !== "exception") {
+    return diagnostic;
+  }
+
+  const normalizedMessage = diagnostic.message.toLowerCase();
+
+  if (
+    normalizedMessage.includes("header does not match expected schema") ||
+    normalizedMessage.includes("header mismatch")
+  ) {
+    return {
+      ...diagnostic,
+      code: "header_mismatch",
+    };
+  }
+
+  if (normalizedMessage.includes("missing sheet") || normalizedMessage.includes("sheet not found")) {
+    return {
+      ...diagnostic,
+      code: "missing_sheet",
+    };
+  }
+
+  if (
+    normalizedMessage.includes("unable to parse range") ||
+    normalizedMessage.includes("range error") ||
+    normalizedMessage.includes("invalid range")
+  ) {
+    return {
+      ...diagnostic,
+      code: "range_error",
+    };
+  }
+
+  return diagnostic;
 }
 
 function toWarningDiagnostic(context: SheetContext, warning: { code: string; message: string; rowNumber?: number | null }): SheetDiagnostic {
@@ -211,6 +252,7 @@ interface CollectSpreadsheetDiagnosticsOptions {
   loadAccountsDiagnostics?: LoadAccountsDiagnostics;
   loadCategories?: LoadSheet;
   loadSnapshots?: LoadSheet;
+  loadCashFlows?: LoadSheet;
 }
 
 export async function collectSpreadsheetDiagnostics({
@@ -219,6 +261,10 @@ export async function collectSpreadsheetDiagnostics({
   loadAccountsDiagnostics = defaultLoadAccountsDiagnostics,
   loadCategories = defaultLoadCategories,
   loadSnapshots = defaultLoadSnapshots,
+  loadCashFlows = async ({ sheets: sheetsClient, spreadsheetId: id }) => {
+    const repository = createCashFlowRepository({ sheets: sheetsClient, spreadsheetId: id });
+    await repository.list();
+  },
 }: CollectSpreadsheetDiagnosticsOptions): Promise<SpreadsheetDiagnostics> {
   const metadata = await loadMetadata({ sheets, spreadsheetId });
   const warnings: SheetDiagnostic[] = [];
@@ -227,7 +273,13 @@ export async function collectSpreadsheetDiagnostics({
   const accountsContext = resolveContext(metadata, "accounts");
   const categoriesContext = resolveContext(metadata, "categories");
   const snapshotsContext = resolveContext(metadata, "snapshots");
-  const sheetContexts: SheetContext[] = [accountsContext, categoriesContext, snapshotsContext];
+  const cashFlowsContext = resolveContext(metadata, "cash_flows");
+  const sheetContexts: SheetContext[] = [
+    accountsContext,
+    categoriesContext,
+    snapshotsContext,
+    cashFlowsContext,
+  ];
 
   try {
     const diagnostics = await loadAccountsDiagnostics({ sheets, spreadsheetId });
@@ -246,13 +298,19 @@ export async function collectSpreadsheetDiagnostics({
   try {
     await loadCategories({ sheets, spreadsheetId });
   } catch (error) {
-    errors.push(toErrorDiagnostic(categoriesContext, error));
+    errors.push(deriveSheetError(categoriesContext, error));
   }
 
   try {
     await loadSnapshots({ sheets, spreadsheetId });
   } catch (error) {
-    errors.push(toErrorDiagnostic(snapshotsContext, error));
+    errors.push(deriveSheetError(snapshotsContext, error));
+  }
+
+  try {
+    await loadCashFlows({ sheets, spreadsheetId });
+  } catch (error) {
+    errors.push(deriveSheetError(cashFlowsContext, error));
   }
 
   return { warnings, errors, sheets: sheetContexts };

@@ -8,7 +8,7 @@ import type { sheets_v4 } from "googleapis";
 
 import { createSheetsClient, type GoogleAuthTokens } from "./clients";
 import { bootstrapSpreadsheet } from "./bootstrap";
-import { META_SHEET_TITLE } from "./sheet-schemas";
+import { CASH_FLOWS_SHEET_SCHEMA, META_SHEET_TITLE } from "./sheet-schemas";
 
 interface RegisterSpreadsheetOptions {
   spreadsheetId: string;
@@ -42,7 +42,7 @@ export async function registerSpreadsheetSelection({
   createSheetsClient: resolveSheetsClient = createSheetsClient,
   bootstrapSpreadsheet: bootstrap = bootstrapSpreadsheet,
   schemaVersion = "1.0.0",
-  bootstrapSheetTitles = [META_SHEET_TITLE],
+  bootstrapSheetTitles = [META_SHEET_TITLE, CASH_FLOWS_SHEET_SCHEMA.title],
   now = Date.now,
 }: RegisterSpreadsheetOptions): Promise<RegisterSpreadsheetResult> {
   if (!spreadsheetId) {

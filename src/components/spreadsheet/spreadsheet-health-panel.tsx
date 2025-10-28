@@ -244,11 +244,7 @@ export function SpreadsheetHealthPanel() {
           {hasRepairableIssues ? (
             <button
               type="button"
-              onClick={() =>
-                void handleRepair(
-                  repairableGroups.map((group) => group.sheetTitle || group.sheetId),
-                )
-              }
+              onClick={() => void handleRepair(repairableGroups.map((group) => group.sheetId))}
               disabled={isRepairing || status === "loading"}
               className="inline-flex items-center rounded-md border border-current/40 bg-current/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-current shadow-sm transition hover:bg-current/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -311,11 +307,7 @@ export function SpreadsheetHealthPanel() {
                   {group.errors.some((issue) => (issue.code ? REPAIRABLE_CODES.has(issue.code) : false)) ? (
                     <button
                       type="button"
-                      onClick={() =>
-                        void handleRepair([
-                          group.sheetTitle || group.sheetId,
-                        ])
-                      }
+                      onClick={() => void handleRepair([group.sheetId])}
                       disabled={isRepairing || status === "loading"}
                       className="inline-flex items-center rounded-sm border border-current/30 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-current/80 transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
                     >

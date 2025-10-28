@@ -452,3 +452,104 @@ test("bootstrapSpreadsheet ensures data sheets exist with headers", async () => 
     }
   });
 });
+
+test("bootstrapSpreadsheet recreates missing cash_flows sheet with headers", async () => {
+  await withEnv(async () => {
+    const jiti = createTestJiti(__filename);
+    const existingSheets = [
+      "_meta",
+      "categories",
+      "accounts",
+      "snapshots",
+      "budget_plan",
+      "actuals",
+      "future_events",
+      "runway_projection",
+    ];
+    const { stub, batchUpdateCalls, valueUpdateCalls, sheets } = createSheetsStub({
+      existingSheets,
+    });
+
+    const { bootstrapSpreadsheet } = await jiti.import(
+      "../src/server/google/bootstrap",
+    );
+
+    await bootstrapSpreadsheet({
+      sheets: stub,
+      spreadsheetId: "sheet-123",
+      schemaVersion: "3.2.0",
+      now: () => 1715000000000,
+    });
+
+    assert.ok(sheets.has("cash_flows"), "cash_flows sheet created");
+    const addRequests =
+      batchUpdateCalls[0]?.requestBody?.requests?.filter((request) => request.addSheet) ?? [];
+    const cashFlowAdd = addRequests.find(
+      (request) => request.addSheet.properties.title === "cash_flows",
+    );
+    assert.ok(cashFlowAdd, "cash_flows addSheet request issued");
+
+    const headerUpdate = valueUpdateCalls.find((call) =>
+      call.range.startsWith("cash_flows!"),
+    );
+    assert.ok(headerUpdate, "cash_flows header update issued");
+    assert.deepEqual(headerUpdate.requestBody.values[0], [
+      "flow_id",
+      "type",
+      "category_id",
+      "planned_date",
+      "planned_amount",
+      "actual_date",
+      "actual_amount",
+      "status",
+      "account_id",
+      "note",
+    ]);
+  });
+});
+
+test("bootstrapSpreadsheet repairs cash_flows headers when mismatched", async () => {
+  await withEnv(async () => {
+    const jiti = createTestJiti(__filename);
+    const { stub, batchUpdateCalls, valueUpdateCalls } = createSheetsStub({
+      existingSheets: ["_meta", "cash_flows"],
+      sheetValues: {
+        cash_flows: [
+          ["flow_id", "category_id", "planned_amount"],
+          ["flow-1", "cat-1", "100"],
+        ],
+      },
+    });
+
+    const { bootstrapSpreadsheet } = await jiti.import(
+      "../src/server/google/bootstrap",
+    );
+
+    await bootstrapSpreadsheet({
+      sheets: stub,
+      spreadsheetId: "sheet-abc",
+      schemaVersion: "3.2.0",
+      sheetTitles: ["cash_flows"],
+      now: () => 1716000000000,
+    });
+
+    assert.equal(batchUpdateCalls.length, 0, "cash_flows sheet was not recreated");
+
+    const headerUpdate = valueUpdateCalls.find((call) =>
+      call.range.startsWith("cash_flows!"),
+    );
+    assert.ok(headerUpdate, "cash_flows header rewrite issued");
+    assert.deepEqual(headerUpdate.requestBody.values[0], [
+      "flow_id",
+      "type",
+      "category_id",
+      "planned_date",
+      "planned_amount",
+      "actual_date",
+      "actual_amount",
+      "status",
+      "account_id",
+      "note",
+    ]);
+  });
+});

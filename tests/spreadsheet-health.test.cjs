@@ -172,6 +172,7 @@ test("collectSpreadsheetDiagnostics aggregates repository issues by severity", a
           { properties: { title: "accounts", sheetId: 110 } },
           { properties: { title: "categories", sheetId: 220 } },
           { properties: { title: "snapshots", sheetId: 330 } },
+          { properties: { title: "cash_flows", sheetId: 440 } },
         ],
       },
     });
@@ -197,6 +198,11 @@ test("collectSpreadsheetDiagnostics aggregates repository issues by severity", a
       }),
       loadCategories: async () => {},
       loadSnapshots: async () => {},
+      loadCashFlows: async () => {
+        const error = new Error("cash_flows header does not match expected schema");
+        error.code = "header_mismatch";
+        throw error;
+      },
     });
 
     assert.deepEqual(result, {
@@ -221,6 +227,15 @@ test("collectSpreadsheetDiagnostics aggregates repository issues by severity", a
           message: "Accounts tab missing",
           rowNumber: null,
         },
+        {
+          sheetId: "cash_flows",
+          sheetTitle: "Cash Flows",
+          sheetGid: 440,
+          severity: "error",
+          code: "header_mismatch",
+          message: "cash_flows header does not match expected schema",
+          rowNumber: null,
+        },
       ],
       sheets: [
         {
@@ -237,6 +252,11 @@ test("collectSpreadsheetDiagnostics aggregates repository issues by severity", a
           sheetId: "snapshots",
           sheetTitle: "Snapshots",
           sheetGid: 330,
+        },
+        {
+          sheetId: "cash_flows",
+          sheetTitle: "Cash Flows",
+          sheetGid: 440,
         },
       ],
     });
@@ -256,6 +276,7 @@ test("collectSpreadsheetDiagnostics converts thrown errors into sheet diagnostic
           { properties: { title: "accounts", sheetId: 110 } },
           { properties: { title: "categories", sheetId: 220 } },
           { properties: { title: "snapshots", sheetId: 330 } },
+          { properties: { title: "cash_flows", sheetId: 440 } },
         ],
       },
     });
@@ -274,10 +295,14 @@ test("collectSpreadsheetDiagnostics converts thrown errors into sheet diagnostic
         error.code = 404;
         throw error;
       },
+      loadCashFlows: async () => {
+        throw new Error("cash_flows header mismatch");
+      },
     });
 
+
     assert.equal(result.warnings.length, 0);
-    assert.equal(result.errors.length, 3);
+    assert.equal(result.errors.length, 4);
 
     assert.deepEqual(result.errors, [
       {
@@ -294,7 +319,7 @@ test("collectSpreadsheetDiagnostics converts thrown errors into sheet diagnostic
         sheetTitle: "Categories",
         sheetGid: 220,
         severity: "error",
-        code: "exception",
+        code: "header_mismatch",
         message: "categories header does not match expected schema",
         rowNumber: null,
       },
@@ -307,6 +332,54 @@ test("collectSpreadsheetDiagnostics converts thrown errors into sheet diagnostic
         message: "Missing snapshot sheet",
         rowNumber: null,
       },
+      {
+        sheetId: "cash_flows",
+        sheetTitle: "Cash Flows",
+        sheetGid: 440,
+        severity: "error",
+        code: "header_mismatch",
+        message: "cash_flows header mismatch",
+        rowNumber: null,
+      },
     ]);
+  });
+});
+
+test("collectSpreadsheetDiagnostics maps range errors to repairable code", async () => {
+  await withEnv(async () => {
+    const jiti = createTestJiti(__filename);
+    const { collectSpreadsheetDiagnostics } = await jiti.import(
+      "../src/server/google/spreadsheet-health",
+    );
+
+    const { stub: sheets } = createSheetsStub({
+      metadata: {
+        sheets: [
+          { properties: { title: "cash_flows", sheetId: 440 } },
+        ],
+      },
+    });
+
+    const result = await collectSpreadsheetDiagnostics({
+      sheets,
+      spreadsheetId: "sheet-range",
+      loadAccountsDiagnostics: async () => ({ accounts: [], warnings: [], errors: [] }),
+      loadCategories: async () => {},
+      loadSnapshots: async () => {},
+      loadCashFlows: async () => {
+        throw new Error("Unable to parse range: cash_flows!A1:J4000");
+      },
+    });
+
+    assert.equal(result.errors.length, 1);
+    assert.deepEqual(result.errors[0], {
+      sheetId: "cash_flows",
+      sheetTitle: "Cash Flows",
+      sheetGid: 440,
+      severity: "error",
+      code: "range_error",
+      message: "Unable to parse range: cash_flows!A1:J4000",
+      rowNumber: null,
+    });
   });
 });
