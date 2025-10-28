@@ -14,6 +14,13 @@ import {
   type AccountRecord,
 } from "@/server/google/repository/accounts-repository";
 
+export class SnapshotValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SnapshotValidationError";
+  }
+}
+
 interface FetchSnapshotsOptions {
   spreadsheetId: string;
 }
@@ -66,16 +73,22 @@ async function appendSnapshotToSheets({
   const snapshotsRepository = createSnapshotsRepository({ sheets, spreadsheetId });
   const accountsRepository = createAccountsRepository({ sheets, spreadsheetId });
 
+  const accounts = await accountsRepository.list();
+  const account = accounts.find((item) => item.accountId === snapshot.accountId);
+
+  if (!account) {
+    throw new SnapshotValidationError("Snapshot account not found");
+  }
+
   const existing = await snapshotsRepository.list();
   const nextSnapshots = [...existing, snapshot];
 
   await snapshotsRepository.save(nextSnapshots);
 
-  const accounts = await accountsRepository.list();
-  const updatedAccounts: AccountRecord[] = accounts.map((account) =>
-    account.accountId === snapshot.accountId
-      ? { ...account, lastSnapshotAt: snapshot.date }
-      : account,
+  const updatedAccounts: AccountRecord[] = accounts.map((item) =>
+    item.accountId === snapshot.accountId
+      ? { ...item, lastSnapshotAt: snapshot.date }
+      : item,
   );
 
   await accountsRepository.save(updatedAccounts);
@@ -139,7 +152,11 @@ export function createSnapshotsHandler({
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       const status =
-        message === "Missing authenticated session" || message === "Missing Google tokens" ? 401 : 500;
+        message === "Missing authenticated session" || message === "Missing Google tokens"
+          ? 401
+          : error instanceof SnapshotValidationError
+            ? 400
+            : 500;
 
       return NextResponse.json({ error: message }, { status });
     }
@@ -170,6 +187,10 @@ export function createSnapshotsHandler({
       const stored = await appendSnapshot({ spreadsheetId, snapshot });
       return NextResponse.json({ snapshot: stored }, { status: 200 });
     } catch (error) {
+      if (error instanceof SnapshotValidationError) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+
       const message = error instanceof Error ? error.message : "Unknown error";
       const status =
         message === "Missing authenticated session" || message === "Missing Google tokens" ? 401 : 500;

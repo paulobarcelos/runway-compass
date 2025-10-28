@@ -15,6 +15,7 @@ import {
   shouldRetryAfterRecovery,
   shouldReloadAfterBootstrap,
 } from "@/components/spreadsheet/spreadsheet-health-helpers";
+import { getSnapshotDisabledReason } from "./snapshot-utils";
 
 interface AccountDraft {
   accountId: string;
@@ -510,9 +511,24 @@ export function AccountsManager() {
     }
   }, [drafts, spreadsheetId, baseCurrency, hasBlockingErrors]);
 
+  const persistedAccountIds = useMemo(
+    () => new Set(original.map((account) => account.accountId)),
+    [original],
+  );
+
+  const isAccountPersisted = useCallback(
+    (accountId: string) => persistedAccountIds.has(accountId),
+    [persistedAccountIds],
+  );
+
   const activeAccount = useMemo(
     () => drafts.find((account) => account.accountId === activeAccountId) ?? null,
     [drafts, activeAccountId],
+  );
+
+  const activeAccountPersisted = useMemo(
+    () => (activeAccount ? isAccountPersisted(activeAccount.accountId) : false),
+    [activeAccount, isAccountPersisted],
   );
 
   const accountSnapshots = useMemo(
@@ -529,6 +545,10 @@ export function AccountsManager() {
     async (account: AccountDraft, snapshot: { balance: string; date: string; note: string }) => {
       if (!spreadsheetId || snapshotActionsDisabled) {
         return;
+      }
+
+      if (!isAccountPersisted(account.accountId)) {
+        throw new Error("Save the account before capturing snapshots.");
       }
 
       const parsedBalance = Number.parseFloat(snapshot.balance);
@@ -577,7 +597,7 @@ export function AccountsManager() {
         ),
       );
     },
-    [spreadsheetId, snapshotActionsDisabled],
+    [spreadsheetId, snapshotActionsDisabled, isAccountPersisted],
   );
 
   if (!spreadsheetId) {
@@ -698,8 +718,17 @@ export function AccountsManager() {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100/70 bg-white/80 text-sm dark:divide-zinc-800 dark:bg-zinc-900/70">
-            {drafts.map((account) => (
-              <tr key={account.accountId}>
+            {drafts.map((account) => {
+              const accountPersisted = isAccountPersisted(account.accountId);
+              const disabledReason = getSnapshotDisabledReason({
+                isPersisted: accountPersisted,
+                snapshotActionsDisabled,
+                hasSnapshotBlockingErrors,
+                hasAccountBlockingErrors,
+              });
+
+              return (
+                <tr key={account.accountId}>
                 <td className="px-3 py-2">
                   <input
                     type="text"
@@ -780,7 +809,7 @@ export function AccountsManager() {
                     <button
                       type="button"
                       onClick={() => setActiveAccountId(account.accountId)}
-                      disabled={snapshotActionsDisabled}
+                      disabled={snapshotActionsDisabled || !accountPersisted}
                       className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-1 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                     >
                       Capture snapshot
@@ -794,14 +823,21 @@ export function AccountsManager() {
                       Delete
                     </button>
                   </div>
-                  {hasSnapshotBlockingErrors && !hasAccountBlockingErrors ? (
-                    <p className="mt-2 text-right text-xs text-rose-600 dark:text-rose-300">
-                      Snapshot capture is disabled until the snapshots tab passes health checks.
+                  {disabledReason ? (
+                    <p
+                      className={
+                        disabledReason.includes("health checks")
+                          ? "mt-2 text-right text-xs text-rose-600 dark:text-rose-300"
+                          : "mt-2 text-right text-xs text-zinc-500 dark:text-zinc-400"
+                      }
+                    >
+                      {disabledReason}
                     </p>
                   ) : null}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -851,7 +887,7 @@ export function AccountsManager() {
         </div>
       </div>
 
-      {activeAccount && !snapshotActionsDisabled ? (
+      {activeAccount && !snapshotActionsDisabled && activeAccountPersisted ? (
         <SnapshotModal
           account={activeAccount}
           snapshots={accountSnapshots}
