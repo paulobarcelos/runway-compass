@@ -1,15 +1,30 @@
-// ABOUTME: Ensures cash planner ledger renders states and wires actions.
+// ABOUTME: Validates core rendering behavior of CashPlannerLedger.
 /* eslint-disable @typescript-eslint/no-require-imports */
 require("./helpers/setup-dom.cjs");
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const path = require("node:path");
+const path = require("path");
 const React = require("react");
 const { act } = require("react");
 const { createRoot } = require("react-dom/client");
 const tsnode = require("ts-node");
 const tsconfigPaths = require("tsconfig-paths");
 const tsconfig = require("../tsconfig.json");
+
+const Module = require("module");
+const originalLoad = Module._load;
+
+Module._load = function patchedLoad(request, parent, isMain) {
+  if (request === "@/components/currency/base-currency-context") {
+    return require("./helpers/stubs/base-currency-context.tsx");
+  }
+
+  return originalLoad(request, parent, isMain);
+};
+
+process.on("exit", () => {
+  Module._load = originalLoad;
+});
 
 tsnode.register({
   transpileOnly: true,
@@ -26,17 +41,26 @@ tsconfigPaths.register({
   paths: tsconfig.compilerOptions?.paths ?? {},
 });
 
-async function loadComponent() {
-  return require("../src/components/cash-planner/cash-planner-ledger");
-}
+const {
+  BaseCurrencyProvider,
+  __resetBaseCurrencyTestValue,
+} = require("./helpers/stubs/base-currency-context.tsx");
 
-function renderComponent(element) {
+async function renderLedger(props) {
+  const { CashPlannerLedger } = require("../src/components/cash-planner/cash-planner-ledger");
+
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
 
-  act(() => {
-    root.render(element);
+  await act(async () => {
+    root.render(
+      React.createElement(
+        BaseCurrencyProvider,
+        null,
+        React.createElement(CashPlannerLedger, props),
+      ),
+    );
   });
 
   return {
@@ -52,154 +76,172 @@ function renderComponent(element) {
   };
 }
 
-test("CashPlannerLedger renders nothing when loading", async () => {
-  const { CashPlannerLedger } = await loadComponent();
+test("CashPlannerLedger renders rows and base currency", async () => {
+  __resetBaseCurrencyTestValue();
 
-  const manager = {
-    status: "loading",
-    blockingMessage: null,
-    error: null,
-    flows: [],
-    isDirty: false,
-    isSaving: false,
-    lastSavedAt: null,
-    reload: async () => {},
-    save: async () => {},
-    addFlow: () => {},
-    updateFlow: () => {},
-    removeFlow: () => {},
-    duplicateFlow: () => {},
-  };
-
-  const { container, unmount } = renderComponent(
-    React.createElement(CashPlannerLedger, { manager }),
-  );
-
-  assert.equal((container.textContent ?? "").trim(), "");
-  unmount();
-});
-
-test("CashPlannerLedger renders nothing when blocked", async () => {
-  const { CashPlannerLedger } = await loadComponent();
-
-  const manager = {
-    status: "blocked",
-    blockingMessage: "Connect a sheet",
-    error: null,
-    flows: [],
-    isDirty: false,
-    isSaving: false,
-    lastSavedAt: null,
-    reload: async () => {},
-    save: async () => {},
-    addFlow: () => {},
-    updateFlow: () => {},
-    removeFlow: () => {},
-    duplicateFlow: () => {},
-  };
-
-  const { container, unmount } = renderComponent(
-    React.createElement(CashPlannerLedger, { manager }),
-  );
-
-  assert.equal((container.textContent ?? "").trim(), "");
-  unmount();
-});
-
-test("CashPlannerLedger wires actions for ready state", async () => {
-  const { CashPlannerLedger } = await loadComponent();
-
-  const duplicateCalls = [];
-  const updateCalls = [];
-  const removeCalls = [];
-
-  const manager = {
-    status: "ready",
-    blockingMessage: null,
-    error: null,
-    flows: [
+  const ledger = await renderLedger({
+    entries: [
       {
         flowId: "flow-1",
-        type: "income",
-        categoryId: "cat-1",
-        plannedDate: "2025-02-15",
-        plannedAmount: 2500,
-        actualDate: "",
-        actualAmount: 0,
+        date: "2025-04-01",
+        amount: 1200,
         status: "planned",
         accountId: "acct-1",
-        note: "Paycheck",
-      },
-      {
-        flowId: "flow-2",
-        type: "expense",
-        categoryId: "cat-2",
-        plannedDate: "2025-02-10",
-        plannedAmount: -450,
-        actualDate: "2025-02-11",
-        actualAmount: -460,
-        status: "posted",
-        accountId: "acct-2",
-        note: "Rent",
+        categoryId: "cat-1",
+        note: "Invoice",
       },
     ],
-    isDirty: true,
+    accounts: [{ id: "acct-1", name: "Operating", currency: "USD" }],
+    categories: [{ id: "cat-1", label: "Consulting" }],
+    orphanInfo: new Map(),
+    onCreate: async () => null,
+    onUpdate: async () => null,
+    onDelete: async () => {},
     isSaving: false,
-    lastSavedAt: null,
-    reload: async () => {
-      reloadCalls.push(true);
-    },
-    save: async () => {},
-    addFlow: () => {},
-    updateFlow: (id, changes) => {
-      updateCalls.push({ id, changes });
-    },
-    removeFlow: (id) => {
-      removeCalls.push(id);
-    },
-    duplicateFlow: (id) => {
-      duplicateCalls.push(id);
-    },
-  };
-
-  const { container, unmount } = renderComponent(
-    React.createElement(CashPlannerLedger, { manager }),
-  );
-
-  const text = container.textContent ?? "";
-  assert.match(text, /Paycheck/);
-  assert.match(text, /Rent/);
-  assert.match(text, /\$2,500.00/);
-  assert.match(text, /-\$460.00/);
-
-  const duplicateButton = container.querySelector('button[data-flow="flow-1"][data-action="duplicate"]');
-  const postButton = container.querySelector('button[data-flow="flow-1"][data-action="mark-posted"]');
-  const voidButton = container.querySelector('button[data-flow="flow-1"][data-action="void"]');
-  const removeButton = container.querySelector('button[data-flow="flow-1"][data-action="remove"]');
-  assert.ok(duplicateButton);
-  assert.ok(postButton);
-  assert.ok(voidButton);
-  assert.ok(removeButton);
-
-  await act(async () => {
-    duplicateButton.click();
-    postButton.click();
-    voidButton.click();
-    removeButton.click();
   });
 
-  assert.deepEqual(duplicateCalls, ["flow-1"]);
-  assert.equal(removeCalls[0], "flow-1");
-  assert.deepEqual(updateCalls, [
-    {
-      id: "flow-1",
-      changes: { status: "posted", actualAmount: 2500, actualDate: "2025-02-15" },
+  const text = ledger.container.textContent ?? "";
+  assert.match(text, /Consulting/);
+  assert.match(text, /Operating/);
+  assert.match(text, /1200\.00 USD/);
+
+  const dateInput = ledger.container.querySelector('tbody tr input[type="date"]');
+  const today = new Date().toISOString().slice(0, 10);
+  assert.equal(dateInput?.value, today);
+
+  ledger.unmount();
+});
+
+test("CashPlannerLedger delete button invokes handler", async () => {
+  __resetBaseCurrencyTestValue();
+
+  const deleteCalls = [];
+
+  const ledger = await renderLedger({
+    entries: [
+      {
+        flowId: "flow-1",
+        date: "2025-04-01",
+        amount: -75,
+        status: "planned",
+        accountId: "acct-1",
+        categoryId: "cat-1",
+        note: "Snacks",
+      },
+    ],
+    accounts: [{ id: "acct-1", name: "Operating", currency: "USD" }],
+    categories: [{ id: "cat-1", label: "Office" }],
+    orphanInfo: new Map(),
+    onCreate: async () => null,
+    onUpdate: async () => null,
+    onDelete: async (flowId) => {
+      deleteCalls.push(flowId);
     },
-    {
-      id: "flow-1",
-      changes: { status: "void", actualAmount: 0, actualDate: "" },
-    },
+    isSaving: false,
+  });
+
+  const buttons = ledger.container.querySelectorAll('button[type="button"]');
+  const deleteButton = buttons[buttons.length - 1];
+  assert.ok(deleteButton);
+
+  await act(async () => {
+    deleteButton.click();
+  });
+
+  assert.deepEqual(deleteCalls, ["flow-1"]);
+  ledger.unmount();
+});
+
+test("CashPlannerLedger highlights orphaned metadata", async () => {
+  __resetBaseCurrencyTestValue();
+
+  const orphanInfo = new Map([
+    ["flow-2", { account: true, category: false }],
   ]);
 
-  unmount();
+  const ledger = await renderLedger({
+    entries: [
+      {
+        flowId: "flow-2",
+        date: "2025-04-03",
+        amount: 310,
+        status: "planned",
+        accountId: "acct-missing",
+        categoryId: "cat-1",
+        note: "Subscription",
+      },
+    ],
+    accounts: [{ id: "acct-1", name: "Operating", currency: "USD" }],
+    categories: [{ id: "cat-1", label: "Office" }],
+    orphanInfo,
+    onCreate: async () => null,
+    onUpdate: async () => null,
+    onDelete: async () => {},
+    isSaving: false,
+  });
+
+  const rows = ledger.container.querySelectorAll("tbody tr");
+  assert.equal(rows.length, 2);
+  const text = rows[1].textContent ?? "";
+  assert.match(text, /Metadata missing/);
+  assert.match(text, /Account removed/);
+  ledger.unmount();
+});
+
+test("CashPlannerLedger propagates dropdown updates", async () => {
+  __resetBaseCurrencyTestValue();
+
+  const updateCalls = [];
+  const baseEntry = {
+    flowId: "flow-1",
+    date: "2025-04-01",
+    amount: 500,
+    status: "planned",
+    accountId: "acct-1",
+    categoryId: "cat-1",
+    note: "Paycheck",
+  };
+
+  const ledger = await renderLedger({
+    entries: [baseEntry],
+    accounts: [
+      { id: "acct-1", name: "Operating", currency: "USD" },
+      { id: "acct-2", name: "Savings", currency: "USD" },
+    ],
+    categories: [
+      { id: "cat-1", label: "Income" },
+      { id: "cat-2", label: "Other" },
+    ],
+    orphanInfo: new Map(),
+    onCreate: async () => null,
+    onUpdate: async (flowId, updates) => {
+      updateCalls.push({ flowId, updates });
+      return { ...baseEntry, ...updates };
+    },
+    onDelete: async () => {},
+    isSaving: false,
+  });
+
+  const rows = ledger.container.querySelectorAll("tbody tr");
+  const entryRow = rows[1];
+  const selects = entryRow.querySelectorAll("select");
+
+  const statusSelect = selects[0];
+  await act(async () => {
+    statusSelect.value = "posted";
+    statusSelect.dispatchEvent(new window.Event("change", { bubbles: true }));
+  });
+
+  const accountSelect = selects[2];
+  await act(async () => {
+    accountSelect.value = "acct-2";
+    accountSelect.dispatchEvent(new window.Event("change", { bubbles: true }));
+  });
+
+  assert.deepEqual(updateCalls, [
+    { flowId: "flow-1", updates: { status: "posted" } },
+    { flowId: "flow-1", updates: { accountId: "acct-2" } },
+  ]);
+
+  ledger.unmount();
 });

@@ -114,3 +114,34 @@ test("runway route returns projection data on success", async () => {
     });
   });
 });
+
+test("runway refresh route triggers projection rebuild", async () => {
+  await withEnv(async () => {
+    const jiti = createTestJiti(__filename);
+    const { createRunwayRefreshHandler } = await jiti.import(
+      "../src/app/api/runway/refresh/runway-refresh-handler",
+    );
+
+    const { POST } = createRunwayRefreshHandler({
+      refreshProjection: async ({ spreadsheetId }) => {
+        assert.equal(spreadsheetId, "sheet-xyz");
+        return {
+          updatedAt: "2025-03-01T12:00:00.000Z",
+          rowsWritten: 24,
+        };
+      },
+    });
+
+    const request = new Request(
+      "http://localhost/api/runway/refresh?spreadsheetId=sheet-xyz",
+      { method: "POST" },
+    );
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 202);
+    assert.equal(payload.rowsWritten, 24);
+    assert.equal(payload.updatedAt, "2025-03-01T12:00:00.000Z");
+  });
+});

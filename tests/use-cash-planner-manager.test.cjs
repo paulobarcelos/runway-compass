@@ -1,4 +1,4 @@
-// ABOUTME: Verifies loading, editing, duplication, saving, and error handling for cash planner manager.
+// ABOUTME: Verifies ledger manager hook loads entries and performs CRUD operations.
 /* eslint-disable @typescript-eslint/no-require-imports */
 require("./helpers/setup-dom.cjs");
 const { test } = require("node:test");
@@ -77,7 +77,7 @@ async function renderManager(options = {}) {
   };
 }
 
-test("useCashPlannerManager loads flows and exposes state", async () => {
+test("useCashPlannerManager loads entries and exposes state", async () => {
   const fetchCalls = [];
   const harness = await renderManager({
     spreadsheetId: "sheet-123",
@@ -86,14 +86,11 @@ test("useCashPlannerManager loads flows and exposes state", async () => {
       return [
         {
           flowId: "flow-1",
-          type: "income",
-          categoryId: "cat-1",
-          plannedDate: "2025-02-15",
-          plannedAmount: 2500,
-          actualDate: "2025-02-20",
-          actualAmount: 2550,
+          date: "2025-02-15",
+          amount: 2500,
           status: "posted",
           accountId: "acct-1",
+          categoryId: "cat-1",
           note: "Paycheck",
         },
       ];
@@ -109,10 +106,8 @@ test("useCashPlannerManager loads flows and exposes state", async () => {
 
   assert.equal(manager.status, "ready");
   assert.equal(manager.error, null);
-  assert.equal(manager.flows.length, 1);
-  assert.equal(manager.flows[0].flowId, "flow-1");
-  assert.equal(manager.isDirty, false);
-  assert.equal(typeof manager.reload, "function");
+  assert.equal(manager.entries.length, 1);
+  assert.equal(manager.entries[0].flowId, "flow-1");
   harness.unmount();
 });
 
@@ -129,98 +124,89 @@ test("useCashPlannerManager surfaces fetch errors", async () => {
   const manager = harness.manager;
   assert.equal(manager.status, "error");
   assert.equal(manager.error, "Failed to load flows");
-  assert.equal(manager.flows.length, 0);
+  assert.equal(manager.entries.length, 0);
   harness.unmount();
 });
 
-test("useCashPlannerManager supports editing and duplication", async () => {
+test("useCashPlannerManager creates, updates, and deletes entries", async () => {
+  const createCalls = [];
+  const updateCalls = [];
+  const deleteCalls = [];
+
   const harness = await renderManager({
     spreadsheetId: "sheet-123",
     fetchCashFlows: async () => [
       {
         flowId: "flow-1",
-        type: "expense",
-        categoryId: "cat-1",
-        plannedDate: "2025-03-01",
-        plannedAmount: -450,
-        actualDate: "",
-        actualAmount: 0,
+        date: "2025-03-01",
+        amount: -450,
         status: "planned",
-        accountId: "",
+        accountId: "acct-1",
+        categoryId: "cat-1",
         note: "Rent",
       },
     ],
-  });
-
-  await harness.flush();
-
-  const manager = harness.manager;
-  await act(async () => {
-    manager.updateFlow("flow-1", { plannedAmount: -500, note: "Updated" });
-    manager.duplicateFlow("flow-1");
-  });
-
-  await harness.flush();
-
-  const updated = harness.manager;
-
-  assert.equal(updated.flows.length, 2);
-  assert.equal(updated.flows[0].plannedAmount, -500);
-  assert.equal(updated.flows[0].note, "Updated");
-  assert.equal(updated.flows[1].status, "planned");
-  assert.equal(updated.flows[1].actualAmount, 0);
-  assert.notEqual(updated.flows[1].flowId, "flow-1");
-  assert.equal(updated.isDirty, true);
-  harness.unmount();
-});
-
-test("useCashPlannerManager saves changes and resets dirty state", async () => {
-  const saveCalls = [];
-  const harness = await renderManager({
-    spreadsheetId: "sheet-123",
-    fetchCashFlows: async () => [
-      {
-        flowId: "flow-1",
-        type: "income",
-        categoryId: "cat-1",
-        plannedDate: "2025-02-15",
-        plannedAmount: 2500,
-        actualDate: "",
-        actualAmount: 0,
+    createCashFlow: async ({ draft }) => {
+      createCalls.push(draft);
+      return { flowId: "flow-2", ...draft };
+    },
+    updateCashFlow: async ({ flowId, updates }) => {
+      updateCalls.push({ flowId, updates });
+      return {
+        flowId,
+        date: "2025-03-01",
+        amount: -500,
         status: "planned",
         accountId: "acct-1",
-        note: "Paycheck",
-      },
-    ],
-    saveCashFlows: async ({ spreadsheetId, flows }) => {
-      saveCalls.push({ spreadsheetId, flows });
+        categoryId: "cat-1",
+        note: "Updated",
+      };
     },
+    deleteCashFlow: async ({ flowId }) => {
+      deleteCalls.push(flowId);
+    },
+    refreshRunwayProjection: async () => ({ updatedAt: null, rowsWritten: 0 }),
   });
 
   await harness.flush();
 
-  const manager = harness.manager;
-  await act(async () => {
-    manager.updateFlow("flow-1", { plannedAmount: 2600 });
-  });
-
-  await harness.flush();
-  const updated = harness.manager;
-  assert.equal(updated.isDirty, true);
+  let current = harness.manager;
 
   await act(async () => {
-    await updated.save();
+    await current.createEntry({
+      date: "2025-03-10",
+      amount: 1200,
+      status: "planned",
+      accountId: "acct-1",
+      categoryId: "cat-2",
+      note: "Invoice",
+    });
   });
+
   await harness.flush();
+  assert.equal(createCalls.length, 1);
+  current = harness.manager;
+  assert.equal(current.entries.length, 2);
 
-  const finalState = harness.manager;
+  await act(async () => {
+    await current.updateEntry("flow-1", { amount: -500, note: "Updated" });
+  });
 
-  assert.equal(saveCalls.length, 1);
-  assert.equal(saveCalls[0].spreadsheetId, "sheet-123");
-  assert.equal(saveCalls[0].flows[0].plannedAmount, 2600);
-  assert.equal(finalState.isSaving, false);
-  assert.equal(finalState.isDirty, false);
-  assert.ok(finalState.lastSavedAt);
+  await harness.flush();
+  assert.equal(updateCalls.length, 1);
+  current = harness.manager;
+  assert.equal(current.entries[0].amount, -500);
+  assert.equal(current.entries[0].note, "Updated");
+
+  await act(async () => {
+    await current.deleteEntry("flow-2");
+  });
+
+  await harness.flush();
+  assert.equal(deleteCalls.length, 1);
+  current = harness.manager;
+  assert.equal(current.entries.length, 1);
+
   harness.unmount();
 });
 
@@ -229,7 +215,7 @@ test("useCashPlannerManager blocks when disabled", async () => {
   const harness = await renderManager({
     spreadsheetId: "sheet-123",
     disabled: true,
-    disabledMessage: "Spreadsheet health flagged issues with the Cash Flows tab.",
+    disabledMessage: "Ledger tab disabled",
     fetchCashFlows: async ({ spreadsheetId }) => {
       fetchCalls.push(spreadsheetId);
       return [];
@@ -242,12 +228,6 @@ test("useCashPlannerManager blocks when disabled", async () => {
 
   assert.equal(fetchCalls.length, 0);
   assert.equal(manager.status, "blocked");
-  assert.equal(
-    manager.blockingMessage,
-    "Spreadsheet health flagged issues with the Cash Flows tab.",
-  );
-
-  await manager.reload();
-  assert.equal(fetchCalls.length, 0, "disabled reload should not refetch");
+  assert.equal(manager.blockingMessage, "Ledger tab disabled");
   harness.unmount();
 });

@@ -36,6 +36,10 @@ const {
   __getRunwayClientCalls,
   RunwayClientError,
 } = stubJiti("./helpers/stubs/runway-client");
+const {
+  emitRunwayProjectionUpdated,
+  __resetRunwayProjectionListeners,
+} = stubJiti("./helpers/stubs/runway-refresh-events");
 
 let originalFetch;
 
@@ -72,6 +76,10 @@ function stubAliases() {
     "@/lib/api/runway-client": path.resolve(
       __dirname,
       "helpers/stubs/runway-client.ts",
+    ),
+    "@/lib/api/runway-refresh-events": path.resolve(
+      __dirname,
+      "helpers/stubs/runway-refresh-events.ts",
     ),
     "@/lib/debug-log": path.resolve(__dirname, "helpers/stubs/debug-log.ts"),
   };
@@ -144,6 +152,7 @@ beforeEach(() => {
   __resetSpreadsheetHealthTestValue();
   __resetManifestRecord();
   __resetRunwayClientStub();
+  __resetRunwayProjectionListeners();
   if (global.window?.localStorage?.clear) {
     global.window.localStorage.clear();
   }
@@ -217,6 +226,53 @@ test("useRunwayTimeline exposes error message when fetch fails", async () => {
   const timeline = view.timeline;
   assert.equal(timeline.status, "error");
   assert.equal(timeline.error, "Failed to fetch");
+  view.unmount();
+});
+
+test("useRunwayTimeline reloads when projection update event fires", async () => {
+  __setManifestRecord({ spreadsheetId: "sheet-evt", storedAt: 4 });
+  __setRunwayClientResponse([
+    {
+      month: 4,
+      year: 2025,
+      startingBalance: 8000,
+      incomeTotal: 5000,
+      expenseTotal: 4500,
+      endingBalance: 8500,
+      stoplightStatus: "yellow",
+      notes: "watch",
+    },
+  ]);
+
+  const view = await renderTimeline();
+  await view.flush();
+
+  __setRunwayClientResponse([
+    {
+      month: 4,
+      year: 2025,
+      startingBalance: 8000,
+      incomeTotal: 5500,
+      expenseTotal: 4300,
+      endingBalance: 9200,
+      stoplightStatus: "green",
+      notes: "updated",
+    },
+  ]);
+
+  await act(async () => {
+    emitRunwayProjectionUpdated({
+      spreadsheetId: "sheet-evt",
+      updatedAt: "2025-04-01T00:00:00.000Z",
+      rowsWritten: 24,
+    });
+    await Promise.resolve();
+  });
+  await view.flush();
+
+  assert.equal(__getRunwayClientCalls().length, 2);
+  const timeline = view.timeline;
+  assert.equal(timeline.rows[0].notes, "updated");
   view.unmount();
 });
 

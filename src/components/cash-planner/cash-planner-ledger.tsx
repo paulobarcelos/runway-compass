@@ -1,228 +1,724 @@
-// ABOUTME: Presents the cash planner ledger grouped by status with inline actions.
-// ABOUTME: Surfaces planned, posted, and void entries plus save controls.
+// ABOUTME: Renders the ledger table with inline editing and creation row.
 "use client";
 
-import type { CashPlannerManagerState } from "./use-cash-planner-manager";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-function formatCurrency(amount: number) {
-  if (!Number.isFinite(amount)) {
-    return "—";
-  }
+import { useBaseCurrency } from "@/components/currency/base-currency-context";
+import type {
+  CashFlowDraft,
+  CashFlowEntry,
+  CashFlowRecord,
+  CashFlowStatus,
+} from "@/server/google/repository/cash-flow-repository";
 
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
+interface AccountOption {
+  id: string;
+  name: string;
+  currency: string;
 }
 
-function formatDate(value: string) {
-  if (!value || !value.trim()) {
-    return "—";
-  }
-
-  const parsed = new Date(value);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(parsed);
+interface CategoryOption {
+  id: string;
+  label: string;
 }
 
-function FlowActions({
-  manager,
-  flow,
-}: {
-  manager: CashPlannerManagerState;
-  flow: CashPlannerManagerState["flows"][number];
-}) {
-  const handleDuplicate = () => {
-    manager.duplicateFlow(flow.flowId);
+interface LedgerDraft {
+  date: string;
+  amount: string;
+  status: CashFlowStatus;
+  accountId: string;
+  categoryId: string;
+  note: string;
+}
+
+type NewEntryFieldKey = "date" | "amount" | "accountId" | "categoryId";
+
+function getTodayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+interface CashPlannerLedgerProps {
+  entries: CashFlowRecord[];
+  accounts: AccountOption[];
+  categories: CategoryOption[];
+  orphanInfo: Map<string, { account: boolean; category: boolean }>;
+  onCreate: (draft: CashFlowDraft) => Promise<CashFlowRecord | null>;
+  onUpdate: (flowId: string, updates: Partial<CashFlowEntry>) => Promise<CashFlowRecord | null>;
+  onDelete: (flowId: string) => Promise<void>;
+  isSaving: boolean;
+}
+
+function buildDraft(entry: CashFlowRecord): LedgerDraft {
+  return {
+    date: entry.date,
+    amount: String(entry.amount),
+    status: entry.status,
+    accountId: entry.accountId,
+    categoryId: entry.categoryId,
+    note: entry.note,
   };
+}
 
-  const handleMarkPosted = () => {
-    manager.updateFlow(flow.flowId, {
-      status: "posted",
-      actualAmount: flow.plannedAmount,
-      actualDate: flow.plannedDate,
+export function CashPlannerLedger({
+  entries,
+  accounts,
+  categories,
+  orphanInfo,
+  onCreate,
+  onUpdate,
+  onDelete,
+  isSaving,
+}: CashPlannerLedgerProps) {
+  const accountMap = useMemo(() => new Map(accounts.map((account) => [account.id, account])), [
+    accounts,
+  ]);
+  const categoryMap = useMemo(
+    () => new Map(categories.map((category) => [category.id, category.label])),
+    [categories],
+  );
+
+  const [drafts, setDrafts] = useState<Map<string, LedgerDraft>>(new Map());
+  const [newEntry, setNewEntry] = useState<LedgerDraft>({
+    date: getTodayDate(),
+    amount: "",
+    status: "planned",
+    accountId: "",
+    categoryId: "",
+    note: "",
+  });
+  const [newEntryError, setNewEntryError] = useState<string | null>(null);
+  const [newEntryFieldErrors, setNewEntryFieldErrors] = useState<
+    Partial<Record<NewEntryFieldKey, boolean>>
+  >({});
+  const lastUsedAccountIdRef = useRef<string>("");
+  const lastUsedCategoryIdRef = useRef<string>("");
+
+  const clearNewEntryFieldError = (field: NewEntryFieldKey) => {
+    setNewEntryFieldErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[field];
+      return next;
     });
   };
 
-  const handleVoid = () => {
-    manager.updateFlow(flow.flowId, {
-      status: "void",
-      actualAmount: 0,
-      actualDate: "",
+  useEffect(() => {
+    const next = new Map<string, LedgerDraft>();
+    for (const entry of entries) {
+      next.set(entry.flowId, buildDraft(entry));
+    }
+    setDrafts(next);
+  }, [entries]);
+
+  const { baseCurrency, convertAmount, formatAmount } = useBaseCurrency();
+
+  useEffect(() => {
+    if (accounts.length === 0) {
+      lastUsedAccountIdRef.current = "";
+      setNewEntry((current) => (current.accountId ? { ...current, accountId: "" } : current));
+      return;
+    }
+
+    if (!accounts.some((account) => account.id === lastUsedAccountIdRef.current)) {
+      lastUsedAccountIdRef.current = accounts[0].id;
+    }
+
+    if (!newEntry.accountId || !accounts.some((account) => account.id === newEntry.accountId)) {
+      const fallback = lastUsedAccountIdRef.current || accounts[0].id;
+      if (newEntry.accountId !== fallback) {
+        setNewEntry((current) => ({ ...current, accountId: fallback }));
+        clearNewEntryFieldError("accountId");
+      }
+    }
+  }, [accounts, newEntry.accountId]);
+
+  useEffect(() => {
+    if (categories.length === 0) {
+      lastUsedCategoryIdRef.current = "";
+      setNewEntry((current) => (current.categoryId ? { ...current, categoryId: "" } : current));
+      return;
+    }
+
+    if (!categories.some((category) => category.id === lastUsedCategoryIdRef.current)) {
+      lastUsedCategoryIdRef.current = categories[0].id;
+    }
+
+    if (
+      !newEntry.categoryId ||
+      !categories.some((category) => category.id === newEntry.categoryId)
+    ) {
+      const fallback = lastUsedCategoryIdRef.current || categories[0].id;
+      if (newEntry.categoryId !== fallback) {
+        setNewEntry((current) => ({ ...current, categoryId: fallback }));
+        clearNewEntryFieldError("categoryId");
+      }
+    }
+  }, [categories, newEntry.categoryId]);
+
+  const handleDraftChange = (flowId: string, field: keyof LedgerDraft, value: string) => {
+    setDrafts((current) => {
+      const next = new Map(current);
+      const draft = next.get(flowId);
+      if (!draft) {
+        return current;
+      }
+
+      next.set(flowId, { ...draft, [field]: value });
+      return next;
     });
   };
 
-  const handleRemove = () => {
-    manager.removeFlow(flow.flowId);
+  const applyUpdate = async (flowId: string) => {
+    const original = entries.find((entry) => entry.flowId === flowId);
+    const draft = drafts.get(flowId);
+
+    if (!original || !draft) {
+      return;
+    }
+
+    const updates: Partial<CashFlowEntry> = {};
+    let changed = false;
+
+    if (draft.date !== original.date) {
+      updates.date = draft.date;
+      changed = true;
+    }
+
+    if (draft.status !== original.status) {
+      updates.status = draft.status;
+      changed = true;
+    }
+
+    if (draft.accountId !== original.accountId) {
+      updates.accountId = draft.accountId;
+      changed = true;
+    }
+
+    if (draft.categoryId !== original.categoryId) {
+      updates.categoryId = draft.categoryId;
+      changed = true;
+    }
+
+    if (draft.note !== original.note) {
+      updates.note = draft.note;
+      changed = true;
+    }
+
+    if (draft.amount !== String(original.amount)) {
+      const parsed = Number(draft.amount);
+      if (!Number.isFinite(parsed)) {
+        handleDraftChange(flowId, "amount", String(original.amount));
+        return;
+      }
+      updates.amount = parsed;
+      changed = true;
+    }
+
+    if (!changed) {
+      return;
+    }
+
+    await onUpdate(flowId, updates);
   };
 
-  return (
-    <div className="flex flex-wrap gap-2 text-xs">
-      <button
-        type="button"
-        data-flow={flow.flowId}
-        data-action="duplicate"
-        onClick={handleDuplicate}
-        className="rounded border border-zinc-300/70 px-2 py-1 transition hover:border-emerald-500 hover:text-emerald-600 dark:border-zinc-700/60 dark:hover:border-emerald-400 dark:hover:text-emerald-300"
-      >
-        Duplicate
-      </button>
-      <button
-        type="button"
-        data-flow={flow.flowId}
-        data-action="mark-posted"
-        onClick={handleMarkPosted}
-        className="rounded border border-emerald-500/70 bg-emerald-500/10 px-2 py-1 text-emerald-600 transition hover:bg-emerald-500/20 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-300"
-      >
-        Mark posted
-      </button>
-      <button
-        type="button"
-        data-flow={flow.flowId}
-        data-action="void"
-        onClick={handleVoid}
-        className="rounded border border-amber-500/60 bg-amber-500/10 px-2 py-1 text-amber-600 transition hover:bg-amber-500/20 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-300"
-      >
-        Void
-      </button>
-      <button
-        type="button"
-        data-flow={flow.flowId}
-        data-action="remove"
-        onClick={handleRemove}
-        className="rounded border border-rose-400/60 bg-rose-500/10 px-2 py-1 text-rose-600 transition hover:bg-rose-500/20 dark:border-rose-400/40 dark:bg-rose-400/10 dark:text-rose-200"
-      >
-        Remove
-      </button>
-    </div>
-  );
-}
+  const resetNewEntry = useCallback(() => {
+    const defaultAccountId =
+      lastUsedAccountIdRef.current || accounts[0]?.id || "";
+    const defaultCategoryId =
+      lastUsedCategoryIdRef.current || categories[0]?.id || "";
 
-function Section({
-  title,
-  emptyMessage,
-  children,
-}: {
-  title: string;
-  emptyMessage: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="flex flex-col gap-3 rounded-lg border border-zinc-200/70 bg-white/70 p-4 shadow-sm dark:border-zinc-700/60 dark:bg-zinc-900/70">
-      <header className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-100">{title}</h3>
-      </header>
-      <div className="flex flex-col gap-2 text-sm text-zinc-600 dark:text-zinc-300">
-        {children}
-      </div>
-      <footer className="text-xs text-zinc-400 dark:text-zinc-500">{emptyMessage}</footer>
-    </section>
-  );
-}
+    if (defaultAccountId && !lastUsedAccountIdRef.current) {
+      lastUsedAccountIdRef.current = defaultAccountId;
+    }
 
-export function CashPlannerLedger({ manager }: { manager: CashPlannerManagerState }) {
-  if (manager.status !== "ready") {
-    return null;
-  }
+    if (defaultCategoryId && !lastUsedCategoryIdRef.current) {
+      lastUsedCategoryIdRef.current = defaultCategoryId;
+    }
 
-  const plannedFlows = manager.flows.filter((flow) => flow.status === "planned");
-  const postedFlows = manager.flows.filter((flow) => flow.status === "posted");
-  const voidFlows = manager.flows.filter((flow) => flow.status === "void");
+    setNewEntry({
+      date: getTodayDate(),
+      amount: "",
+      status: "planned",
+      accountId: defaultAccountId,
+      categoryId: defaultCategoryId,
+      note: "",
+    });
+    setNewEntryFieldErrors({});
+    setNewEntryError(null);
+  }, [accounts, categories]);
 
-  const showEmpty = manager.flows.length === 0;
+  const pushImmediateUpdate = async (
+    flowId: string,
+    updates: Partial<CashFlowEntry>,
+  ) => {
+    const original = entries.find((entry) => entry.flowId === flowId);
+
+    if (!original) {
+      return;
+    }
+
+    let changed = false;
+
+    for (const [key, value] of Object.entries(updates)) {
+      const typedKey = key as keyof CashFlowEntry;
+      if (value !== undefined && value !== original[typedKey]) {
+        changed = true;
+        break;
+      }
+    }
+
+    if (!changed) {
+      return;
+    }
+
+    await onUpdate(flowId, updates);
+  };
+
+  const handleStatusChange = async (flowId: string, status: CashFlowStatus) => {
+    handleDraftChange(flowId, "status", status);
+    await pushImmediateUpdate(flowId, { status });
+  };
+
+  const handleAccountChange = async (flowId: string, accountId: string) => {
+    handleDraftChange(flowId, "accountId", accountId);
+    await pushImmediateUpdate(flowId, { accountId });
+  };
+
+  const handleCategoryChange = async (flowId: string, categoryId: string) => {
+    handleDraftChange(flowId, "categoryId", categoryId);
+    await pushImmediateUpdate(flowId, { categoryId });
+  };
+
+  const handleBlur = async (flowId: string, field: keyof LedgerDraft) => {
+    const draft = drafts.get(flowId);
+    if (!draft) {
+      return;
+    }
+
+    if (field === "amount" && draft.amount.trim() === "") {
+      const original = entries.find((entry) => entry.flowId === flowId);
+      if (original) {
+        handleDraftChange(flowId, "amount", String(original.amount));
+      }
+      return;
+    }
+
+    await applyUpdate(flowId);
+  };
+
+  const handleNewEntryAccountChange = (value: string) => {
+    clearNewEntryFieldError("accountId");
+    if (value) {
+      lastUsedAccountIdRef.current = value;
+    }
+    setNewEntry((current) => ({ ...current, accountId: value }));
+  };
+
+  const handleNewEntryCategoryChange = (value: string) => {
+    clearNewEntryFieldError("categoryId");
+    if (value) {
+      lastUsedCategoryIdRef.current = value;
+    }
+    setNewEntry((current) => ({ ...current, categoryId: value }));
+  };
+
+  const handleCreate = async () => {
+    const trimmedDate = newEntry.date.trim();
+    const trimmedAmount = newEntry.amount.trim();
+    const trimmedAccount = newEntry.accountId.trim();
+    const trimmedCategory = newEntry.categoryId.trim();
+
+    const fieldErrors: Partial<Record<NewEntryFieldKey, boolean>> = {};
+
+    if (!trimmedDate) {
+      fieldErrors.date = true;
+    }
+
+    if (!trimmedAccount) {
+      fieldErrors.accountId = true;
+    }
+
+    if (!trimmedCategory) {
+      fieldErrors.categoryId = true;
+    }
+
+    if (!trimmedAmount) {
+      fieldErrors.amount = true;
+    } else {
+      const parsed = Number(trimmedAmount);
+      if (!Number.isFinite(parsed)) {
+        const nextErrors = { ...fieldErrors, amount: true };
+        setNewEntryFieldErrors(nextErrors);
+        setNewEntryError("Amount must be a valid number.");
+        return;
+      }
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      setNewEntryFieldErrors(fieldErrors);
+      setNewEntryError("Fill out date, amount, account, and category before adding an entry.");
+      return;
+    }
+
+    setNewEntryFieldErrors({});
+    setNewEntryError(null);
+
+    const draft: CashFlowDraft = {
+      date: trimmedDate,
+      amount: Number(trimmedAmount),
+      status: newEntry.status,
+      accountId: trimmedAccount,
+      categoryId: trimmedCategory,
+      note: newEntry.note.trim(),
+    };
+
+    const created = await onCreate(draft);
+    if (created) {
+      lastUsedAccountIdRef.current = draft.accountId;
+      lastUsedCategoryIdRef.current = draft.categoryId;
+      resetNewEntry();
+    }
+  };
+
+  const newEntryAccount = accountMap.get(newEntry.accountId) ?? null;
+  const newEntryCurrency = newEntryAccount?.currency ?? "";
+  const newEntryAmountNumber = Number(newEntry.amount);
+  const newEntryHasAmount =
+    newEntry.amount.trim() !== "" && Number.isFinite(newEntryAmountNumber);
+  const newEntryConvertedAmount =
+    newEntryAccount && newEntryHasAmount
+      ? convertAmount(newEntryAmountNumber, newEntryAccount.currency)
+      : null;
+  const showInlineError = Boolean(newEntryError);
+  const newEntryRowTint =
+    newEntryHasAmount && newEntryAmountNumber !== 0
+      ? newEntryAmountNumber >= 0
+        ? "bg-emerald-50/70 dark:bg-emerald-900/10"
+        : "bg-rose-50/70 dark:bg-rose-900/20"
+      : "";
 
   return (
     <div className="flex flex-col gap-4">
-      {showEmpty ? (
-        <div className="rounded-lg border border-dashed border-zinc-300/70 bg-zinc-50/70 p-6 text-sm text-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:text-zinc-400">
-          No cash flows captured yet. Add planned income and expenses to start projecting your runway.
-        </div>
-      ) : null}
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Section title="Planned" emptyMessage="Duplicate or post entries after they clear.">
-          {plannedFlows.length ? (
-            <ul className="flex flex-col gap-3">
-              {plannedFlows.map((flow) => (
-                <li
-                  key={flow.flowId}
-                  className="rounded-lg border border-zinc-200/70 bg-white/80 p-3 shadow-sm dark:border-zinc-700/60 dark:bg-zinc-900/70"
+      <div className="overflow-x-auto rounded-xl border border-zinc-200/70 bg-white/80 shadow-sm dark:border-zinc-700/60 dark:bg-zinc-900/70">
+        <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+          <thead className="bg-zinc-50/80 dark:bg-zinc-900/60">
+            <tr className="text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Date</th>
+              <th className="px-3 py-2">Category</th>
+              <th className="px-3 py-2">Account</th>
+              <th className="px-3 py-2">Currency</th>
+              <th className="px-3 py-2">Amount</th>
+              <th className="px-3 py-2">Amount ({baseCurrency})</th>
+              <th className="px-3 py-2">Description</th>
+              <th className="px-3 py-2 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            <tr
+              className={`text-sm text-zinc-700 dark:text-zinc-200 ${newEntryRowTint}`}
+            >
+              <td className="px-3 py-2">
+                <select
+                  className="rounded border border-emerald-200 bg-white px-2 py-1 text-xs dark:border-emerald-700 dark:bg-zinc-900"
+                  value={newEntry.status}
+                  onChange={(event) =>
+                    setNewEntry((current) => ({ ...current, status: event.target.value as CashFlowStatus }))
+                  }
+                  disabled={isSaving}
                 >
-                  <div className="flex items-center justify-between gap-3 text-sm text-zinc-700 dark:text-zinc-200">
-                    <div className="flex flex-col">
-                      <span className="font-semibold">{flow.note || flow.type}</span>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        Planned {formatDate(flow.plannedDate)}
-                      </span>
-                    </div>
-                    <span className="font-semibold">{formatCurrency(flow.plannedAmount)}</span>
-                  </div>
-                  <FlowActions manager={manager} flow={flow} />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">No planned entries.</p>
-          )}
-        </Section>
+                  <option value="planned">Planned</option>
+                  <option value="posted">Posted</option>
+                </select>
+              </td>
+              <td className="px-3 py-2">
+                <input
+                  type="date"
+                  className={`w-full rounded px-2 py-1 text-xs border bg-white dark:bg-zinc-900 ${
+                    newEntryFieldErrors.date
+                      ? "border-rose-400 focus-visible:outline-rose-500 dark:border-rose-500"
+                      : "border-emerald-200 dark:border-emerald-700"
+                  }`}
+                  value={newEntry.date}
+                  onChange={(event) => {
+                    clearNewEntryFieldError("date");
+                    setNewEntry((current) => ({ ...current, date: event.target.value }));
+                  }}
+                  disabled={isSaving}
+                />
+              </td>
+              <td className="px-3 py-2">
+                <select
+                  className={`w-full rounded px-2 py-1 text-xs border bg-white dark:bg-zinc-900 ${
+                    newEntryFieldErrors.categoryId
+                      ? "border-rose-400 focus-visible:outline-rose-500 dark:border-rose-500"
+                      : "border-emerald-200 dark:border-emerald-700"
+                  }`}
+                  value={newEntry.categoryId}
+                  onChange={(event) => handleNewEntryCategoryChange(event.target.value)}
+                  disabled={isSaving}
+                >
+                  <option value="">Select category…</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.label}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td className="px-3 py-2">
+                <select
+                  className={`w-full rounded px-2 py-1 text-xs border bg-white dark:bg-zinc-900 ${
+                    newEntryFieldErrors.accountId
+                      ? "border-rose-400 focus-visible:outline-rose-500 dark:border-rose-500"
+                      : "border-emerald-200 dark:border-emerald-700"
+                  }`}
+                  value={newEntry.accountId}
+                  onChange={(event) => handleNewEntryAccountChange(event.target.value)}
+                  disabled={isSaving}
+                >
+                  <option value="">Select account…</option>
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name} ({account.currency})
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                {newEntryCurrency || "—"}
+              </td>
+              <td className="px-3 py-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  className={`w-full rounded px-2 py-1 text-xs border bg-white dark:bg-zinc-900 ${
+                    newEntryFieldErrors.amount
+                      ? "border-rose-400 focus-visible:outline-rose-500 dark:border-rose-500"
+                      : "border-emerald-200 dark:border-emerald-700"
+                  }`}
+                  value={newEntry.amount}
+                  onChange={(event) => {
+                    clearNewEntryFieldError("amount");
+                    setNewEntry((current) => ({ ...current, amount: event.target.value }));
+                  }}
+                  disabled={isSaving}
+                />
+              </td>
+              <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                {newEntryAccount && newEntryHasAmount && newEntryConvertedAmount !== null
+                  ? formatAmount(
+                      newEntryConvertedAmount,
+                      newEntryAccount.currency.toUpperCase() !== baseCurrency.toUpperCase(),
+                    )
+                  : "—"}
+              </td>
+              <td className="px-3 py-2">
+                <input
+                  type="text"
+                  placeholder="Optional note"
+                  className="w-full rounded border border-emerald-200 px-2 py-1 text-xs dark:border-emerald-700 dark:bg-zinc-900"
+                  value={newEntry.note}
+                  onChange={(event) =>
+                    setNewEntry((current) => ({ ...current, note: event.target.value }))
+                  }
+                  disabled={isSaving}
+                />
+              </td>
+              <td className="px-3 py-2 text-right">
+                <button
+                  type="button"
+                  className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={handleCreate}
+                  disabled={isSaving}
+                >
+                  Add
+                </button>
+              </td>
+            </tr>
+            {showInlineError ? (
+              <tr className="text-xs text-rose-600 dark:text-rose-400">
+                <td className="px-3 pb-3" colSpan={9}>
+                  {newEntryError}
+                </td>
+              </tr>
+            ) : null}
+            {entries.map((entry) => {
+              const draft = drafts.get(entry.flowId) ?? buildDraft(entry);
+              const account = accountMap.get(draft.accountId);
+              const amountNumber = Number(draft.amount);
+              const amountValid = Number.isFinite(amountNumber);
 
-        <Section title="Posted" emptyMessage="Posted entries include actual cash movement.">
-          {postedFlows.length ? (
-            <table className="min-w-full border-separate border-spacing-y-2 text-sm">
-              <thead>
-                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                  <th className="px-2 py-1">Label</th>
-                  <th className="px-2 py-1">Actual date</th>
-                  <th className="px-2 py-1 text-right">Actual amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {postedFlows.map((flow) => {
-                  const renderedDate = formatDate(flow.actualDate ?? flow.plannedDate);
-                  const renderedAmount = flow.actualAmount ?? flow.plannedAmount;
+              const orphanFlags = orphanInfo.get(entry.flowId) ?? { account: false, category: false };
+              const rowIsOrphan = orphanFlags.account || orphanFlags.category;
 
-                  return (
-                    <tr
-                      key={flow.flowId}
-                      className="rounded-lg border border-transparent bg-white/80 text-sm shadow-sm dark:bg-zinc-900/70"
-                    >
-                      <td className="px-2 py-2 text-zinc-700 dark:text-zinc-200">{flow.note || flow.type}</td>
-                      <td className="px-2 py-2 text-zinc-500 dark:text-zinc-400">{renderedDate}</td>
-                      <td className="px-2 py-2 text-right font-semibold text-zinc-700 dark:text-zinc-100">
-                        {formatCurrency(renderedAmount)}
-                      </td>
-                    </tr>
+              const hasAccountOption = accountMap.has(draft.accountId);
+              const accountSelectOptions = hasAccountOption
+                ? accounts
+                : draft.accountId
+                ? [{ id: draft.accountId, name: "Missing account", currency: "" }, ...accounts]
+                : accounts;
+
+              const hasCategoryOption = categoryMap.has(draft.categoryId);
+              const categorySelectOptions = hasCategoryOption
+                ? categories
+                : draft.categoryId
+                ? [{ id: draft.categoryId, label: "Missing category" }, ...categories]
+                : categories;
+
+              let baseDisplay = "—";
+              if (account && amountValid) {
+                const converted = convertAmount(amountNumber, account.currency);
+                if (converted !== null) {
+                  baseDisplay = formatAmount(
+                    converted,
+                    account.currency.toUpperCase() !== baseCurrency.toUpperCase(),
                   );
-                })}
-             </tbody>
-           </table>
-          ) : (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">No posted entries.</p>
-          )}
-        </Section>
-      </div>
+                }
+              }
 
-      {voidFlows.length ? (
-        <Section title="Voided" emptyMessage="Voided entries stay listed for reference.">
-          <ul className="flex flex-col gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-            {voidFlows.map((flow) => (
-              <li key={flow.flowId} className="flex items-center justify-between">
-                <span>{flow.note || flow.type}</span>
-                <span>{formatCurrency(flow.plannedAmount)}</span>
-              </li>
-            ))}
-          </ul>
-        </Section>
+              const rowToneClass =
+                amountValid && amountNumber !== 0
+                  ? amountNumber >= 0
+                    ? "bg-emerald-50/70 dark:bg-emerald-900/10"
+                    : "bg-rose-50/70 dark:bg-rose-900/20"
+                  : "";
+              const rowClass = [
+                "text-sm text-zinc-700 dark:text-zinc-200",
+                rowToneClass,
+              ];
+              if (rowIsOrphan) {
+                rowClass.push("outline outline-1 outline-amber-400 dark:outline-amber-500");
+              }
+
+              const accountCurrency = account?.currency ?? "—";
+              const convertedAmountClass = amountValid
+                ? amountNumber >= 0
+                  ? "text-emerald-600"
+                  : "text-rose-600"
+                : "text-zinc-400 dark:text-zinc-500";
+
+              return (
+                <tr key={entry.flowId} className={rowClass.join(" ")}>
+                  <td className="px-3 py-2 align-top">
+                    <select
+                      className="w-full rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      value={draft.status}
+                      onChange={(event) =>
+                        void handleStatusChange(entry.flowId, event.target.value as CashFlowStatus)
+                      }
+                      disabled={isSaving}
+                    >
+                      <option value="planned">Planned</option>
+                      <option value="posted">Posted</option>
+                    </select>
+                    {rowIsOrphan ? (
+                      <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-300">
+                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-amber-500 text-[10px]">
+                          !
+                        </span>
+                        Metadata missing
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className="px-3 py-2 align-top">
+                    <input
+                      type="date"
+                      className="w-full rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      value={draft.date}
+                      onChange={(event) => handleDraftChange(entry.flowId, "date", event.target.value)}
+                      onBlur={() => void handleBlur(entry.flowId, "date")}
+                      disabled={isSaving}
+                    />
+                  </td>
+                  <td className="px-3 py-2 align-top">
+                    <select
+                      className="w-full rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      value={draft.categoryId}
+                      onChange={(event) => void handleCategoryChange(entry.flowId, event.target.value)}
+                      disabled={isSaving}
+                    >
+                      {categorySelectOptions.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.label}
+                        </option>
+                      ))}
+                    </select>
+                    {orphanFlags.category ? (
+                      <div className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-300">
+                        Category removed. Select another option.
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className="px-3 py-2 align-top">
+                    <select
+                      className="w-full rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      value={draft.accountId}
+                      onChange={(event) => void handleAccountChange(entry.flowId, event.target.value)}
+                      disabled={isSaving}
+                    >
+                      {accountSelectOptions.map((accountOption) => (
+                        <option key={accountOption.id} value={accountOption.id}>
+                          {accountOption.name}
+                          {accountOption.currency ? ` (${accountOption.currency})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {orphanFlags.account ? (
+                      <div className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-300">
+                        Account removed. Select another option.
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className="px-3 py-2 align-top text-xs text-zinc-500 dark:text-zinc-400">
+                    {accountCurrency}
+                  </td>
+                  <td className="px-3 py-2 align-top">
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      value={draft.amount}
+                      onChange={(event) => handleDraftChange(entry.flowId, "amount", event.target.value)}
+                      onBlur={() => void handleBlur(entry.flowId, "amount")}
+                      disabled={isSaving}
+                    />
+                  </td>
+                  <td className={`px-3 py-2 align-top text-xs font-semibold ${convertedAmountClass}`}>
+                    {baseDisplay}
+                  </td>
+                  <td className="px-3 py-2 align-top">
+                    <input
+                      type="text"
+                      placeholder="Optional note"
+                      className="w-full rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      value={draft.note}
+                      onChange={(event) => handleDraftChange(entry.flowId, "note", event.target.value)}
+                      onBlur={() => void handleBlur(entry.flowId, "note")}
+                      disabled={isSaving}
+                    />
+                  </td>
+                  <td className="px-3 py-2 align-top text-right">
+                    <button
+                      type="button"
+                      className="rounded-md border border-zinc-300 px-3 py-1 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      onClick={() => void onDelete(entry.flowId)}
+                      disabled={isSaving}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {showInlineError ? null : newEntryError ? (
+        <p className="text-xs text-rose-600 dark:text-rose-400">{newEntryError}</p>
       ) : null}
     </div>
   );

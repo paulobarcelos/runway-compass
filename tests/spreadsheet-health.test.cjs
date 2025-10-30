@@ -367,7 +367,7 @@ test("collectSpreadsheetDiagnostics maps range errors to repairable code", async
       loadCategories: async () => {},
       loadSnapshots: async () => {},
       loadCashFlows: async () => {
-        throw new Error("Unable to parse range: cash_flows!A1:J4000");
+        throw new Error("Unable to parse range: cash_flows!A1:G4000");
       },
     });
 
@@ -378,7 +378,7 @@ test("collectSpreadsheetDiagnostics maps range errors to repairable code", async
       sheetGid: 440,
       severity: "error",
       code: "range_error",
-      message: "Unable to parse range: cash_flows!A1:J4000",
+      message: "Unable to parse range: cash_flows!A1:G4000",
       rowNumber: null,
     });
   });
