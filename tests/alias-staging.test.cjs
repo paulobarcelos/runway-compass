@@ -16,6 +16,7 @@ const {
   verifyWriteAccess,
   aliasLatestPreview,
   formatFailureComment,
+  formatSuccessComment,
   MissingDeploymentError,
   AliasFailedError,
   runAliasFlow,
@@ -227,8 +228,8 @@ test("runAliasFlow reacts, creates deployment, and marks success", async () => {
     async setDeploymentStatus(id, status) {
       events.push(["status", id, status]);
     },
-    async createComment() {
-      events.push(["comment"]);
+    async createComment(body) {
+      events.push(["comment", body]);
     },
   };
 
@@ -295,6 +296,11 @@ test("runAliasFlow reacts, creates deployment, and marks success", async () => {
         log_url: "https://github.com/example/runs/1",
       },
     ],
+    ["comment", formatSuccessComment({
+      requestor: "paulo",
+      aliasDomain: "staging.runway.test",
+      deploymentUrl: "https://dpl-123.vercel.app",
+    })],
   ]);
 
   assert.deepEqual(vercelCalls, [
@@ -498,4 +504,15 @@ test("RestVercelClient.setAlias retries without team scope on 404", async () => 
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test("formatSuccessComment includes alias info", () => {
+  const comment = formatSuccessComment({
+    requestor: "paulo",
+    aliasDomain: "staging.runway.test",
+    deploymentUrl: "https://preview.vercel.app",
+  });
+  assert.match(comment, /paulo/);
+  assert.match(comment, /staging.runway.test/);
+  assert.match(comment, /https:\/\/preview\.vercel\.app/);
 });

@@ -315,6 +315,15 @@ export async function runAliasFlow(params: {
         inputs.workflowRunUrl
       )
     );
+
+    await safeCreateComment(
+      github,
+      formatSuccessComment({
+        requestor: inputs.commentAuthor,
+        aliasDomain: inputs.aliasDomain,
+        deploymentUrl: aliasResult.deploymentUrl,
+      })
+    );
     return "success";
   } catch (error) {
     if (deploymentId) {
@@ -426,6 +435,22 @@ export function formatFailureComment(params: {
     reason,
     "",
     "Please inspect the workflow logs (Actions tab) and Vercel dashboard for more context.",
+  ].join("\n");
+}
+
+export function formatSuccessComment(params: {
+  requestor: string;
+  aliasDomain: string;
+  deploymentUrl?: string;
+}): string {
+  const { requestor, aliasDomain, deploymentUrl } = params;
+  const target = deploymentUrl ?? `https://${aliasDomain}`;
+  return [
+    `@${requestor} staging alias updated ✅`,
+    "",
+    `\`${aliasDomain}\` now points to ${target}.`,
+    "",
+    "Happy testing!",
   ].join("\n");
 }
 
