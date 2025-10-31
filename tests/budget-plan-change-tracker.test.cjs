@@ -43,10 +43,10 @@ test("createBudgetPlanDraft clones baseline grid data", async () => {
   assert.equal(draft.rows[0].cells[0].amount, grid.rows[0].cells[0].amount);
 });
 
-test("applyAmountChange validates numeric input", async () => {
+test("applyMoneyChange validates numeric input", async () => {
   const { gridTransforms, changeTracker } = await loadModules();
   const { buildBudgetPlanGrid } = gridTransforms;
-  const { createBudgetPlanDraft, applyAmountChange } = changeTracker;
+  const { createBudgetPlanDraft, applyMoneyChange } = changeTracker;
 
   const grid = buildBudgetPlanGrid({
     categories: [createCategory()],
@@ -57,14 +57,14 @@ test("applyAmountChange validates numeric input", async () => {
   const draft = createBudgetPlanDraft(grid);
 
   assert.throws(() =>
-    applyAmountChange(draft, { categoryId: "cat-roll", monthIndex: 0, amount: NaN }),
+    applyMoneyChange(draft, { categoryId: "cat-roll", monthIndex: 0, amount: NaN }),
   );
 });
 
-test("applyAmountChange updates amounts and recomputes rollover balances", async () => {
+test("applyMoneyChange updates amounts and recomputes rollover balances", async () => {
   const { gridTransforms, changeTracker } = await loadModules();
   const { buildBudgetPlanGrid } = gridTransforms;
-  const { createBudgetPlanDraft, applyAmountChange } = changeTracker;
+  const { createBudgetPlanDraft, applyMoneyChange } = changeTracker;
 
   const grid = buildBudgetPlanGrid({
     categories: [createCategory()],
@@ -76,6 +76,7 @@ test("applyAmountChange updates amounts and recomputes rollover balances", async
         year: 2024,
         amount: 150,
         rolloverBalance: 0,
+        currency: "USD",
       },
       {
         recordId: "rec-feb",
@@ -84,16 +85,18 @@ test("applyAmountChange updates amounts and recomputes rollover balances", async
         year: 2024,
         amount: 200,
         rolloverBalance: 0,
+        currency: "USD",
       },
     ],
     startDate: new Date("2024-01-01"),
   });
 
   const original = createBudgetPlanDraft(grid);
-  const updated = applyAmountChange(original, {
+  const updated = applyMoneyChange(original, {
     categoryId: "cat-roll",
     monthIndex: 0,
     amount: 100,
+    currency: "eur",
   });
 
   const row = updated.rows[0];
@@ -108,7 +111,7 @@ test("applyAmountChange updates amounts and recomputes rollover balances", async
 test("isBudgetPlanDraftDirty flags changes and resets after revert", async () => {
   const { gridTransforms, changeTracker } = await loadModules();
   const { buildBudgetPlanGrid } = gridTransforms;
-  const { createBudgetPlanDraft, applyAmountChange, isBudgetPlanDraftDirty } =
+  const { createBudgetPlanDraft, applyMoneyChange, isBudgetPlanDraftDirty } =
     changeTracker;
 
   const grid = buildBudgetPlanGrid({
@@ -120,18 +123,20 @@ test("isBudgetPlanDraftDirty flags changes and resets after revert", async () =>
   const draft = createBudgetPlanDraft(grid);
   assert.equal(isBudgetPlanDraftDirty(draft), false);
 
-  const changed = applyAmountChange(draft, {
+  const changed = applyMoneyChange(draft, {
     categoryId: "cat-roll",
     monthIndex: 1,
     amount: 120,
+    currency: "usd",
   });
 
   assert.equal(isBudgetPlanDraftDirty(changed), true);
 
-  const reverted = applyAmountChange(changed, {
+  const reverted = applyMoneyChange(changed, {
     categoryId: "cat-roll",
     monthIndex: 1,
     amount: 150,
+    currency: "usd",
   });
 
   assert.equal(isBudgetPlanDraftDirty(reverted), false);
@@ -142,12 +147,14 @@ test("serializeBudgetPlanDraft emits full record list", async () => {
   const { buildBudgetPlanGrid } = gridTransforms;
   const {
     createBudgetPlanDraft,
-    applyAmountChange,
+    applyMoneyChange,
     serializeBudgetPlanDraft,
   } = changeTracker;
 
   const grid = buildBudgetPlanGrid({
-    categories: [createCategory({ categoryId: "cat-serial", monthlyBudget: 300 })],
+    categories: [
+      createCategory({ categoryId: "cat-serial", monthlyBudget: 300, currencyCode: "EUR" }),
+    ],
     budgetPlan: [
       {
         recordId: "rec-start",
@@ -156,16 +163,18 @@ test("serializeBudgetPlanDraft emits full record list", async () => {
         year: 2024,
         amount: 320,
         rolloverBalance: 0,
+        currency: "EUR",
       },
     ],
     startDate: new Date("2024-03-01"),
   });
 
   const draft = createBudgetPlanDraft(grid);
-  const changed = applyAmountChange(draft, {
+  const changed = applyMoneyChange(draft, {
     categoryId: "cat-serial",
     monthIndex: 2,
     amount: 250,
+    currency: "eur",
   });
 
   const records = serializeBudgetPlanDraft(changed);
@@ -177,14 +186,18 @@ test("serializeBudgetPlanDraft emits full record list", async () => {
   assert.equal(first.month, 3);
   assert.equal(first.year, 2024);
   assert.equal(first.amount, 320);
+  assert.equal(first.currency, "EUR");
 
   const third = records[2];
   assert.equal(third.amount, 250);
   assert.equal(third.rolloverBalance, 0);
+  assert.equal(third.currency, "EUR");
 
   const fourth = records[3];
   assert.equal(fourth.rolloverBalance, 50);
+  assert.equal(fourth.currency, "EUR");
 
   const last = records[records.length - 1];
   assert.equal(last.recordId.startsWith("budget_cat-serial_"), true);
+  assert.equal(last.currency, "EUR");
 });

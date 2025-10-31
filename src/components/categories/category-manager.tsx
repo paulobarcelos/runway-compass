@@ -4,8 +4,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { loadManifest, manifestStorageKey, type ManifestRecord } from "@/lib/manifest-store";
-import { subscribeToManifestChange } from "@/lib/manifest-events";
+import {
+  loadManifest,
+  manifestStorageKey,
+  saveManifest,
+  type ManifestRecord,
+} from "@/lib/manifest-store";
+import { emitManifestChange, subscribeToManifestChange } from "@/lib/manifest-events";
 import { debugLog } from "@/lib/debug-log";
 import { useBaseCurrency } from "@/components/currency/base-currency-context";
 import { useSpreadsheetHealth } from "@/components/spreadsheet/spreadsheet-health-context";
@@ -364,6 +369,14 @@ export function CategoryManager() {
       const savedAt = new Date().toISOString();
       setLastSavedAt(savedAt);
       void debugLog("Saved categories", { count: normalized.length, savedAt });
+
+      if (typeof window !== "undefined") {
+        const manifest = saveManifest(window.localStorage, {
+          spreadsheetId,
+          storedAt: Date.now(),
+        });
+        emitManifestChange(manifest);
+      }
     } catch (saveException) {
       const message =
         saveException instanceof Error ? saveException.message : "Failed to save categories";

@@ -114,6 +114,7 @@ test("createAndRegisterSpreadsheet creates and registers manifest", async () => 
       bootstrapSheetTitles: [
         "_meta",
         "categories",
+        "budget_horizon",
         "accounts",
         "snapshots",
         "cash_flows",

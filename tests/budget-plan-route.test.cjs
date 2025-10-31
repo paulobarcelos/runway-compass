@@ -74,16 +74,20 @@ test("budget plan route returns data on success", async () => {
     const { GET } = createBudgetPlanHandler({
       fetchBudgetPlan: async ({ spreadsheetId }) => {
         assert.equal(spreadsheetId, "sheet-123");
-        return [
-          {
-            recordId: "rec-1",
-            categoryId: "cat-1",
-            month: 1,
-            year: 2025,
-            amount: 1200.5,
-            rolloverBalance: 100,
-          },
-        ];
+        return {
+          metadata: { start: "2025-01-01", months: 1 },
+          records: [
+            {
+              recordId: "rec-1",
+              categoryId: "cat-1",
+              month: 1,
+              year: 2025,
+              amount: 1200.5,
+              rolloverBalance: 100,
+              currency: "USD",
+            },
+          ],
+        };
       },
     });
 
@@ -101,8 +105,10 @@ test("budget plan route returns data on success", async () => {
           year: 2025,
           amount: 1200.5,
           rolloverBalance: 100,
+          currency: "USD",
         },
       ],
+      meta: { start: "2025-01-01", months: 1 },
     });
   });
 });
@@ -157,7 +163,7 @@ test("budget plan update route validates payload shape", async () => {
     const payload = await response.json();
 
     assert.equal(response.status, 400);
-    assert.equal(payload.error, "Missing budgetPlan payload");
+    assert.equal(payload.error, "Missing budgetPlan or metadata payload");
   });
 });
 
@@ -171,8 +177,9 @@ test("budget plan update route persists records and returns payload", async () =
     const saved = [];
 
     const { POST } = createBudgetPlanHandler({
-      saveBudgetPlan: async ({ spreadsheetId, budgetPlan }) => {
+      saveBudgetPlan: async ({ spreadsheetId, budgetPlan, metadata }) => {
         assert.equal(spreadsheetId, "sheet-123");
+        assert.deepEqual(metadata, { start: "2025-02-01", months: 1 });
         saved.push(...budgetPlan);
       },
     });
@@ -185,13 +192,14 @@ test("budget plan update route persists records and returns payload", async () =
         year: 2026,
         amount: 400,
         rolloverBalance: 10,
+        currency: "EUR",
       },
     ];
 
     const request = new Request("http://localhost/api/budget-plan?spreadsheetId=sheet-123", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ budgetPlan: payload }),
+      body: JSON.stringify({ budgetPlan: payload, meta: { start: "2025-02-01", months: 1 } }),
     });
 
     const response = await POST(request);
@@ -199,6 +207,9 @@ test("budget plan update route persists records and returns payload", async () =
 
     assert.equal(response.status, 200);
     assert.deepEqual(saved, payload);
-    assert.deepEqual(body, { budgetPlan: payload });
+    assert.deepEqual(body, {
+      budgetPlan: payload,
+      meta: { start: "2025-02-01", months: 1 },
+    });
   });
 });

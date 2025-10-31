@@ -1,6 +1,9 @@
 // ABOUTME: Wraps budget plan API calls for client-side usage.
 // ABOUTME: Normalizes responses and raises typed errors for failures.
-import type { BudgetPlanRecord } from "@/server/google/repository/budget-plan-repository";
+import type {
+  BudgetHorizonMetadata,
+  BudgetPlanRecord,
+} from "@/server/google/repository/budget-horizon-repository";
 
 const FETCH_ERROR_MESSAGE = "Failed to fetch budget plan";
 const SAVE_ERROR_MESSAGE = "Failed to save budget plan";
@@ -23,9 +26,15 @@ function ensureSpreadsheetId(value: string) {
   return value.trim();
 }
 
+export interface BudgetPlanResponse {
+  budgetPlan: BudgetPlanRecord[];
+  meta: BudgetHorizonMetadata;
+}
+
 async function parseBudgetPlanPayload(response: Response, defaultMessage: string) {
   const payload = (await response.json().catch(() => ({}))) as {
     budgetPlan?: unknown;
+    meta?: unknown;
     error?: unknown;
   };
 
@@ -39,11 +48,21 @@ async function parseBudgetPlanPayload(response: Response, defaultMessage: string
   }
 
   const records = Array.isArray(payload?.budgetPlan) ? payload.budgetPlan : [];
+  const meta = payload?.meta && typeof payload.meta === "object" ? payload.meta : null;
 
-  return records as BudgetPlanRecord[];
+  if (!meta) {
+    throw new BudgetPlanClientError(response.status, defaultMessage);
+  }
+
+  return {
+    budgetPlan: records as BudgetPlanRecord[],
+    meta: meta as BudgetHorizonMetadata,
+  };
 }
 
-export async function fetchBudgetPlan(spreadsheetId: string): Promise<BudgetPlanRecord[]> {
+export async function fetchBudgetPlan(
+  spreadsheetId: string,
+): Promise<BudgetPlanResponse> {
   const normalizedId = ensureSpreadsheetId(spreadsheetId);
   const response = await fetch(
     `/api/budget-plan?spreadsheetId=${encodeURIComponent(normalizedId)}`,
@@ -55,7 +74,8 @@ export async function fetchBudgetPlan(spreadsheetId: string): Promise<BudgetPlan
 export async function saveBudgetPlan(
   spreadsheetId: string,
   budgetPlan: BudgetPlanRecord[],
-): Promise<BudgetPlanRecord[]> {
+  metadata: BudgetHorizonMetadata,
+): Promise<BudgetPlanResponse> {
   const normalizedId = ensureSpreadsheetId(spreadsheetId);
   const response = await fetch(
     `/api/budget-plan?spreadsheetId=${encodeURIComponent(normalizedId)}`,
@@ -64,7 +84,7 @@ export async function saveBudgetPlan(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ budgetPlan }),
+      body: JSON.stringify({ budgetPlan, meta: metadata }),
     },
   );
 

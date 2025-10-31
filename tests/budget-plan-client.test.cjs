@@ -24,7 +24,7 @@ test("budget plan client API helpers", async (t) => {
     }
   }
 
-  await t.test("fetchBudgetPlan requests spreadsheet data and returns records", async () => {
+  await t.test("fetchBudgetPlan requests spreadsheet data and returns payload", async () => {
     await withMockedFetch(
       async (url) => {
         assert.equal(url, "/api/budget-plan?spreadsheetId=sheet-123");
@@ -40,24 +40,52 @@ test("budget plan client API helpers", async (t) => {
                 year: 2025,
                 amount: 120,
                 rolloverBalance: 0,
+                currency: "USD",
               },
             ],
+            meta: { start: "2025-01-01", months: 3 },
           }),
         };
       },
       async ({ calls }) => {
-        const records = await fetchBudgetPlan("sheet-123");
+        const payload = await fetchBudgetPlan("sheet-123");
         assert.equal(calls.length, 1);
-        assert.deepEqual(records, [
-          {
-            recordId: "rec-1",
-            categoryId: "cat-1",
-            month: 1,
-            year: 2025,
-            amount: 120,
-            rolloverBalance: 0,
+        assert.deepEqual(payload, {
+          budgetPlan: [
+            {
+              recordId: "rec-1",
+              categoryId: "cat-1",
+              month: 1,
+              year: 2025,
+              amount: 120,
+              rolloverBalance: 0,
+              currency: "USD",
+            },
+          ],
+          meta: { start: "2025-01-01", months: 3 },
+        });
+      },
+    );
+  });
+
+  await t.test("fetchBudgetPlan throws when metadata missing", async () => {
+    await withMockedFetch(
+      async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          budgetPlan: [],
+        }),
+      }),
+      async () => {
+        await assert.rejects(
+          () => fetchBudgetPlan("sheet-123"),
+          (error) => {
+            assert.equal(error instanceof BudgetPlanClientError, true);
+            assert.equal(error.message, "Failed to fetch budget plan");
+            return true;
           },
-        ]);
+        );
       },
     );
   });
@@ -121,8 +149,10 @@ test("budget plan client API helpers", async (t) => {
               year: 2025,
               amount: 100,
               rolloverBalance: 0,
+              currency: "EUR",
             },
           ],
+          meta: { start: "2025-02-01", months: 2 },
         });
 
         return {
@@ -137,33 +167,44 @@ test("budget plan client API helpers", async (t) => {
                 year: 2025,
                 amount: 110,
                 rolloverBalance: 10,
+                currency: "EUR",
               },
             ],
+            meta: { start: "2025-02-01", months: 2 },
           }),
         };
       },
       async () => {
-        const result = await saveBudgetPlan("sheet-abc", [
-          {
-            recordId: "rec-1",
-            categoryId: "cat-1",
-            month: 1,
-            year: 2025,
-            amount: 100,
-            rolloverBalance: 0,
-          },
-        ]);
+        const result = await saveBudgetPlan(
+          "sheet-abc",
+          [
+            {
+              recordId: "rec-1",
+              categoryId: "cat-1",
+              month: 1,
+              year: 2025,
+              amount: 100,
+              rolloverBalance: 0,
+              currency: "EUR",
+            },
+          ],
+          { start: "2025-02-01", months: 2 },
+        );
 
-        assert.deepEqual(result, [
-          {
-            recordId: "rec-1",
-            categoryId: "cat-1",
-            month: 1,
-            year: 2025,
-            amount: 110,
-            rolloverBalance: 10,
-          },
-        ]);
+        assert.deepEqual(result, {
+          budgetPlan: [
+            {
+              recordId: "rec-1",
+              categoryId: "cat-1",
+              month: 1,
+              year: 2025,
+              amount: 110,
+              rolloverBalance: 10,
+              currency: "EUR",
+            },
+          ],
+          meta: { start: "2025-02-01", months: 2 },
+        });
       },
     );
   });
@@ -178,16 +219,21 @@ test("budget plan client API helpers", async (t) => {
       async () => {
         await assert.rejects(
           () =>
-            saveBudgetPlan("sheet-abc", [
-              {
-                recordId: "rec-1",
-                categoryId: "cat-1",
-                month: 1,
-                year: 2025,
-                amount: 100,
-                rolloverBalance: 0,
-              },
-            ]),
+            saveBudgetPlan(
+              "sheet-abc",
+              [
+                {
+                  recordId: "rec-1",
+                  categoryId: "cat-1",
+                  month: 1,
+                  year: 2025,
+                  amount: 100,
+                  rolloverBalance: 0,
+                  currency: "USD",
+                },
+              ],
+              { start: "2025-02-01", months: 2 },
+            ),
           (error) => {
             assert.equal(error instanceof BudgetPlanClientError, true);
             assert.equal(error.message, "Sheet write failed");

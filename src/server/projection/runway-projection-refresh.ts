@@ -6,7 +6,7 @@ import {
   type MonthlyBudgetAllocation,
 } from "./runway-projection";
 
-import type { BudgetPlanRecord } from "@/server/google/repository/budget-plan-repository";
+import type { BudgetPlanRecord } from "@/server/google/repository/budget-horizon-repository";
 import type { CashFlowEntry } from "@/server/google/repository/cash-flow-repository";
 import type { AccountsDiagnostics } from "@/server/google/repository/accounts-repository";
 import type { SnapshotRecord } from "@/server/google/repository/snapshots-repository";

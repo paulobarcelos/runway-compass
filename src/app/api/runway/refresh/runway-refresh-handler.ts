@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 import { getSession } from "@/server/auth/session";
 import { createSheetsClient } from "@/server/google/clients";
-import { createBudgetPlanRepository } from "@/server/google/repository/budget-plan-repository";
+import { createBudgetPlanRepository } from "@/server/google/repository/budget-horizon-repository";
 import { createCashFlowRepository } from "@/server/google/repository/cash-flow-repository";
 import { createSnapshotsRepository } from "@/server/google/repository/snapshots-repository";
 import { createAccountsRepository } from "@/server/google/repository/accounts-repository";

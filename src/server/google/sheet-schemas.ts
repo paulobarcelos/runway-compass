@@ -48,6 +48,16 @@ export const REQUIRED_SHEETS: SheetSchema[] = [
     freezeHeader: true,
   },
   {
+    title: "budget_horizon",
+    headers: ["category_id"],
+    gridProperties: {
+      rowCount: DEFAULT_GRID_ROWS,
+      columnCount: 4,
+      frozenRowCount: 1,
+    },
+    freezeHeader: true,
+  },
+  {
     title: "accounts",
     headers: [
       "account_id",
@@ -187,6 +197,7 @@ export const META_SHEET_SCHEMA = requireSchema("_meta");
 export const CATEGORIES_SHEET_SCHEMA = requireSchema("categories");
 export const ACCOUNTS_SHEET_SCHEMA = requireSchema("accounts");
 export const BUDGET_PLAN_SHEET_SCHEMA = requireSchema("budget_plan");
+export const BUDGET_HORIZON_SHEET_SCHEMA = requireSchema("budget_horizon");
 export const SNAPSHOTS_SHEET_SCHEMA = requireSchema("snapshots");
 export const CASH_FLOWS_SHEET_SCHEMA = requireSchema("cash_flows");
 export const ACTUALS_SHEET_SCHEMA = requireSchema("actuals");

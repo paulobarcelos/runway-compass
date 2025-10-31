@@ -29,6 +29,9 @@ export interface MoneyInputProps {
   id?: string;
   ariaDescribedBy?: string;
   className?: string;
+  inputClassName?: string;
+  selectClassName?: string;
+  basePreviewClassName?: string;
 }
 
 function formatAmountText(value: number | null | undefined) {
@@ -73,6 +76,9 @@ export function MoneyInput({
   id,
   ariaDescribedBy,
   className,
+  inputClassName,
+  selectClassName,
+  basePreviewClassName,
 }: MoneyInputProps) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -151,7 +157,7 @@ export function MoneyInput({
       ) : null}
       <div className="flex gap-2">
         <select
-          className="min-w-[5.5rem] rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-sm text-zinc-900 text-right shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100 dark:disabled:bg-zinc-800"
+          className={`min-w-[5.5rem] rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-sm text-zinc-900 text-right shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100 dark:disabled:bg-zinc-800${selectClassName ? ` ${selectClassName}` : ""}`}
           value={currentCurrency}
           onChange={handleCurrencyChange}
           disabled={disabled || !allowCurrencyChange}
@@ -167,7 +173,7 @@ export function MoneyInput({
           id={inputId}
           type="text"
           inputMode="decimal"
-          className="flex-1 rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-right text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100 dark:disabled:bg-zinc-800"
+          className={`flex-1 rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-right text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100 dark:disabled:bg-zinc-800${inputClassName ? ` ${inputClassName}` : ""}`}
           value={amountText}
           onChange={handleAmountChange}
           onBlur={onBlur}
@@ -178,7 +184,7 @@ export function MoneyInput({
       {basePreview ? (
         <p
           data-testid="money-input-base-preview"
-          className="text-right text-xs text-zinc-500 dark:text-zinc-400"
+          className={`text-right text-xs text-zinc-500 dark:text-zinc-400${basePreviewClassName ? ` ${basePreviewClassName}` : ""}`}
           aria-live="polite"
         >
           {basePreview}

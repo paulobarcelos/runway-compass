@@ -111,7 +111,7 @@ test("registerSpreadsheetSelection bootstraps sheet and returns manifest", async
     assert.deepEqual(bootstrapArgs.sheets, { type: "sheets" });
     assert.deepEqual(
       [...bootstrapArgs.sheetTitles].sort(),
-      ["_meta", "cash_flows"].sort(),
+      ["_meta", "budget_horizon", "cash_flows"].sort(),
     );
     assert.equal(bootstrapArgs.spreadsheetId, "sheet-123");
     assert.equal(bootstrapArgs.schemaVersion, "3.1.4");
