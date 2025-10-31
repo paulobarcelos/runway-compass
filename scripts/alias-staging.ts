@@ -99,12 +99,13 @@ export async function checkWriteAccess(
   return ALLOWED_PERMISSIONS.includes(level);
 }
 
+const WRITE_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR", "MAINTAINER"]);
+
 function hasWriteAssociation(association?: string): boolean {
   if (!association) {
     return false;
   }
-  const normalized = association.toUpperCase();
-  return ["OWNER", "MEMBER", "COLLABORATOR", "MAINTAINER"].includes(normalized);
+  return WRITE_ASSOCIATIONS.has(association.toUpperCase());
 }
 
 export async function verifyWriteAccess(
@@ -277,11 +278,13 @@ export async function runAliasFlow(params: {
       )
     );
   } catch (error) {
+    const message = getErrorMessage(error);
+    console.error("[alias] failed to create staging deployment:", message);
     await safeCreateComment(
       github,
       formatFailureComment({
         requestor: inputs.commentAuthor,
-        reason: `Failed to initialize staging deployment: ${getErrorMessage(error)}`,
+        reason: `Failed to initialize staging deployment: ${message}`,
       })
     );
     return "failure";
@@ -321,6 +324,9 @@ export async function runAliasFlow(params: {
       );
     }
 
+    const failureMessage = getErrorMessage(error);
+    console.error("[alias] staging update failed:", failureMessage);
+
     if (error instanceof MissingDeploymentError) {
       await safeCreateComment(
         github,
@@ -353,7 +359,7 @@ export async function runAliasFlow(params: {
         github,
         formatFailureComment({
           requestor: inputs.commentAuthor,
-          reason: getErrorMessage(error),
+          reason: failureMessage,
         })
       );
     }
@@ -374,7 +380,7 @@ async function safeCreateComment(github: GitHubClient, body: string): Promise<vo
   try {
     await github.createComment(body);
   } catch (error) {
-    console.warn("Failed to leave comment:", getErrorMessage(error));
+    console.warn("[alias] unable to leave comment:", getErrorMessage(error));
   }
 }
 
@@ -774,6 +780,7 @@ export async function run(): Promise<void> {
   const repoName = requireEnv("REPO_NAME");
   const commentAuthor = requireEnv("COMMENT_AUTHOR");
   const commentBody = requireEnv("COMMENT_BODY");
+  const commentAuthorAssociation = process.env.COMMENT_AUTHOR_ASSOCIATION?.trim() || undefined;
   const aliasDomain = requireEnv("VERCEL_ALIAS_DOMAIN");
   const defaultBranch = requireEnv("DEFAULT_BRANCH");
   const vercelToken = requireEnv("VERCEL_TOKEN");
@@ -800,6 +807,7 @@ export async function run(): Promise<void> {
       commentBody,
       commentAuthor,
       commentId,
+      commentAuthorAssociation,
       issueNumber,
       pullNumber: prNumber,
       repoOwner,
