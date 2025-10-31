@@ -15,6 +15,7 @@ import {
   type ManifestRecord,
 } from "@/lib/manifest-store";
 import { subscribeToManifestChange } from "@/lib/manifest-events";
+import { subscribeToRunwayProjectionUpdated } from "@/lib/api/runway-refresh-events";
 import type { SpreadsheetDiagnosticsPayload } from "@/components/spreadsheet/spreadsheet-health-helpers";
 import type { RunwayProjectionRecord } from "@/server/google/repository/runway-projection-repository";
 
@@ -218,6 +219,23 @@ export function useRunwayTimeline(): RunwayTimelineState {
 
     void loadProjection({ spreadsheetId, showLoading: true });
   }, [spreadsheetId, hasBlockingErrors, storedAt, loadProjection]);
+
+  useEffect(() => {
+    if (!spreadsheetId) {
+      return;
+    }
+
+    const unsubscribe = subscribeToRunwayProjectionUpdated((payload) => {
+      if (!payload?.spreadsheetId || payload.spreadsheetId !== spreadsheetId) {
+        return;
+      }
+
+      void loadProjection({ spreadsheetId, showLoading: false });
+      setLastUpdatedAt(payload.updatedAt ?? new Date().toISOString());
+    });
+
+    return unsubscribe;
+  }, [loadProjection, spreadsheetId]);
 
   const refresh = useCallback(async () => {
     if (!spreadsheetId || hasBlockingErrors) {

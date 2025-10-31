@@ -1,95 +1,112 @@
-// ABOUTME: Manages local state for the cash planner ledger experience.
-// ABOUTME: Loads cash flows, tracks edits, and persists changes back to Sheets.
+// ABOUTME: Manages ledger entries for the simplified cash planner table.
+// ABOUTME: Loads rows, exposes CRUD helpers, and triggers projection refresh.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   fetchCashFlows as fetchCashFlowsFromApi,
-  saveCashFlows as saveCashFlowsToApi,
+  createCashFlow as createCashFlowToApi,
+  updateCashFlow as updateCashFlowToApi,
+  deleteCashFlow as deleteCashFlowToApi,
 } from "@/lib/api/cash-flows-client";
-import type { CashFlowRecord } from "@/server/google/repository/cash-flow-repository";
+import { refreshRunwayProjection as refreshRunwayProjectionToApi } from "@/lib/api/runway-client";
+import { emitRunwayProjectionUpdated } from "@/lib/api/runway-refresh-events";
+import type {
+  CashFlowDraft,
+  CashFlowEntry,
+  CashFlowRecord,
+} from "@/server/google/repository/cash-flow-repository";
 
 export type CashPlannerManagerStatus = "idle" | "loading" | "ready" | "error" | "blocked";
-
-export interface CashFlowDraft extends Omit<CashFlowRecord, "flowId"> {
-  flowId?: string;
-}
 
 export interface CashPlannerManagerState {
   status: CashPlannerManagerStatus;
   blockingMessage: string | null;
   error: string | null;
-  flows: CashFlowRecord[];
-  isDirty: boolean;
+  entries: CashFlowRecord[];
   isSaving: boolean;
-  lastSavedAt: string | null;
   reload: () => Promise<void>;
-  save: () => Promise<void>;
-  addFlow: (draft: CashFlowDraft) => void;
-  updateFlow: (flowId: string, changes: Partial<CashFlowRecord>) => void;
-  removeFlow: (flowId: string) => void;
-  duplicateFlow: (flowId: string) => void;
+  createEntry: (draft: CashFlowDraft) => Promise<CashFlowRecord | null>;
+  updateEntry: (flowId: string, updates: Partial<CashFlowEntry>) => Promise<CashFlowRecord | null>;
+  deleteEntry: (flowId: string) => Promise<void>;
 }
 
 interface FetchCashFlowsOptions {
   spreadsheetId: string;
 }
 
-interface SaveCashFlowsOptions extends FetchCashFlowsOptions {
-  flows: CashFlowRecord[];
-}
-
 type FetchCashFlows = (options: FetchCashFlowsOptions) => Promise<CashFlowRecord[]>;
 
-type SaveCashFlows = (options: SaveCashFlowsOptions) => Promise<void>;
+type CreateCashFlow = (options: {
+  spreadsheetId: string;
+  draft: CashFlowDraft;
+}) => Promise<CashFlowEntry>;
+
+type UpdateCashFlow = (options: {
+  spreadsheetId: string;
+  flowId: string;
+  updates: Partial<CashFlowEntry>;
+}) => Promise<CashFlowEntry | null>;
+
+type DeleteCashFlow = (options: {
+  spreadsheetId: string;
+  flowId: string;
+}) => Promise<void>;
+
+type RefreshRunwayProjection = (options: {
+  spreadsheetId: string;
+}) => Promise<{ updatedAt: string | null; rowsWritten: number }>;
 
 const defaultFetchCashFlows: FetchCashFlows = ({ spreadsheetId }) =>
   fetchCashFlowsFromApi(spreadsheetId);
 
-const defaultSaveCashFlows: SaveCashFlows = ({ spreadsheetId, flows }) =>
-  saveCashFlowsToApi(spreadsheetId, flows);
+const defaultCreateCashFlow: CreateCashFlow = ({ spreadsheetId, draft }) =>
+  createCashFlowToApi(spreadsheetId, draft);
 
-function cloneFlows(flows: CashFlowRecord[]) {
-  return flows.map((flow) => ({ ...flow }));
-}
+const defaultUpdateCashFlow: UpdateCashFlow = ({ spreadsheetId, flowId, updates }) =>
+  updateCashFlowToApi(spreadsheetId, flowId, updates);
 
-function generateFlowId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
+const defaultDeleteCashFlow: DeleteCashFlow = ({ spreadsheetId, flowId }) =>
+  deleteCashFlowToApi(spreadsheetId, flowId);
 
-  return `flow-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
+const defaultRefreshRunwayProjection: RefreshRunwayProjection = ({ spreadsheetId }) =>
+  refreshRunwayProjectionToApi(spreadsheetId);
 
-function serializeFlows(flows: CashFlowRecord[]) {
-  return JSON.stringify(
-    flows.map((flow) => ({
-      ...flow,
-      plannedAmount: Number(flow.plannedAmount),
-      actualAmount: Number(flow.actualAmount),
-    })),
-  );
+function cloneEntries(entries: CashFlowRecord[]) {
+  return entries.map((entry) => ({ ...entry }));
 }
 
 export function useCashPlannerManager({
   spreadsheetId: spreadsheetIdProp = null,
   fetchCashFlows = defaultFetchCashFlows,
-  saveCashFlows = defaultSaveCashFlows,
+  createCashFlow = defaultCreateCashFlow,
+  updateCashFlow = defaultUpdateCashFlow,
+  deleteCashFlow = defaultDeleteCashFlow,
+  refreshRunwayProjection = defaultRefreshRunwayProjection,
   disabled = false,
   disabledMessage,
 }: {
   spreadsheetId?: string | null;
   fetchCashFlows?: FetchCashFlows;
-  saveCashFlows?: SaveCashFlows;
+  createCashFlow?: CreateCashFlow;
+  updateCashFlow?: UpdateCashFlow;
+  deleteCashFlow?: DeleteCashFlow;
+  refreshRunwayProjection?: RefreshRunwayProjection;
   disabled?: boolean;
   disabledMessage?: string | null;
 } = {}): CashPlannerManagerState {
   const spreadsheetId = spreadsheetIdProp?.trim() || null;
 
   const fetchRef = useRef(fetchCashFlows);
-  const saveRef = useRef(saveCashFlows);
+  const createRef = useRef(createCashFlow);
+  const updateRef = useRef(updateCashFlow);
+  const deleteRef = useRef(deleteCashFlow);
+  const refreshRef = useRef(refreshRunwayProjection);
 
   fetchRef.current = fetchCashFlows;
-  saveRef.current = saveCashFlows;
+  createRef.current = createCashFlow;
+  updateRef.current = updateCashFlow;
+  deleteRef.current = deleteCashFlow;
+  refreshRef.current = refreshRunwayProjection;
 
   const [status, setStatus] = useState<CashPlannerManagerStatus>(() => {
     if (disabled) {
@@ -100,16 +117,14 @@ export function useCashPlannerManager({
   });
   const [blockingMessage, setBlockingMessage] = useState<string | null>(
     disabled
-      ? disabledMessage ?? "Spreadsheet health flagged issues with the cash_flows tab. Fix the problems above, then reload."
+      ? disabledMessage ?? "Ledger tab is disabled by spreadsheet health diagnostics."
       : spreadsheetId
       ? null
-      : "Connect a spreadsheet to manage cash flows.",
+      : "Connect a spreadsheet to manage ledger entries.",
   );
   const [error, setError] = useState<string | null>(null);
-  const [flows, setFlows] = useState<CashFlowRecord[]>([]);
-  const [baselineFlows, setBaselineFlows] = useState<CashFlowRecord[]>([]);
+  const [entries, setEntries] = useState<CashFlowRecord[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
   const loadCashFlows = useCallback(
     async (options?: { skipStatusReset?: boolean; cancelCheck?: () => boolean }) => {
@@ -118,11 +133,10 @@ export function useCashPlannerManager({
         setBlockingMessage(
           disabled && disabledMessage
             ? disabledMessage
-            : "Connect a spreadsheet to manage cash flows.",
+            : "Connect a spreadsheet to manage ledger entries.",
         );
         setError(null);
-        setFlows([]);
-        setBaselineFlows([]);
+        setEntries([]);
         return;
       }
 
@@ -139,18 +153,16 @@ export function useCashPlannerManager({
           return;
         }
 
-        setFlows(cloneFlows(result));
-        setBaselineFlows(cloneFlows(result));
+        setEntries(cloneEntries(result));
         setStatus("ready");
       } catch (err) {
         if (options?.cancelCheck?.()) {
           return;
         }
 
-        const message = err instanceof Error ? err.message : "Failed to load cash flows";
+        const message = err instanceof Error ? err.message : "Failed to load ledger entries";
         setError(message);
-        setFlows([]);
-        setBaselineFlows([]);
+        setEntries([]);
         setStatus("error");
       }
     },
@@ -158,138 +170,131 @@ export function useCashPlannerManager({
   );
 
   useEffect(() => {
-    if (disabled) {
-      setStatus("blocked");
-      setBlockingMessage(
-        disabledMessage ??
-          "Spreadsheet health flagged issues with the cash_flows tab. Fix the problems above, then reload.",
-      );
-      setError(null);
-      return;
-    }
-
-    if (!spreadsheetId) {
-      setStatus("blocked");
-      setBlockingMessage("Connect a spreadsheet to manage cash flows.");
-      setError(null);
-      setFlows([]);
-      setBaselineFlows([]);
+    if (!spreadsheetId || disabled) {
+      setEntries([]);
       return;
     }
 
     let cancelled = false;
 
-    loadCashFlows({
+    void loadCashFlows({
       cancelCheck: () => cancelled,
     });
 
     return () => {
       cancelled = true;
     };
-  }, [disabled, disabledMessage, loadCashFlows, spreadsheetId]);
+  }, [disabled, spreadsheetId, loadCashFlows]);
 
   const reload = useCallback(async () => {
-    if (disabled) {
-      return;
-    }
-
     await loadCashFlows();
-  }, [disabled, loadCashFlows]);
+  }, [loadCashFlows]);
 
-  const save = useCallback(async () => {
-    if (!spreadsheetId || disabled) {
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      await saveRef.current({ spreadsheetId, flows });
-      setBaselineFlows(cloneFlows(flows));
-      setLastSavedAt(new Date().toISOString());
-      setError(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to save cash flows";
-      setError(message);
-      throw err;
-    } finally {
-      setIsSaving(false);
-    }
-  }, [disabled, flows, spreadsheetId]);
-
-  const addFlow = useCallback((draft: CashFlowDraft) => {
-    setFlows((current) => [
-      ...current,
-      {
-        flowId: draft.flowId?.trim() || generateFlowId(),
-        type: draft.type,
-        categoryId: draft.categoryId,
-        plannedDate: draft.plannedDate,
-        plannedAmount: draft.plannedAmount,
-        actualDate: draft.actualDate,
-        actualAmount: draft.actualAmount,
-        status: draft.status,
-        accountId: draft.accountId,
-        note: draft.note,
-      },
-    ]);
-  }, []);
-
-  const updateFlow = useCallback((flowId: string, changes: Partial<CashFlowRecord>) => {
-    setFlows((current) =>
-      current.map((flow) =>
-        flow.flowId === flowId
-          ? {
-              ...flow,
-              ...changes,
-            }
-          : flow,
-      ),
-    );
-  }, []);
-
-  const removeFlow = useCallback((flowId: string) => {
-    setFlows((current) => current.filter((flow) => flow.flowId !== flowId));
-  }, []);
-
-  const duplicateFlow = useCallback((flowId: string) => {
-    setFlows((current) => {
-      const target = current.find((flow) => flow.flowId === flowId);
-
-      if (!target) {
-        return current;
+  const triggerProjectionRefresh = useCallback(
+    async (shouldEmit: boolean) => {
+      if (!spreadsheetId) {
+        return;
       }
 
-      const duplicate: CashFlowRecord = {
-        ...target,
-        flowId: generateFlowId(),
-        status: "planned",
-        actualAmount: 0,
-        actualDate: "",
-      };
+      try {
+        const result = await refreshRef.current({ spreadsheetId });
+        if (shouldEmit) {
+          emitRunwayProjectionUpdated({
+            spreadsheetId,
+            updatedAt: result.updatedAt,
+            rowsWritten: result.rowsWritten,
+          });
+        }
+      } catch {
+        // Ignore projection refresh failures; the UI can retry manually later.
+      }
+    },
+    [spreadsheetId],
+  );
 
-      return [...current, duplicate];
-    });
-  }, []);
+  const createEntry = useCallback(
+    async (draft: CashFlowDraft) => {
+      if (!spreadsheetId) {
+        return null;
+      }
 
-  const flowsSignature = useMemo(() => serializeFlows(flows), [flows]);
-  const baselineSignature = useMemo(() => serializeFlows(baselineFlows), [baselineFlows]);
+      setIsSaving(true);
+      try {
+        const created = await createRef.current({ spreadsheetId, draft });
+        setEntries((current) => [...current, { ...created }]);
+        void triggerProjectionRefresh(true);
+        return created;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to create ledger entry");
+        return null;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [spreadsheetId, triggerProjectionRefresh],
+  );
 
-  const isDirty = flowsSignature !== baselineSignature;
+  const updateEntry = useCallback(
+    async (flowId: string, updates: Partial<CashFlowEntry>) => {
+      if (!spreadsheetId) {
+        return null;
+      }
 
-  return {
-    status,
-    blockingMessage,
-    error,
-    flows,
-    isDirty,
-    isSaving,
-    lastSavedAt,
-    reload,
-    save,
-    addFlow,
-    updateFlow,
-    removeFlow,
-    duplicateFlow,
-  };
+      setIsSaving(true);
+      try {
+        const updated = await updateRef.current({ spreadsheetId, flowId, updates });
+
+        if (!updated) {
+          return null;
+        }
+
+        setEntries((current) =>
+          current.map((entry) => (entry.flowId === flowId ? { ...updated } : entry)),
+        );
+        void triggerProjectionRefresh(true);
+        return updated;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to update ledger entry");
+        return null;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [spreadsheetId, triggerProjectionRefresh],
+  );
+
+  const deleteEntry = useCallback(
+    async (flowId: string) => {
+      if (!spreadsheetId) {
+        return;
+      }
+
+      setIsSaving(true);
+      try {
+        await deleteRef.current({ spreadsheetId, flowId });
+        setEntries((current) => current.filter((entry) => entry.flowId !== flowId));
+        void triggerProjectionRefresh(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to delete ledger entry");
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [spreadsheetId, triggerProjectionRefresh],
+  );
+
+  return useMemo(
+    () => ({
+      status,
+      blockingMessage,
+      error,
+      entries,
+      isSaving,
+      reload,
+      createEntry,
+      updateEntry,
+      deleteEntry,
+    }),
+    [status, blockingMessage, error, entries, isSaving, reload, createEntry, updateEntry, deleteEntry],
+  );
 }

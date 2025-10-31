@@ -102,6 +102,12 @@ function normalizeCategoryRecord(entry: Record<string, unknown>): CategoryRecord
   const categoryId = String(entry.categoryId ?? "").trim();
   const label = String(entry.label ?? "").trim();
   const color = String(entry.color ?? "").trim() || "#999999";
+  const flowType =
+    String(entry.flowType ?? "")
+      .trim()
+      .toLowerCase() === "income"
+      ? "income"
+      : "expense";
   const rolloverFlag = Boolean(entry.rolloverFlag);
   const sortOrder =
     typeof entry.sortOrder === "number" && Number.isFinite(entry.sortOrder)
@@ -117,6 +123,7 @@ function normalizeCategoryRecord(entry: Record<string, unknown>): CategoryRecord
     categoryId,
     label,
     color,
+    flowType,
     rolloverFlag,
     sortOrder,
     monthlyBudget: monthlyBudgetRaw,

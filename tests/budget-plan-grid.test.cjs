@@ -144,6 +144,7 @@ test("BudgetPlanGrid displays amounts, approximations, and rollovers", async () 
           categoryId: "cat-travel",
           label: "Travel",
           color: "#ff0000",
+          flowType: "expense",
           rolloverFlag: true,
           currencyCode: "EUR",
         },

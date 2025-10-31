@@ -13,6 +13,7 @@ function createCategory(overrides = {}) {
     categoryId: "cat-1",
     label: "Category 1",
     color: "#000000",
+    flowType: "expense",
     rolloverFlag: false,
     sortOrder: 1,
     monthlyBudget: 0,

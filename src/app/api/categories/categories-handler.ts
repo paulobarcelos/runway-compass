@@ -18,6 +18,7 @@ type FetchCategories = (options: FetchCategoriesOptions) => Promise<
     categoryId: string;
     label: string;
     color: string;
+    flowType: "income" | "expense";
     rolloverFlag: boolean;
     sortOrder: number;
     monthlyBudget: number;
@@ -69,14 +70,28 @@ async function saveCategoriesToSheets({
   const sheets = createSheetsClient(tokens);
   const repository = createCategoriesRepository({ sheets, spreadsheetId });
 
-  const sanitized = categories.map((category) => ({
-    ...category,
-    monthlyBudget:
+  const sanitized: CategoryRecord[] = categories.map((category) => {
+    const normalizedFlowType: CategoryRecord["flowType"] =
+      category.flowType === "income" ? "income" : "expense";
+
+    const normalizedMonthlyBudget =
       typeof category.monthlyBudget === "number" && Number.isFinite(category.monthlyBudget)
         ? category.monthlyBudget
-        : 0,
-    currencyCode: (category.currencyCode ?? "").trim().toUpperCase(),
-  }));
+        : 0;
+
+    const normalizedCurrency = (category.currencyCode ?? "").trim().toUpperCase();
+
+    return {
+      categoryId: category.categoryId,
+      label: category.label,
+      color: category.color,
+      flowType: normalizedFlowType,
+      rolloverFlag: Boolean(category.rolloverFlag),
+      sortOrder: category.sortOrder,
+      monthlyBudget: normalizedMonthlyBudget,
+      currencyCode: normalizedCurrency,
+    };
+  });
 
   await repository.save(sanitized);
 }
@@ -95,6 +110,11 @@ function parseCategoriesPayload(value: unknown) {
 
   const categories: CategoryRecord[] = [];
 
+  const normalizeFlowType = (value: unknown): "income" | "expense" => {
+    const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+    return normalized === "income" ? "income" : "expense";
+  };
+
   for (let index = 0; index < rawCategories.length; index += 1) {
     const item = rawCategories[index];
 
@@ -106,6 +126,7 @@ function parseCategoriesPayload(value: unknown) {
       categoryId,
       label,
       color,
+      flowType,
       rolloverFlag,
       sortOrder,
       monthlyBudget,
@@ -124,6 +145,8 @@ function parseCategoriesPayload(value: unknown) {
       return null;
     }
 
+    const normalizedFlowType = normalizeFlowType(flowType);
+
     if (typeof rolloverFlag !== "boolean") {
       return null;
     }
@@ -141,6 +164,7 @@ function parseCategoriesPayload(value: unknown) {
       categoryId: categoryId.trim(),
       label: label.trim(),
       color: color.trim(),
+      flowType: normalizedFlowType,
       rolloverFlag,
       sortOrder,
       monthlyBudget: normalizedMonthlyBudget,

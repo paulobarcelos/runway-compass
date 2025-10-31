@@ -47,9 +47,18 @@ test("categories repository list returns typed records", async () => {
   const jiti = createTestJiti(__filename);
   const { stub, getCalls } = createSheetsStub({
     values: [
-      ["category_id", "label", "color", "rollover_flag", "sort_order", "monthly_budget", "currency_code"],
-      ["cat-123", "Housing", "#FF0000", "TRUE", "1", "1200", "SEK"],
-      ["cat-456", "Food", "#00FF00", "FALSE", "2", "", ""],
+      [
+        "category_id",
+        "label",
+        "color",
+        "flow_type",
+        "rollover_flag",
+        "sort_order",
+        "monthly_budget",
+        "currency_code",
+      ],
+      ["cat-123", "Housing", "#FF0000", "income", "TRUE", "1", "1200", "SEK"],
+      ["cat-456", "Food", "#00FF00", "", "FALSE", "2", "", ""],
     ],
   });
 
@@ -66,13 +75,14 @@ test("categories repository list returns typed records", async () => {
 
   assert.equal(getCalls.length, 1);
   assert.equal(getCalls[0].spreadsheetId, "sheet-123");
-  assert.equal(getCalls[0].range, "categories!A1:G1000");
+  assert.equal(getCalls[0].range, "categories!A1:H1000");
 
   assert.deepEqual(categories, [
     {
       categoryId: "cat-123",
       label: "Housing",
       color: "#FF0000",
+      flowType: "income",
       rolloverFlag: true,
       sortOrder: 1,
       monthlyBudget: 1200,
@@ -82,6 +92,7 @@ test("categories repository list returns typed records", async () => {
       categoryId: "cat-456",
       label: "Food",
       color: "#00FF00",
+      flowType: "expense",
       rolloverFlag: false,
       sortOrder: 2,
       monthlyBudget: 0,
@@ -94,10 +105,19 @@ test("categories repository list filters empty or malformed rows", async () => {
   const jiti = createTestJiti(__filename);
   const { stub } = createSheetsStub({
     values: [
-      ["category_id", "label", "color", "rollover_flag", "sort_order", "monthly_budget", "currency_code"],
-      ["", "Missing ID", "#000000", "TRUE", "3", "300", "USD"],
-      ["cat-789", "", "#111111", "TRUE", "4", "200", "USD"],
-      ["cat-999", "Travel", "", "TRUE", "", ""],
+      [
+        "category_id",
+        "label",
+        "color",
+        "flow_type",
+        "rollover_flag",
+        "sort_order",
+        "monthly_budget",
+        "currency_code",
+      ],
+      ["", "Missing ID", "#000000", "income", "TRUE", "3", "300", "USD"],
+      ["cat-789", "", "#111111", "expense", "TRUE", "4", "200", "USD"],
+      ["cat-999", "Travel", "", "", "TRUE", "", ""],
     ],
   });
 
@@ -117,8 +137,17 @@ test("categories repository list retries transient errors", async () => {
   const jiti = createTestJiti(__filename);
   const { stub } = createSheetsStub({
     values: [
-      ["category_id", "label", "color", "rollover_flag", "sort_order", "monthly_budget", "currency_code"],
-      ["cat-111", "Utilities", "#ABCDEF", "TRUE", "3", "500", "USD"],
+      [
+        "category_id",
+        "label",
+        "color",
+        "flow_type",
+        "rollover_flag",
+        "sort_order",
+        "monthly_budget",
+        "currency_code",
+      ],
+      ["cat-111", "Utilities", "#ABCDEF", "expense", "TRUE", "3", "500", "USD"],
     ],
   });
 
@@ -155,6 +184,7 @@ test("categories repository list retries transient errors", async () => {
       categoryId: "cat-111",
       label: "Utilities",
       color: "#ABCDEF",
+      flowType: "expense",
       rolloverFlag: true,
       sortOrder: 3,
       monthlyBudget: 500,
@@ -166,7 +196,18 @@ test("categories repository list retries transient errors", async () => {
 test("categories repository save persists header and rows", async () => {
   const jiti = createTestJiti(__filename);
   const { stub, updateCalls, getStoredValues } = createSheetsStub({
-    values: [["category_id", "label", "color", "rollover_flag", "sort_order", "monthly_budget", "currency_code"]],
+    values: [
+      [
+        "category_id",
+        "label",
+        "color",
+        "flow_type",
+        "rollover_flag",
+        "sort_order",
+        "monthly_budget",
+        "currency_code",
+      ],
+    ],
   });
 
   const { createCategoriesRepository } = await jiti.import(
@@ -183,6 +224,7 @@ test("categories repository save persists header and rows", async () => {
       categoryId: "cat-123",
       label: "Housing",
       color: "#FF0000",
+      flowType: "income",
       rolloverFlag: true,
       sortOrder: 5,
       monthlyBudget: 1500,
@@ -192,6 +234,7 @@ test("categories repository save persists header and rows", async () => {
       categoryId: "cat-456",
       label: "Food",
       color: "#00FF00",
+      flowType: "expense",
       rolloverFlag: false,
       sortOrder: 10,
       monthlyBudget: 0,
@@ -205,13 +248,22 @@ test("categories repository save persists header and rows", async () => {
 
   const call = updateCalls[0];
   assert.equal(call.spreadsheetId, "sheet-123");
-  assert.equal(call.range, "categories!A1:G3");
+  assert.equal(call.range, "categories!A1:H3");
   assert.equal(call.valueInputOption, "RAW");
 
   assert.deepEqual(call.requestBody.values, [
-    ["category_id", "label", "color", "rollover_flag", "sort_order", "monthly_budget", "currency_code"],
-    ["cat-123", "Housing", "#FF0000", "TRUE", "5", "1500", "SEK"],
-    ["cat-456", "Food", "#00FF00", "FALSE", "10", "", ""],
+    [
+      "category_id",
+      "label",
+      "color",
+      "flow_type",
+      "rollover_flag",
+      "sort_order",
+      "monthly_budget",
+      "currency_code",
+    ],
+    ["cat-123", "Housing", "#FF0000", "income", "TRUE", "5", "1500", "SEK"],
+    ["cat-456", "Food", "#00FF00", "expense", "FALSE", "10", "", ""],
   ]);
 
   assert.deepEqual(getStoredValues(), call.requestBody.values);

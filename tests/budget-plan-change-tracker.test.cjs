@@ -16,6 +16,7 @@ function createCategory(overrides = {}) {
     categoryId: "cat-roll",
     label: "Category",
     color: "#123456",
+    flowType: "expense",
     rolloverFlag: true,
     sortOrder: 1,
     monthlyBudget: 200,

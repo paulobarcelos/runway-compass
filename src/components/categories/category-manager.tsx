@@ -136,6 +136,12 @@ export function CategoryManager() {
             categoryId: String(item.categoryId ?? "").trim(),
             label: String(item.label ?? "").trim(),
             color: String(item.color ?? "").trim() || "#999999",
+            flowType:
+              String(item.flowType ?? "")
+                .trim()
+                .toLowerCase() === "income"
+                ? "income"
+                : "expense",
             rolloverFlag: Boolean(item.rolloverFlag),
             sortOrder:
               typeof item.sortOrder === "number" && Number.isFinite(item.sortOrder)
@@ -259,6 +265,18 @@ export function CategoryManager() {
             };
           }
 
+          if (field === "flowType") {
+            const normalized =
+              typeof value === "string" && value.trim().toLowerCase() === "income"
+                ? "income"
+                : "expense";
+
+            return {
+              ...item,
+              flowType: normalized,
+            };
+          }
+
           return { ...item, [field]: typeof value === "string" ? value : String(value) };
         }),
       );
@@ -289,6 +307,7 @@ export function CategoryManager() {
         categoryId: draft.categoryId,
         label: draft.label.trim(),
         color: draft.color.trim() || "#999999",
+        flowType: draft.flowType === "income" ? "income" : "expense",
         rolloverFlag: draft.rolloverFlag,
         sortOrder: Number(draft.sortOrder),
         monthlyBudget:
@@ -320,6 +339,12 @@ export function CategoryManager() {
           categoryId: String(item.categoryId ?? "").trim(),
           label: String(item.label ?? "").trim(),
           color: String(item.color ?? "").trim() || "#999999",
+          flowType:
+            String(item.flowType ?? "")
+              .trim()
+              .toLowerCase() === "income"
+              ? "income"
+              : "expense",
           rolloverFlag: Boolean(item.rolloverFlag),
           sortOrder:
             typeof item.sortOrder === "number" && Number.isFinite(item.sortOrder)

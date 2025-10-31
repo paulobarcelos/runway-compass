@@ -1,16 +1,15 @@
 // ABOUTME: Builds runway projection rows from budgets, cash flows, and snapshots.
 // ABOUTME: Aggregates monthly income/expense totals and stoplight classifications.
-export type CashFlowType = "income" | "expense";
-export type CashFlowStatus = "planned" | "posted" | "void";
+export type CashFlowStatus = "planned" | "posted";
 
 export interface CashFlowEntry {
   flowId?: string;
-  type: CashFlowType;
   status: CashFlowStatus;
-  plannedDate: string;
-  plannedAmount: number;
-  actualDate?: string | null;
-  actualAmount?: number | null;
+  date: string;
+  amount: number;
+  accountId?: string;
+  categoryId?: string;
+  note?: string;
 }
 
 export interface MonthlyBudgetAllocation {
@@ -232,58 +231,50 @@ export function buildRunwayProjection({
   const plannedExpense = new Map<number, number>();
 
   for (const flow of cashFlows) {
-    if (flow.status === "void") {
+    if (!flow || typeof flow !== "object") {
       continue;
-    }
-
-    if (flow.type !== "income" && flow.type !== "expense") {
-      throw new Error(`Invalid cash flow type: ${flow.type}`);
     }
 
     if (flow.status !== "planned" && flow.status !== "posted") {
-      throw new Error(`Unsupported cash flow status: ${flow.status}`);
+      throw new Error(`Unsupported cash flow status: ${String(flow.status)}`);
     }
 
-    const identifier = flow.flowId ?? `${flow.type}-${flow.status}`;
+    const identifier = flow.flowId ?? `cash-flow-${flow.status}`;
+    const amount = ensureFiniteNumber(flow.amount, `cash flow amount for ${identifier}`);
 
-    if (flow.status === "posted") {
-      const dateSource = flow.actualDate ?? flow.plannedDate;
-      const parsed = parseDateToMonthParts(dateSource, `cash flow date for ${identifier}`);
-
-      if (parsed.monthKey < startMonthKey) {
-        continue;
-      }
-
-      const amount = ensureFiniteNumber(
-        flow.actualAmount ?? flow.plannedAmount,
-        `cash flow posted amount for ${identifier}`,
-      );
-
-      if (flow.type === "income") {
-        appendToBucket(postedIncome, parsed.monthKey, amount);
-      } else {
-        appendToBucket(postedExpense, parsed.monthKey, amount);
-      }
-
-      if (parsed.monthKey > endMonthKey) {
-        endMonthKey = parsed.monthKey;
-      }
-
-      continue;
+    if (!flow.date) {
+      throw new Error(`Invalid cash flow date for ${identifier}: missing value`);
     }
 
-    const parsed = parseDateToMonthParts(flow.plannedDate, `cash flow planned date for ${identifier}`);
+    const parsed = parseDateToMonthParts(flow.date, `cash flow date for ${identifier}`);
 
     if (parsed.monthKey < startMonthKey) {
       continue;
     }
 
-    const amount = ensureFiniteNumber(flow.plannedAmount, `cash flow planned amount for ${identifier}`);
+    const absoluteAmount = Math.abs(amount);
 
-    if (flow.type === "income") {
-      appendToBucket(plannedIncome, parsed.monthKey, amount);
+    if (absoluteAmount === 0) {
+      if (parsed.monthKey > endMonthKey) {
+        endMonthKey = parsed.monthKey;
+      }
+      continue;
+    }
+
+    const isIncome = amount >= 0;
+
+    if (flow.status === "posted") {
+      if (isIncome) {
+        appendToBucket(postedIncome, parsed.monthKey, absoluteAmount);
+      } else {
+        appendToBucket(postedExpense, parsed.monthKey, absoluteAmount);
+      }
     } else {
-      appendToBucket(plannedExpense, parsed.monthKey, amount);
+      if (isIncome) {
+        appendToBucket(plannedIncome, parsed.monthKey, absoluteAmount);
+      } else {
+        appendToBucket(plannedExpense, parsed.monthKey, absoluteAmount);
+      }
     }
 
     if (parsed.monthKey > endMonthKey) {

@@ -15,11 +15,13 @@ import {
 
 const CATEGORY_HEADERS = CATEGORIES_SHEET_SCHEMA.headers;
 const CATEGORY_RANGE = dataRange(CATEGORIES_SHEET_SCHEMA, 1000);
+const VALID_FLOW_TYPES = new Set(["income", "expense"] as const);
 
 export interface CategoryRecord {
   categoryId: string;
   label: string;
   color: string;
+  flowType: "income" | "expense";
   rolloverFlag: boolean;
   sortOrder: number;
   monthlyBudget: number;
@@ -45,6 +47,7 @@ function parseCategoryRow(row: unknown[], dataIndex: number): CategoryRecord | n
     categoryId,
     label,
     color,
+    flowTypeRaw,
     rolloverRaw,
     sortOrderRaw,
     monthlyBudgetRaw,
@@ -63,6 +66,11 @@ function parseCategoryRow(row: unknown[], dataIndex: number): CategoryRecord | n
     throw new Error(`Invalid category row at index ${dataIndex}: missing color`);
   }
 
+  const flowTypeNormalized = String(flowTypeRaw ?? "").trim().toLowerCase();
+  const flowType = VALID_FLOW_TYPES.has(flowTypeNormalized as CategoryRecord["flowType"])
+    ? (flowTypeNormalized as CategoryRecord["flowType"])
+    : "expense";
+
   const sortOrder = requireInteger(sortOrderRaw, {
     field: "sort_order",
     rowIndex: dataIndex,
@@ -78,6 +86,7 @@ function parseCategoryRow(row: unknown[], dataIndex: number): CategoryRecord | n
     categoryId: categoryId.trim(),
     label: label.trim(),
     color: color.trim(),
+    flowType,
     rolloverFlag,
     sortOrder,
     monthlyBudget,
@@ -132,11 +141,15 @@ export function createCategoriesRepository({
           Number.isFinite(record.monthlyBudget) && record.monthlyBudget !== 0
             ? String(record.monthlyBudget)
             : "";
+        const flowType = VALID_FLOW_TYPES.has(record.flowType)
+          ? record.flowType
+          : "expense";
 
         rows.push([
           record.categoryId,
           record.label,
           record.color,
+          flowType,
           record.rolloverFlag ? "TRUE" : "FALSE",
           String(record.sortOrder),
           monthlyBudgetString,

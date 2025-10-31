@@ -16,6 +16,7 @@ export interface BudgetPlanCategorySummary {
   categoryId: string;
   label: string;
   color: string;
+  flowType: "income" | "expense";
   rolloverFlag: boolean;
   monthlyBudget: number;
   currencyCode: string;
@@ -136,6 +137,7 @@ export function buildBudgetPlanGrid({
       categoryId: category.categoryId,
       label: category.label,
       color: category.color,
+      flowType: category.flowType,
       rolloverFlag: Boolean(category.rolloverFlag),
       monthlyBudget,
       currencyCode: category.currencyCode,

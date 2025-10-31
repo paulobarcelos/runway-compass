@@ -373,6 +373,7 @@ test("bootstrapSpreadsheet ensures data sheets exist with headers", async () => 
         "category_id",
         "label",
         "color",
+        "flow_type",
         "rollover_flag",
         "sort_order",
         "monthly_budget",
@@ -390,14 +391,11 @@ test("bootstrapSpreadsheet ensures data sheets exist with headers", async () => 
       snapshots: ["snapshot_id", "account_id", "date", "balance", "note"],
       cash_flows: [
         "flow_id",
-        "type",
-        "category_id",
-        "planned_date",
-        "planned_amount",
-        "actual_date",
-        "actual_amount",
+        "date",
+        "amount",
         "status",
         "account_id",
+        "category_id",
         "note",
       ],
       budget_plan: [
@@ -495,14 +493,11 @@ test("bootstrapSpreadsheet recreates missing cash_flows sheet with headers", asy
     assert.ok(headerUpdate, "cash_flows header update issued");
     assert.deepEqual(headerUpdate.requestBody.values[0], [
       "flow_id",
-      "type",
-      "category_id",
-      "planned_date",
-      "planned_amount",
-      "actual_date",
-      "actual_amount",
+      "date",
+      "amount",
       "status",
       "account_id",
+      "category_id",
       "note",
     ]);
   });
@@ -515,7 +510,7 @@ test("bootstrapSpreadsheet repairs cash_flows headers when mismatched", async ()
       existingSheets: ["_meta", "cash_flows"],
       sheetValues: {
         cash_flows: [
-          ["flow_id", "category_id", "planned_amount"],
+          ["flow_id", "category_id", "amount"],
           ["flow-1", "cat-1", "100"],
         ],
       },
@@ -541,14 +536,11 @@ test("bootstrapSpreadsheet repairs cash_flows headers when mismatched", async ()
     assert.ok(headerUpdate, "cash_flows header rewrite issued");
     assert.deepEqual(headerUpdate.requestBody.values[0], [
       "flow_id",
-      "type",
-      "category_id",
-      "planned_date",
-      "planned_amount",
-      "actual_date",
-      "actual_amount",
+      "date",
+      "amount",
       "status",
       "account_id",
+      "category_id",
       "note",
     ]);
   });
