@@ -721,19 +721,37 @@ class RestVercelClient implements VercelClient {
   }
 
   async setAlias(domain: string, deploymentId: string): Promise<void> {
-    const url = this.buildUrl("/v2/aliases");
-    const response = await fetch(url, {
+    const path = `/v2/deployments/${encodeURIComponent(deploymentId)}/aliases`;
+    const body = JSON.stringify({ alias: domain });
+    const url = this.buildUrl(path);
+    let response = await fetch(url, {
       method: "POST",
       headers: {
         ...this.headers(),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        alias: domain,
-        deploymentId,
-        projectId: this.options.projectId,
-      }),
+      body,
     });
+
+    if (response.status === 404 && this.options.teamId) {
+      console.error("[alias] retrying without team scope due to 404");
+      // Retry without team scope in case the domain lives in the personal account.
+      const fallbackUrl = `https://api.vercel.com${path}`;
+      response = await fetch(fallbackUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.options.token}`,
+          "Content-Type": "application/json",
+          "User-Agent": "runway-compass-staging-alias",
+        },
+        body,
+      });
+    }
+
+    if (response.status === 409) {
+      // Alias already points to this deployment; nothing to update.
+      return;
+    }
 
     if (!response.ok) {
       const text = await response.text();
@@ -758,6 +776,8 @@ class RestVercelClient implements VercelClient {
     };
   }
 }
+
+export { RestVercelClient };
 
 function parseInteger(name: string, value: string | undefined): number {
   if (!value) {
@@ -795,8 +815,8 @@ export async function run(): Promise<void> {
   const vercelTeamId = process.env.VERCEL_TEAM_ID?.trim() || undefined;
 
   console.error("[alias] config", {
-    projectId: vercelProjectId,
-    teamId: vercelTeamId ?? "(none)",
+    projectIdPrefix: vercelProjectId.slice(0, 6),
+    teamIdPrefix: vercelTeamId ? vercelTeamId.slice(0, 6) : "(none)",
     aliasDomain,
     prNumber,
   });
