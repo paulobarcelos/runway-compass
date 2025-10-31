@@ -310,6 +310,12 @@ function createViewRows(
   };
 }
 
+function isoStartFromDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}-01`;
+}
+
 function useManifestState(): ManifestRecord | null {
   const [manifest, setManifest] = useState<ManifestRecord | null>(null);
 
@@ -374,12 +380,16 @@ async function loadBudgetPlanData({
   });
 
   const draft = createBudgetPlanDraft(grid);
+  const normalizedMetadata: BudgetHorizonMetadata = {
+    start: isoStartFromDate(startOverride),
+    months: response.meta.months,
+  };
 
   return {
     grid,
     draft,
     categories,
-    metadata: response.meta,
+    metadata: normalizedMetadata,
   };
 }
 
