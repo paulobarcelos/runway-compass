@@ -22,4 +22,4 @@ Rule #1: If you want an exception to any rule here, stop and get explicit permis
 - Parallel/long-running: superpowers:tmux-orchestration
 - Program management: superpowers:github-program-manager
 - Spreadsheet specifics: local `google-sheets-schema-runway`, `spreadsheet-repair-pattern`
-
+- Autonomous runs: once a plan is approved, keep executing without asking permission between steps; only pause when you need Paulo to make a decision, supply credentials/data, run a manual check, or when you hit a blocker.
