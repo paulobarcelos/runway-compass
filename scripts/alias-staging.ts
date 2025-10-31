@@ -447,10 +447,11 @@ export function formatSuccessComment(params: {
 }): string {
   const { requestor, aliasDomain, deploymentUrl } = params;
   const target = deploymentUrl ?? `https://${aliasDomain}`;
+  const link = `[${target}](${target})`;
   return [
     `@${requestor} staging alias updated ✅`,
     "",
-    `\`${aliasDomain}\` now points to ${target}.`,
+    `\`${aliasDomain}\` now points to ${link}.`,
     "",
     "Happy testing!",
   ].join("\n");
