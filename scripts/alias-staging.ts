@@ -410,13 +410,7 @@ async function removeStartReaction(
   reactionId?: number
 ): Promise<void> {
   if (reactionId) {
-    const removed = await attemptAsync(async () => {
-      await github.deleteReaction(reactionId);
-      return true;
-    });
-    if (removed) {
-      return;
-    }
+    await attemptAsync(() => github.deleteReaction(reactionId));
   }
 
   const reactions = await attemptAsync(() => github.listCommentReactions(commentId));
@@ -424,12 +418,10 @@ async function removeStartReaction(
     return;
   }
 
-  const candidate = reactions.find((entry) => entry.content === "eyes");
-  if (!candidate) {
-    return;
-  }
-
-  await attemptAsync(() => github.deleteReaction(candidate.id));
+  const eyesReactions = reactions.filter((entry) => entry.content === "eyes");
+  await Promise.all(
+    eyesReactions.map((entry) => attemptAsync(() => github.deleteReaction(entry.id)))
+  );
 }
 
 async function safeCreateComment(github: GitHubClient, body: string): Promise<void> {
@@ -488,7 +480,7 @@ export function formatSuccessComment(params: {
   const aliasLink = `[https://${aliasDomain}](https://${aliasDomain})`;
   const targetLink = `[${target}](${target})`;
   return [
-    `@${requestor} staging alias updated ✅`,
+    `@${requestor} staging alias updated ✅ 🚀`,
     "",
     `${aliasLink} now points to ${targetLink}.`,
     "",
