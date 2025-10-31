@@ -27,7 +27,7 @@ Google Sheets & Drive
 - **Sheets Client:** Wrapper around Google Sheets/Drive APIs handling batching, retries, and error normalization. See `skills/google-sheets-api-essentials/SKILL.md` and `skills/google-sheets-schema-runway/SKILL.md` for quotas, batching, and tab details.
 - **Repository Layer:** Typed functions for each tab (e.g., `CategoryRepository`, `CashFlowRepository`, `AccountRepository`) encapsulating read/write logic and schema coercion.
 - **Projection Engine:** Aggregates category budgets, cash flows, and snapshots to produce the runway timeline, optionally persisting derived results in `runway_projection`.
-- **UI Components:** Form editors, tables, charts, and status widgets aligned with Tailwind design system.
+- **UI Components:** Form editors, tables, charts, and status widgets aligned with Tailwind design system. The new `MoneyInput` control centralizes amount + currency selection, handles normalization/preview against the base currency context, and emits structured `{ amount, currency }` payloads for ledger/budget consumers.
 
 ## Runtime Considerations
 - All Google API calls stay on Node runtime (no Edge). Server Actions/API routes must opt into `dynamic = "force-dynamic"` when necessary to avoid caching issues.
