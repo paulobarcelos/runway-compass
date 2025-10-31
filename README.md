@@ -31,6 +31,10 @@ Personal cash runway planner built with Next.js and Google Sheets. Track rolling
    - `npm run lint` – lint sources.
    - `npm run build` / `npm run start` – production build + serve.
 
+### Debug Logging
+
+- Set `NEXT_PUBLIC_DEBUG_LOGS=true` in your environment to print structured debug messages to the browser console. Logs stay local; no server relay is involved.
+
 ### Deploying to Vercel
 - Import repo, keep default build (`npm run build`).
 - Set environment variables for Production + Preview (`NEXTAUTH_URL`, Google secrets, Picker keys).
