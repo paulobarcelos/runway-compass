@@ -21,4 +21,4 @@ Read the Superpowers introduction completely before taking further action:
 - Parallel/long-running: superpowers:tmux-orchestration
 - Program management: superpowers:github-program-manager
 - Project conventions: local `project-engineering-process`
-- Spreadsheet specifics: local `google-sheets-schema-runway`, `spreadsheet-repair-pattern`
+- Spreadsheet specifics: docs/engineering/architecture.md schema section, local `spreadsheet-repair-pattern`
