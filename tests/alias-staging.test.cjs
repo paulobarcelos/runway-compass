@@ -211,15 +211,20 @@ test("formatFailureComment highlights reason", () => {
 
 test("runAliasFlow reacts, creates deployment, and marks success", async () => {
   const events = [];
+  let nextReactionId = 200;
   const github = {
     async getCollaboratorPermissionLevel() {
       return "write";
     },
     async reactToComment(commentId, reaction) {
       events.push(["reaction", commentId, reaction]);
+      return ++nextReactionId;
+    },
+    async deleteReaction(reactionId) {
+      events.push(["remove-reaction", reactionId]);
     },
     async getPullRequest() {
-      return { head: { ref: "feature/awesome" } };
+      return { head: { ref: "feature/awesome", sha: "abc123" } };
     },
     async createDeployment(input) {
       events.push(["deployment", input]);
@@ -270,8 +275,8 @@ test("runAliasFlow reacts, creates deployment, and marks success", async () => {
     [
       "deployment",
       {
-        ref: "feature/awesome",
-        environment: "staging",
+        ref: "abc123",
+        environment: "Staging",
         description: "Updating staging alias to latest preview for feature/awesome",
         auto_merge: false,
         required_contexts: [],
@@ -301,6 +306,7 @@ test("runAliasFlow reacts, creates deployment, and marks success", async () => {
       aliasDomain: "staging.runway.test",
       deploymentUrl: "https://dpl-123.vercel.app",
     })],
+    ["remove-reaction", 201],
     ["reaction", 77, "rocket"],
   ]);
 
@@ -312,15 +318,20 @@ test("runAliasFlow reacts, creates deployment, and marks success", async () => {
 
 test("runAliasFlow reports failure and updates deployment status", async () => {
   const events = [];
+  let nextReactionId = 300;
   const github = {
     async getCollaboratorPermissionLevel() {
       return "write";
     },
     async reactToComment(_id, reaction) {
       events.push(["reaction", reaction]);
+      return ++nextReactionId;
+    },
+    async deleteReaction(reactionId) {
+      events.push(["remove-reaction", reactionId]);
     },
     async getPullRequest() {
-      return { head: { ref: "feature/missing" } };
+      return { head: { ref: "feature/missing", sha: "def456" } };
     },
     async createDeployment() {
       events.push(["deployment"]);
@@ -381,11 +392,13 @@ test("runAliasFlow reports failure and updates deployment status", async () => {
   ]);
   assert.equal(events[4][0], "comment");
   assert.match(events[4][1], /No ready Vercel preview deployment found/);
-  assert.deepEqual(events[5], ["reaction", "confused"]);
+  assert.equal(events[5][0], "remove-reaction");
+  assert.deepEqual(events[6], ["reaction", "confused"]);
 });
 
 test("runAliasFlow denies commenters without write association", async () => {
   const events = [];
+  let nextReactionId = 400;
   const github = {
     async getCollaboratorPermissionLevel() {
       events.push(["permission"]);
@@ -393,6 +406,10 @@ test("runAliasFlow denies commenters without write association", async () => {
     },
     async reactToComment(commentId, reaction) {
       events.push(["reaction", commentId, reaction]);
+      return ++nextReactionId;
+    },
+    async deleteReaction(reactionId) {
+      events.push(["remove-reaction", reactionId]);
     },
     async getPullRequest() {
       throw new Error("should not fetch PR for unauthorized user");
@@ -442,6 +459,7 @@ test("runAliasFlow denies commenters without write association", async () => {
   assert.equal(events[1][0], "permission");
   assert.equal(events[2][0], "comment");
   assert.match(events[2][1], /write access/);
+  assert.equal(events[3][0], "remove-reaction");
 });
 
 test("RestVercelClient.setAlias treats 409 as success", async () => {
