@@ -727,6 +727,7 @@ class RestVercelClient implements VercelClient {
     });
 
     if (response.status === 404 && this.options.teamId) {
+      console.error("[alias] retrying without team scope due to 404");
       // Retry without team scope in case the domain lives in the personal account.
       const fallbackUrl = "https://api.vercel.com/v2/aliases";
       response = await fetch(fallbackUrl, {
