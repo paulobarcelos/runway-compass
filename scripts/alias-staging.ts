@@ -774,6 +774,7 @@ export async function run(): Promise<void> {
   const repoName = requireEnv("REPO_NAME");
   const commentAuthor = requireEnv("COMMENT_AUTHOR");
   const commentBody = requireEnv("COMMENT_BODY");
+  const commentAuthorAssociation = process.env.COMMENT_AUTHOR_ASSOCIATION?.trim() || undefined;
   const aliasDomain = requireEnv("VERCEL_ALIAS_DOMAIN");
   const defaultBranch = requireEnv("DEFAULT_BRANCH");
   const vercelToken = requireEnv("VERCEL_TOKEN");
@@ -800,6 +801,7 @@ export async function run(): Promise<void> {
       commentBody,
       commentAuthor,
       commentId,
+      commentAuthorAssociation,
       issueNumber,
       pullNumber: prNumber,
       repoOwner,
