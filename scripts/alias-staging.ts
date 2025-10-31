@@ -99,6 +99,29 @@ export async function checkWriteAccess(
   return ALLOWED_PERMISSIONS.includes(level);
 }
 
+function hasWriteAssociation(association?: string): boolean {
+  if (!association) {
+    return false;
+  }
+  const normalized = association.toUpperCase();
+  return ["OWNER", "MEMBER", "COLLABORATOR", "MAINTAINER"].includes(normalized);
+}
+
+export async function verifyWriteAccess(
+  client: GitHubPermissionClient,
+  params: { owner: string; repo: string; username: string; association?: string }
+): Promise<boolean> {
+  if (hasWriteAssociation(params.association)) {
+    return true;
+  }
+
+  return checkWriteAccess(client, {
+    owner: params.owner,
+    repo: params.repo,
+    username: params.username,
+  });
+}
+
 export interface AliasResult {
   deploymentId: string;
   deploymentUrl?: string;
@@ -184,6 +207,7 @@ export interface RunAliasFlowInputs {
   commentBody: string;
   commentAuthor: string;
   commentId: number;
+  commentAuthorAssociation?: string;
   issueNumber: number;
   pullNumber: number;
   repoOwner: string;
@@ -208,14 +232,16 @@ export async function runAliasFlow(params: {
 
   await attemptAsync(() => github.reactToComment(inputs.commentId, "+1"));
 
-  const hasAccess = await checkWriteAccess(github, {
+  const hasAccess = await verifyWriteAccess(github, {
     owner: inputs.repoOwner,
     repo: inputs.repoName,
     username: inputs.commentAuthor,
+    association: inputs.commentAuthorAssociation,
   });
 
   if (!hasAccess) {
-    await github.createComment(
+    await safeCreateComment(
+      github,
       formatFailureComment({
         requestor: inputs.commentAuthor,
         reason: "Only collaborators with at least write access can update the staging alias.",
@@ -251,7 +277,8 @@ export async function runAliasFlow(params: {
       )
     );
   } catch (error) {
-    await github.createComment(
+    await safeCreateComment(
+      github,
       formatFailureComment({
         requestor: inputs.commentAuthor,
         reason: `Failed to initialize staging deployment: ${getErrorMessage(error)}`,
@@ -295,7 +322,8 @@ export async function runAliasFlow(params: {
     }
 
     if (error instanceof MissingDeploymentError) {
-      await github.createComment(
+      await safeCreateComment(
+        github,
         formatFailureComment({
           requestor: inputs.commentAuthor,
           reason: `No ready Vercel preview deployment found for branch \`${branch}\`. Try redeploying the preview or rerun CI.`,
@@ -313,14 +341,16 @@ export async function runAliasFlow(params: {
         );
       }
 
-      await github.createComment(
+      await safeCreateComment(
+        github,
         formatFailureComment({
           requestor: inputs.commentAuthor,
           reason: details.join(" "),
         })
       );
     } else {
-      await github.createComment(
+      await safeCreateComment(
+        github,
         formatFailureComment({
           requestor: inputs.commentAuthor,
           reason: getErrorMessage(error),
@@ -337,6 +367,14 @@ async function attemptAsync<T>(action: () => Promise<T>): Promise<T | undefined>
     return await action();
   } catch {
     return undefined;
+  }
+}
+
+async function safeCreateComment(github: GitHubClient, body: string): Promise<void> {
+  try {
+    await github.createComment(body);
+  } catch (error) {
+    console.warn("Failed to leave comment:", getErrorMessage(error));
   }
 }
 
