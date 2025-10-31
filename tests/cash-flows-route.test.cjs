@@ -107,7 +107,8 @@ test("POST /api/cash-flows creates flow and returns payload", async () => {
     const { POST } = createCashFlowsHandler({
       createCashFlow: async ({ spreadsheetId, draft }) => {
         assert.equal(spreadsheetId, "sheet-123");
-        const { flowId: _ignoredId, ...rest } = draft;
+        const { flowId, ...rest } = draft;
+        assert.equal(flowId, undefined);
         assert.deepEqual(rest, {
           date: "2025-03-01",
           amount: 2500,
