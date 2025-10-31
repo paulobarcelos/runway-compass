@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useBaseCurrency } from "@/components/currency/base-currency-context";
+import { MoneyInput } from "@/components/money-input";
+import type { MoneyInputChange } from "@/components/money-input";
 import type {
   CashFlowDraft,
   CashFlowEntry,
@@ -25,6 +27,7 @@ interface CategoryOption {
 interface LedgerDraft {
   date: string;
   amount: string;
+  currency: string;
   status: CashFlowStatus;
   accountId: string;
   categoryId: string;
@@ -48,10 +51,11 @@ interface CashPlannerLedgerProps {
   isSaving: boolean;
 }
 
-function buildDraft(entry: CashFlowRecord): LedgerDraft {
+function buildDraft(entry: CashFlowRecord, currency: string | null | undefined): LedgerDraft {
   return {
     date: entry.date,
     amount: String(entry.amount),
+    currency: currency?.toUpperCase() ?? "",
     status: entry.status,
     accountId: entry.accountId,
     categoryId: entry.categoryId,
@@ -76,11 +80,13 @@ export function CashPlannerLedger({
     () => new Map(categories.map((category) => [category.id, category.label])),
     [categories],
   );
+  const { baseCurrency } = useBaseCurrency();
 
   const [drafts, setDrafts] = useState<Map<string, LedgerDraft>>(new Map());
   const [newEntry, setNewEntry] = useState<LedgerDraft>({
     date: getTodayDate(),
     amount: "",
+    currency: accounts[0]?.currency ?? "",
     status: "planned",
     accountId: "",
     categoryId: "",
@@ -108,17 +114,22 @@ export function CashPlannerLedger({
   useEffect(() => {
     const next = new Map<string, LedgerDraft>();
     for (const entry of entries) {
-      next.set(entry.flowId, buildDraft(entry));
+      const account = accountMap.get(entry.accountId);
+      const currency = account?.currency ?? baseCurrency;
+      next.set(entry.flowId, buildDraft(entry, currency));
     }
     setDrafts(next);
-  }, [entries]);
+  }, [entries, accountMap, baseCurrency]);
 
-  const { baseCurrency, convertAmount, formatAmount } = useBaseCurrency();
 
   useEffect(() => {
     if (accounts.length === 0) {
       lastUsedAccountIdRef.current = "";
-      setNewEntry((current) => (current.accountId ? { ...current, accountId: "" } : current));
+      setNewEntry((current) =>
+        current.accountId || current.currency
+          ? { ...current, accountId: "", currency: "" }
+          : current,
+      );
       return;
     }
 
@@ -129,11 +140,22 @@ export function CashPlannerLedger({
     if (!newEntry.accountId || !accounts.some((account) => account.id === newEntry.accountId)) {
       const fallback = lastUsedAccountIdRef.current || accounts[0].id;
       if (newEntry.accountId !== fallback) {
-        setNewEntry((current) => ({ ...current, accountId: fallback }));
+        const fallbackAccount = accounts.find((account) => account.id === fallback) ?? accounts[0];
+        setNewEntry((current) => ({
+          ...current,
+          accountId: fallback,
+          currency: fallbackAccount?.currency ?? current.currency,
+        }));
         clearNewEntryFieldError("accountId");
       }
+      return;
     }
-  }, [accounts, newEntry.accountId]);
+
+    const selectedAccount = accounts.find((account) => account.id === newEntry.accountId);
+    if (selectedAccount && selectedAccount.currency !== newEntry.currency) {
+      setNewEntry((current) => ({ ...current, currency: selectedAccount.currency }));
+    }
+  }, [accounts, newEntry.accountId, newEntry.currency]);
 
   useEffect(() => {
     if (categories.length === 0) {
@@ -166,8 +188,35 @@ export function CashPlannerLedger({
         return current;
       }
 
-      next.set(flowId, { ...draft, [field]: value });
+      const updated: LedgerDraft = { ...draft, [field]: value };
+
+      if (field === "accountId") {
+        const account = accountMap.get(value);
+        if (account?.currency) {
+          updated.currency = account.currency;
+        }
+      }
+
+      next.set(flowId, updated);
       return next;
+    });
+  };
+
+  const handleDraftAmountChange = (flowId: string, next: MoneyInputChange) => {
+    setDrafts((current) => {
+      const map = new Map(current);
+      const draft = map.get(flowId);
+      if (!draft) {
+        return current;
+      }
+
+      const nextAmount = next.amount === null || Number.isNaN(next.amount) ? "" : String(next.amount);
+      map.set(flowId, {
+        ...draft,
+        amount: nextAmount,
+        currency: next.currency || draft.currency,
+      });
+      return map;
     });
   };
 
@@ -238,9 +287,13 @@ export function CashPlannerLedger({
       lastUsedCategoryIdRef.current = defaultCategoryId;
     }
 
+    const defaultAccount = accounts.find((account) => account.id === defaultAccountId) ?? accounts[0];
+    const defaultCurrency = defaultAccount?.currency ?? "";
+
     setNewEntry({
       date: getTodayDate(),
       amount: "",
+      currency: defaultCurrency,
       status: "planned",
       accountId: defaultAccountId,
       categoryId: defaultCategoryId,
@@ -314,7 +367,12 @@ export function CashPlannerLedger({
     if (value) {
       lastUsedAccountIdRef.current = value;
     }
-    setNewEntry((current) => ({ ...current, accountId: value }));
+    const account = accountMap.get(value);
+    setNewEntry((current) => ({
+      ...current,
+      accountId: value,
+      currency: account?.currency ?? current.currency,
+    }));
   };
 
   const handleNewEntryCategoryChange = (value: string) => {
@@ -323,6 +381,16 @@ export function CashPlannerLedger({
       lastUsedCategoryIdRef.current = value;
     }
     setNewEntry((current) => ({ ...current, categoryId: value }));
+  };
+
+  const handleNewEntryAmountChange = (next: MoneyInputChange) => {
+    clearNewEntryFieldError("amount");
+    setNewEntry((current) => ({
+      ...current,
+      amount:
+        next.amount === null || Number.isNaN(next.amount) ? "" : String(next.amount),
+      currency: next.currency || current.currency,
+    }));
   };
 
   const handleCreate = async () => {
@@ -384,14 +452,9 @@ export function CashPlannerLedger({
   };
 
   const newEntryAccount = accountMap.get(newEntry.accountId) ?? null;
-  const newEntryCurrency = newEntryAccount?.currency ?? "";
   const newEntryAmountNumber = Number(newEntry.amount);
   const newEntryHasAmount =
     newEntry.amount.trim() !== "" && Number.isFinite(newEntryAmountNumber);
-  const newEntryConvertedAmount =
-    newEntryAccount && newEntryHasAmount
-      ? convertAmount(newEntryAmountNumber, newEntryAccount.currency)
-      : null;
   const showInlineError = Boolean(newEntryError);
   const newEntryRowTint =
     newEntryHasAmount && newEntryAmountNumber !== 0
@@ -410,9 +473,7 @@ export function CashPlannerLedger({
               <th className="px-3 py-2">Date</th>
               <th className="px-3 py-2">Category</th>
               <th className="px-3 py-2">Account</th>
-              <th className="px-3 py-2">Currency</th>
               <th className="px-3 py-2">Amount</th>
-              <th className="px-3 py-2">Amount ({baseCurrency})</th>
               <th className="px-3 py-2">Description</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
@@ -423,6 +484,7 @@ export function CashPlannerLedger({
             >
               <td className="px-3 py-2">
                 <select
+                  data-testid="ledger-status"
                   className="rounded border border-emerald-200 bg-white px-2 py-1 text-xs dark:border-emerald-700 dark:bg-zinc-900"
                   value={newEntry.status}
                   onChange={(event) =>
@@ -452,6 +514,7 @@ export function CashPlannerLedger({
               </td>
               <td className="px-3 py-2">
                 <select
+                  data-testid="ledger-category"
                   className={`w-full rounded px-2 py-1 text-xs border bg-white dark:bg-zinc-900 ${
                     newEntryFieldErrors.categoryId
                       ? "border-rose-400 focus-visible:outline-rose-500 dark:border-rose-500"
@@ -471,6 +534,7 @@ export function CashPlannerLedger({
               </td>
               <td className="px-3 py-2">
                 <select
+                  data-testid="ledger-account"
                   className={`w-full rounded px-2 py-1 text-xs border bg-white dark:bg-zinc-900 ${
                     newEntryFieldErrors.accountId
                       ? "border-rose-400 focus-visible:outline-rose-500 dark:border-rose-500"
@@ -488,33 +552,20 @@ export function CashPlannerLedger({
                   ))}
                 </select>
               </td>
-              <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-                {newEntryCurrency || "—"}
-              </td>
               <td className="px-3 py-2">
-                <input
-                  type="number"
-                  step="0.01"
-                  className={`w-full rounded px-2 py-1 text-xs border bg-white dark:bg-zinc-900 ${
-                    newEntryFieldErrors.amount
-                      ? "border-rose-400 focus-visible:outline-rose-500 dark:border-rose-500"
-                      : "border-emerald-200 dark:border-emerald-700"
-                  }`}
-                  value={newEntry.amount}
-                  onChange={(event) => {
-                    clearNewEntryFieldError("amount");
-                    setNewEntry((current) => ({ ...current, amount: event.target.value }));
-                  }}
+                <MoneyInput
+                  id="cash-planner-new-entry-amount"
+                  value={newEntryHasAmount ? newEntryAmountNumber : null}
+                  currency={(newEntry.currency || newEntryAccount?.currency || baseCurrency).toUpperCase()}
+                  onChange={handleNewEntryAmountChange}
                   disabled={isSaving}
+                  allowCurrencyChange={false}
+                  showBasePreview
+                  className="w-full"
                 />
-              </td>
-              <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-                {newEntryAccount && newEntryHasAmount && newEntryConvertedAmount !== null
-                  ? formatAmount(
-                      newEntryConvertedAmount,
-                      newEntryAccount.currency.toUpperCase() !== baseCurrency.toUpperCase(),
-                    )
-                  : "—"}
+                {newEntryFieldErrors.amount ? (
+                  <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">Enter a valid amount.</p>
+                ) : null}
               </td>
               <td className="px-3 py-2">
                 <input
@@ -541,13 +592,15 @@ export function CashPlannerLedger({
             </tr>
             {showInlineError ? (
               <tr className="text-xs text-rose-600 dark:text-rose-400">
-                <td className="px-3 pb-3" colSpan={9}>
+                <td className="px-3 pb-3" colSpan={7}>
                   {newEntryError}
                 </td>
               </tr>
             ) : null}
             {entries.map((entry) => {
-              const draft = drafts.get(entry.flowId) ?? buildDraft(entry);
+              const existingDraft = drafts.get(entry.flowId);
+              const fallbackCurrency = accountMap.get(entry.accountId)?.currency ?? baseCurrency;
+              const draft = existingDraft ?? buildDraft(entry, fallbackCurrency);
               const account = accountMap.get(draft.accountId);
               const amountNumber = Number(draft.amount);
               const amountValid = Number.isFinite(amountNumber);
@@ -569,17 +622,6 @@ export function CashPlannerLedger({
                 ? [{ id: draft.categoryId, label: "Missing category" }, ...categories]
                 : categories;
 
-              let baseDisplay = "—";
-              if (account && amountValid) {
-                const converted = convertAmount(amountNumber, account.currency);
-                if (converted !== null) {
-                  baseDisplay = formatAmount(
-                    converted,
-                    account.currency.toUpperCase() !== baseCurrency.toUpperCase(),
-                  );
-                }
-              }
-
               const rowToneClass =
                 amountValid && amountNumber !== 0
                   ? amountNumber >= 0
@@ -594,17 +636,11 @@ export function CashPlannerLedger({
                 rowClass.push("outline outline-1 outline-amber-400 dark:outline-amber-500");
               }
 
-              const accountCurrency = account?.currency ?? "—";
-              const convertedAmountClass = amountValid
-                ? amountNumber >= 0
-                  ? "text-emerald-600"
-                  : "text-rose-600"
-                : "text-zinc-400 dark:text-zinc-500";
-
               return (
                 <tr key={entry.flowId} className={rowClass.join(" ")}>
                   <td className="px-3 py-2 align-top">
                     <select
+                      data-testid="ledger-status"
                       className="w-full rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                       value={draft.status}
                       onChange={(event) =>
@@ -636,6 +672,7 @@ export function CashPlannerLedger({
                   </td>
                   <td className="px-3 py-2 align-top">
                     <select
+                      data-testid="ledger-category"
                       className="w-full rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                       value={draft.categoryId}
                       onChange={(event) => void handleCategoryChange(entry.flowId, event.target.value)}
@@ -655,6 +692,7 @@ export function CashPlannerLedger({
                   </td>
                   <td className="px-3 py-2 align-top">
                     <select
+                      data-testid="ledger-account"
                       className="w-full rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                       value={draft.accountId}
                       onChange={(event) => void handleAccountChange(entry.flowId, event.target.value)}
@@ -673,22 +711,18 @@ export function CashPlannerLedger({
                       </div>
                     ) : null}
                   </td>
-                  <td className="px-3 py-2 align-top text-xs text-zinc-500 dark:text-zinc-400">
-                    {accountCurrency}
-                  </td>
                   <td className="px-3 py-2 align-top">
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="w-full rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                      value={draft.amount}
-                      onChange={(event) => handleDraftChange(entry.flowId, "amount", event.target.value)}
+                    <MoneyInput
+                      id={`cash-planner-entry-${entry.flowId}-amount`}
+                      value={amountValid ? amountNumber : null}
+                      currency={(draft.currency || account?.currency || baseCurrency).toUpperCase()}
+                      onChange={(next) => handleDraftAmountChange(entry.flowId, next)}
                       onBlur={() => void handleBlur(entry.flowId, "amount")}
                       disabled={isSaving}
+                      allowCurrencyChange={false}
+                      showBasePreview
+                      className="w-full"
                     />
-                  </td>
-                  <td className={`px-3 py-2 align-top text-xs font-semibold ${convertedAmountClass}`}>
-                    {baseDisplay}
                   </td>
                   <td className="px-3 py-2 align-top">
                     <input

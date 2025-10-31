@@ -11,6 +11,15 @@ type BaseCurrencyContextValue = {
   availableCurrencies: string[];
   formatAmount: (amount: number, isApproximation?: boolean) => string;
   convertAmount: (amount: number, fromCurrency: string) => number | null;
+  formatAmountWithBase: (
+    amount: number | string | null | undefined,
+    currency: string | null | undefined,
+    options?: { isApproximation?: boolean },
+  ) => {
+    formattedAmount: string;
+    baseAmount: number | null;
+    formattedBaseAmount: string | null;
+  };
   refreshRates: () => Promise<void>;
 };
 
@@ -24,6 +33,35 @@ const defaultValue: BaseCurrencyContextValue = {
   formatAmount: (amount: number, isApproximation?: boolean) =>
     `${isApproximation ? "~" : ""}${amount.toFixed(2)} USD`,
   convertAmount: (amount: number) => amount,
+  formatAmountWithBase: (amount, currency, options) => {
+    const prefix = options?.isApproximation ? "~" : "";
+    const upperCurrency = (currency ?? "USD").toString().toUpperCase();
+
+    if (amount === null || amount === undefined || (typeof amount === "string" && amount.trim() === "")) {
+      return {
+        formattedAmount: "",
+        baseAmount: null,
+        formattedBaseAmount: "",
+      };
+    }
+
+    const numeric = typeof amount === "number" ? amount : Number(amount);
+    const safeValue = Number.isFinite(numeric) ? numeric : null;
+
+    if (safeValue === null) {
+      return {
+        formattedAmount: "",
+        baseAmount: null,
+        formattedBaseAmount: "",
+      };
+    }
+
+    return {
+      formattedAmount: `${prefix}${safeValue.toFixed(2)} ${upperCurrency}`,
+      baseAmount: safeValue,
+      formattedBaseAmount: `${prefix}${safeValue.toFixed(2)} USD`,
+    };
+  },
   refreshRates: async () => {},
 };
 

@@ -6,6 +6,10 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 import { loadExchangeRates } from "@/lib/exchange-rates";
 import { convertCurrency, formatCurrency } from "@/lib/currency";
+import {
+  formatAmountWithBase,
+  type FormatAmountWithBaseResult,
+} from "@/lib/currency/formatters";
 
 const BASE_CURRENCY_STORAGE_KEY = "runway-compass:base-currency";
 
@@ -18,6 +22,11 @@ interface BaseCurrencyContextValue {
   availableCurrencies: string[];
   formatAmount: (amount: number, isApproximation?: boolean) => string;
   convertAmount: (amount: number, fromCurrency: string) => number | null;
+  formatAmountWithBase: (
+    amount: number | string | null | undefined,
+    currency: string | null | undefined,
+    options?: { isApproximation?: boolean },
+  ) => FormatAmountWithBaseResult;
   refreshRates: () => Promise<void>;
 }
 
@@ -105,6 +114,19 @@ export function BaseCurrencyProvider({ children }: { children: React.ReactNode }
   const formatAmount = (amount: number, isApproximation = false) =>
     formatCurrency(amount, baseCurrency, isApproximation);
 
+  const formatAmountWithBaseForContext: BaseCurrencyContextValue["formatAmountWithBase"] = (
+    amount,
+    currency,
+    options,
+  ) =>
+    formatAmountWithBase({
+      amount,
+      currency,
+      baseCurrency,
+      exchangeRates,
+      isApproximation: options?.isApproximation,
+    });
+
   const value: BaseCurrencyContextValue = {
     baseCurrency,
     setBaseCurrency: (code) => setBaseCurrencyState(code.trim().toUpperCase()),
@@ -114,6 +136,7 @@ export function BaseCurrencyProvider({ children }: { children: React.ReactNode }
     availableCurrencies,
     convertAmount,
     formatAmount,
+    formatAmountWithBase: formatAmountWithBaseForContext,
     refreshRates,
   };
 
