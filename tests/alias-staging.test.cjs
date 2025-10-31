@@ -542,6 +542,7 @@ test("formatSuccessComment includes alias info", () => {
     deploymentUrl: "https://preview.vercel.app",
   });
   assert.match(comment, /paulo/);
+  assert.match(comment, /✅ 🚀/);
   assert.match(comment, /\[https:\/\/staging.runway.test\]\(https:\/\/staging.runway.test\)/);
   assert.match(comment, /\[https:\/\/preview\.vercel\.app\]\(https:\/\/preview\.vercel\.app\)/);
 });

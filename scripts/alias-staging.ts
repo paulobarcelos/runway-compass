@@ -480,7 +480,7 @@ export function formatSuccessComment(params: {
   const aliasLink = `[https://${aliasDomain}](https://${aliasDomain})`;
   const targetLink = `[${target}](${target})`;
   return [
-    `@${requestor} staging alias updated ✅`,
+    `@${requestor} staging alias updated ✅ 🚀`,
     "",
     `${aliasLink} now points to ${targetLink}.`,
     "",
