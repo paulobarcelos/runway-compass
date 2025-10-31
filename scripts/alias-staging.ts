@@ -715,8 +715,9 @@ class RestVercelClient implements VercelClient {
   }
 
   async setAlias(domain: string, deploymentId: string): Promise<void> {
-    const body = JSON.stringify({ alias: domain, deploymentId });
-    let url = this.buildUrl("/v2/aliases");
+    const path = `/v2/deployments/${encodeURIComponent(deploymentId)}/aliases`;
+    const body = JSON.stringify({ alias: domain });
+    const url = this.buildUrl(path);
     let response = await fetch(url, {
       method: "POST",
       headers: {
@@ -729,7 +730,7 @@ class RestVercelClient implements VercelClient {
     if (response.status === 404 && this.options.teamId) {
       console.error("[alias] retrying without team scope due to 404");
       // Retry without team scope in case the domain lives in the personal account.
-      const fallbackUrl = "https://api.vercel.com/v2/aliases";
+      const fallbackUrl = `https://api.vercel.com${path}`;
       response = await fetch(fallbackUrl, {
         method: "POST",
         headers: {
@@ -739,6 +740,11 @@ class RestVercelClient implements VercelClient {
         },
         body,
       });
+    }
+
+    if (response.status === 409) {
+      // Alias already points to this deployment; nothing to update.
+      return;
     }
 
     if (!response.ok) {
@@ -764,6 +770,8 @@ class RestVercelClient implements VercelClient {
     };
   }
 }
+
+export { RestVercelClient };
 
 function parseInteger(name: string, value: string | undefined): number {
   if (!value) {

@@ -19,6 +19,7 @@ const {
   AliasFailedError,
   runAliasFlow,
   verifyWriteAccess,
+  RestVercelClient,
 } = require("../scripts/alias-staging");
 
 test("isAliasCommand returns true only for the exact trigger", () => {
@@ -430,4 +431,68 @@ test("runAliasFlow denies commenters without write association", async () => {
   assert.equal(events[1][0], "permission");
   assert.equal(events[2][0], "comment");
   assert.match(events[2][1], /write access/);
+});
+
+test("RestVercelClient.setAlias treats 409 as success", async () => {
+  const originalFetch = global.fetch;
+  const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return new Response(
+      JSON.stringify({
+        error: {
+          code: "not_modified",
+          message: "already aliased",
+        },
+      }),
+      { status: 409, statusText: "Conflict" }
+    );
+  };
+
+  try {
+    const client = new RestVercelClient({
+      token: "token",
+      projectId: "project",
+      teamId: "team_123",
+    });
+    await client.setAlias("staging.example.com", "dpl_abc");
+    assert.equal(calls.length, 1);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("RestVercelClient.setAlias retries without team scope on 404", async () => {
+  const originalFetch = global.fetch;
+  const calls = [];
+  const responses = [
+    new Response(JSON.stringify({ error: { code: "not_found" } }), {
+      status: 404,
+      statusText: "Not Found",
+    }),
+    new Response("{}", { status: 200, statusText: "OK" }),
+  ];
+
+  global.fetch = async (url, options) => {
+    calls.push({ url, options });
+    const next = responses.shift();
+    if (!next) {
+      throw new Error("unexpected fetch call");
+    }
+    return next;
+  };
+
+  try {
+    const client = new RestVercelClient({
+      token: "token",
+      projectId: "project",
+      teamId: "team_123",
+    });
+    await client.setAlias("staging.example.com", "dpl_abc");
+    assert.equal(calls.length, 2);
+    assert.match(calls[0].url, /teamId=team_123/);
+    assert.doesNotMatch(calls[1].url, /teamId=/);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
