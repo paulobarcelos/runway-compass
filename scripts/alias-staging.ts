@@ -288,10 +288,17 @@ export async function runAliasFlow(params: {
   }
 
   try {
-    await aliasLatestPreview({
+    const aliasResult = await aliasLatestPreview({
       branch,
       aliasDomain: inputs.aliasDomain,
       vercelClient,
+    });
+
+    console.error("[alias] deploying", {
+      branch,
+      deploymentId: aliasResult.deploymentId,
+      deploymentUrl: aliasResult.deploymentUrl,
+      previousDeploymentId: aliasResult.previousDeploymentId ?? "(none)",
     });
 
     await github.setDeploymentStatus(
@@ -779,6 +786,13 @@ export async function run(): Promise<void> {
   const vercelToken = requireEnv("VERCEL_TOKEN");
   const vercelProjectId = requireEnv("VERCEL_PROJECT_ID");
   const vercelTeamId = process.env.VERCEL_TEAM_ID?.trim() || undefined;
+
+  console.error("[alias] config", {
+    projectId: vercelProjectId,
+    teamId: vercelTeamId ?? "(none)",
+    aliasDomain,
+    prNumber,
+  });
 
   const github = new RestGitHubClient({
     token: githubToken,
