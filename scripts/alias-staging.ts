@@ -24,7 +24,8 @@ export interface GitHubCommentClient {
 }
 
 export interface GitHubReactionsClient {
-  reactToComment(commentId: number, content: string): Promise<void>;
+  reactToComment(commentId: number, content: string): Promise<number | undefined>;
+  deleteReaction(reactionId: number): Promise<void>;
 }
 
 export interface GitHubDeploymentClient {
@@ -231,7 +232,7 @@ export async function runAliasFlow(params: {
     return "ignored";
   }
 
-  await attemptAsync(() => github.reactToComment(inputs.commentId, "eyes"));
+  const startReactionId = await attemptAsync(() => github.reactToComment(inputs.commentId, "eyes"));
 
   const hasAccess = await verifyWriteAccess(github, {
     owner: inputs.repoOwner,
@@ -248,19 +249,21 @@ export async function runAliasFlow(params: {
         reason: "Only collaborators with at least write access can update the staging alias.",
       })
     );
+    await removeStartReaction(github, startReactionId);
     return "unauthorized";
   }
 
   const prInfo = await github.getPullRequest(inputs.pullNumber);
   const branch = prInfo.head.ref;
   const headRef = prInfo.head.sha ?? prInfo.head.ref;
+  const environmentName = "Staging";
   const deploymentDescription = `Updating staging alias to latest preview for ${branch}`;
 
   let deploymentId: number | undefined;
   try {
     const deployment = await github.createDeployment({
       ref: headRef,
-      environment: "staging",
+      environment: environmentName,
       description: deploymentDescription,
       auto_merge: false,
       required_contexts: [],
@@ -326,6 +329,7 @@ export async function runAliasFlow(params: {
       })
     );
 
+    await removeStartReaction(github, startReactionId);
     await attemptAsync(() => github.reactToComment(inputs.commentId, "rocket"));
     return "success";
   } catch (error) {
@@ -383,6 +387,7 @@ export async function runAliasFlow(params: {
       );
     }
 
+    await removeStartReaction(github, startReactionId);
     await attemptAsync(() => github.reactToComment(inputs.commentId, "confused"));
 
     return "failure";
@@ -395,6 +400,16 @@ async function attemptAsync<T>(action: () => Promise<T>): Promise<T | undefined>
   } catch {
     return undefined;
   }
+}
+
+async function removeStartReaction(
+  github: GitHubReactionsClient,
+  reactionId?: number
+): Promise<void> {
+  if (!reactionId) {
+    return;
+  }
+  await attemptAsync(() => github.deleteReaction(reactionId));
 }
 
 async function safeCreateComment(github: GitHubClient, body: string): Promise<void> {
@@ -528,7 +543,7 @@ class RestGitHubClient implements GitHubClient {
     }
   }
 
-  async reactToComment(commentId: number, content: string): Promise<void> {
+  async reactToComment(commentId: number, content: string): Promise<number | undefined> {
     const { owner, repo } = this.options;
     const response = await this.request(
       `/repos/${owner}/${repo}/issues/comments/${commentId}/reactions`,
@@ -543,6 +558,30 @@ class RestGitHubClient implements GitHubClient {
       const text = await response.text();
       throw new Error(
         `Failed to add reaction (${response.status}): ${text || response.statusText}`
+      );
+    }
+
+    if (response.status === 204) {
+      return undefined;
+    }
+
+    try {
+      const payload = (await response.json()) as { id?: number };
+      return payload?.id;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async deleteReaction(reactionId: number): Promise<void> {
+    const response = await this.request(`/reactions/${reactionId}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok && response.status !== 204) {
+      const text = await response.text();
+      throw new Error(
+        `Failed to remove reaction (${response.status}): ${text || response.statusText}`
       );
     }
   }
