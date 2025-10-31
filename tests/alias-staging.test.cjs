@@ -301,6 +301,7 @@ test("runAliasFlow reacts, creates deployment, and marks success", async () => {
       aliasDomain: "staging.runway.test",
       deploymentUrl: "https://dpl-123.vercel.app",
     })],
+    ["reaction", 77, "rocket"],
   ]);
 
   assert.deepEqual(vercelCalls, [
