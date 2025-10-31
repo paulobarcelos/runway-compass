@@ -725,7 +725,6 @@ class RestVercelClient implements VercelClient {
       body: JSON.stringify({
         alias: domain,
         deploymentId,
-        projectId: this.options.projectId,
       }),
     });
 
