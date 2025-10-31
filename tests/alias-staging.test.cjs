@@ -18,6 +18,7 @@ const {
   MissingDeploymentError,
   AliasFailedError,
   runAliasFlow,
+  verifyWriteAccess,
 } = require("../scripts/alias-staging");
 
 test("isAliasCommand returns true only for the exact trigger", () => {
@@ -57,6 +58,40 @@ test("checkWriteAccess returns true only for write-level permissions", async () 
     });
     assert.equal(hasAccess, false);
   }
+});
+
+test("verifyWriteAccess honors association before API call", async () => {
+  const client = {
+    async getCollaboratorPermissionLevel() {
+      throw new Error("should not call API");
+    },
+  };
+
+  const hasAccess = await verifyWriteAccess(client, {
+    owner: "runway",
+    repo: "compass",
+    username: "paulo",
+    association: "owner",
+  });
+
+  assert.equal(hasAccess, true);
+});
+
+test("verifyWriteAccess falls back to API when association unknown", async () => {
+  const client = {
+    async getCollaboratorPermissionLevel() {
+      return "write";
+    },
+  };
+
+  const hasAccess = await verifyWriteAccess(client, {
+    owner: "runway",
+    repo: "compass",
+    username: "guest",
+    association: "none",
+  });
+
+  assert.equal(hasAccess, true);
 });
 
 test("aliasLatestPreview returns deployment info and updates alias", async () => {
@@ -214,6 +249,7 @@ test("runAliasFlow reacts, creates deployment, and marks success", async () => {
       commentBody: "/alias to staging",
       commentAuthor: "paulo",
       commentId: 77,
+      commentAuthorAssociation: "OWNER",
       issueNumber: 99,
       pullNumber: 99,
       repoOwner: "paulobarcelos",
@@ -306,6 +342,7 @@ test("runAliasFlow reports failure and updates deployment status", async () => {
       commentBody: "/alias to staging",
       commentAuthor: "paulo",
       commentId: 11,
+      commentAuthorAssociation: "OWNER",
       issueNumber: 99,
       pullNumber: 99,
       repoOwner: "paulobarcelos",
@@ -333,4 +370,64 @@ test("runAliasFlow reports failure and updates deployment status", async () => {
   ]);
   assert.equal(events[4][0], "comment");
   assert.match(events[4][1], /No ready Vercel preview deployment found/);
+});
+
+test("runAliasFlow denies commenters without write association", async () => {
+  const events = [];
+  const github = {
+    async getCollaboratorPermissionLevel() {
+      events.push(["permission"]);
+      return "none";
+    },
+    async reactToComment(commentId, reaction) {
+      events.push(["reaction", commentId, reaction]);
+    },
+    async getPullRequest() {
+      throw new Error("should not fetch PR for unauthorized users");
+    },
+    async createDeployment() {
+      throw new Error("should not create deployment");
+    },
+    async setDeploymentStatus() {
+      throw new Error("should not set deployment status");
+    },
+    async createComment(body) {
+      events.push(["comment", body]);
+    },
+  };
+
+  const vercelClient = {
+    async getCurrentAlias() {
+      throw new Error("should not query vercel");
+    },
+    async getLatestDeploymentForBranch() {
+      throw new Error("should not query vercel");
+    },
+    async setAlias() {
+      throw new Error("should not query vercel");
+    },
+  };
+
+  const outcome = await runAliasFlow({
+    github,
+    vercelClient,
+    inputs: {
+      commentBody: "/alias to staging",
+      commentAuthor: "guest",
+      commentId: 5,
+      commentAuthorAssociation: "NONE",
+      issueNumber: 1,
+      pullNumber: 1,
+      repoOwner: "paulobarcelos",
+      repoName: "runway-compass",
+      aliasDomain: "staging.runway.test",
+      defaultBranch: "main",
+    },
+  });
+
+  assert.equal(outcome, "unauthorized");
+  assert.deepEqual(events[0], ["reaction", 5, "+1"]);
+  assert.equal(events[1][0], "permission");
+  assert.equal(events[2][0], "comment");
+  assert.match(events[2][1], /write access/);
 });
