@@ -10,7 +10,6 @@ permissions:
   pull-requests: read
   contents: read
   deployments: write
-  reactions: write
   actions: read
 
 jobs:
