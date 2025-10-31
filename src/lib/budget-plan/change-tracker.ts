@@ -1,6 +1,6 @@
 // ABOUTME: Manages draft budget plan state derived from grid transforms.
 // ABOUTME: Validates edits, tracks dirty state, and serializes records for saves.
-import type { BudgetPlanRecord } from "@/server/google/repository/budget-plan-repository";
+import type { BudgetPlanRecord } from "@/server/google/repository/budget-horizon-repository";
 
 import type {
   BudgetPlanCell,
@@ -11,6 +11,7 @@ import type {
 
 export interface BudgetPlanDraftCell extends BudgetPlanCell {
   baselineAmount: number;
+  baselineCurrency: string;
 }
 
 export interface BudgetPlanDraftRow {
@@ -23,10 +24,11 @@ export interface BudgetPlanDraft {
   rows: BudgetPlanDraftRow[];
 }
 
-interface ApplyAmountChangeOptions {
+interface ApplyMoneyChangeOptions {
   categoryId: string;
   monthIndex: number;
   amount: number;
+  currency?: string;
 }
 
 function cloneMonths(months: BudgetPlanMonth[]): BudgetPlanMonth[] {
@@ -37,6 +39,7 @@ function cloneCells(cells: BudgetPlanCell[]): BudgetPlanDraftCell[] {
   return cells.map((cell) => ({
     ...cell,
     baselineAmount: cell.amount,
+    baselineCurrency: cell.currency,
   }));
 }
 
@@ -84,13 +87,17 @@ function cloneRow(row: BudgetPlanDraftRow, updatedCells: BudgetPlanDraftCell[]) 
   };
 }
 
-export function applyAmountChange(
+export function applyMoneyChange(
   draft: BudgetPlanDraft,
-  { categoryId, monthIndex, amount }: ApplyAmountChangeOptions,
+  { categoryId, monthIndex, amount, currency }: ApplyMoneyChangeOptions,
 ): BudgetPlanDraft {
   if (!Number.isFinite(amount)) {
     throw new Error("Amount must be a finite number");
   }
+  const normalizedCurrency =
+    typeof currency === "string" && currency.trim()
+      ? currency.trim().toUpperCase()
+      : undefined;
 
   const rowIndex = draft.rows.findIndex(
     (row) => row.category.categoryId === categoryId,
@@ -114,6 +121,7 @@ export function applyAmountChange(
     return {
       ...cell,
       amount,
+      currency: normalizedCurrency ?? cell.currency,
     };
   });
 
@@ -145,6 +153,10 @@ export function isBudgetPlanDraftDirty(draft: BudgetPlanDraft) {
       if (cell.amount !== cell.baselineAmount) {
         return true;
       }
+
+      if (cell.currency !== cell.baselineCurrency) {
+        return true;
+      }
     }
   }
 
@@ -163,6 +175,7 @@ export function serializeBudgetPlanDraft(draft: BudgetPlanDraft): BudgetPlanReco
         year: cell.year,
         amount: cell.amount,
         rolloverBalance: cell.rolloverBalance,
+        currency: cell.currency,
       });
     }
   }

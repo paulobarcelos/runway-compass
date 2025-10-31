@@ -24,6 +24,7 @@ function withEnv(run) {
 
 const DATA_SHEETS = [
   "categories",
+  "budget_horizon",
   "accounts",
   "snapshots",
   "cash_flows",
@@ -152,7 +153,7 @@ test("bootstrapSpreadsheet creates meta sheet and rows when missing", async () =
     assert.ok(metaUpdate, "meta sheet receives header update");
     assert.deepEqual(metaUpdate, {
       spreadsheetId: "sheet-123",
-      range: "_meta!A1:B4",
+      range: "_meta!A1:B6",
       valueInputOption: "RAW",
       requestBody: {
         values: [
@@ -160,6 +161,8 @@ test("bootstrapSpreadsheet creates meta sheet and rows when missing", async () =
           ["selected_spreadsheet_id", "sheet-123"],
           ["schema_version", "2.0.0"],
           ["last_bootstrapped_at", new Date(1700000000000).toISOString()],
+          ["budget_horizon_start", "2023-11-01"],
+          ["budget_horizon_months", "12"],
         ],
       },
     });
@@ -235,7 +238,9 @@ test("bootstrapSpreadsheet preserves existing keys and selected id", async () =>
     assert.deepEqual(rows[1], ["selected_spreadsheet_id", "sheet-existing"]);
     assert.deepEqual(rows[2], ["schema_version", "1.2.3"]);
     assert.deepEqual(rows[3], ["last_bootstrapped_at", new Date(1710000000000).toISOString()]);
-    assert.deepEqual(rows[4], ["custom_key", "custom"]);
+    assert.deepEqual(rows[4], ["budget_horizon_start", "2024-03-01"]);
+    assert.deepEqual(rows[5], ["budget_horizon_months", "12"]);
+    assert.deepEqual(rows[6], ["custom_key", "custom"]);
   });
 });
 

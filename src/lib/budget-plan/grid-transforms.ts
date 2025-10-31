@@ -1,7 +1,7 @@
 // ABOUTME: Builds normalized budget plan grid rows for UI consumption.
 // ABOUTME: Computes rolling months, seeded amounts, and rollover balances.
 import type { CategoryRecord } from "@/server/google/repository/categories-repository";
-import type { BudgetPlanRecord } from "@/server/google/repository/budget-plan-repository";
+import type { BudgetPlanRecord } from "@/server/google/repository/budget-horizon-repository";
 
 const DEFAULT_HORIZON_MONTHS = 12;
 
@@ -30,6 +30,7 @@ export interface BudgetPlanCell {
   amount: number;
   rolloverBalance: number;
   isGenerated: boolean;
+  currency: string;
 }
 
 export interface BudgetPlanRow {
@@ -99,6 +100,12 @@ function normalizeMonthlyBudget(value: number) {
   return Number.isFinite(value) ? value : 0;
 }
 
+function normalizeCurrency(value: string | undefined, fallback: string) {
+  const normalized = (value ?? "").trim().toUpperCase();
+  const fallbackNormalized = fallback.trim().toUpperCase();
+  return normalized || fallbackNormalized || "USD";
+}
+
 function sortCategories(left: CategoryRecord, right: CategoryRecord) {
   if (left.sortOrder !== right.sortOrder) {
     return left.sortOrder - right.sortOrder;
@@ -155,6 +162,7 @@ export function buildBudgetPlanGrid({
 
       const record = recordLookup.get(key);
       const amount = record?.amount ?? monthlyBudget;
+      const currency = normalizeCurrency(record?.currency, category.currencyCode);
       const isGenerated = !record;
       const recordId =
         record?.recordId ??
@@ -182,6 +190,7 @@ export function buildBudgetPlanGrid({
         amount,
         rolloverBalance,
         isGenerated,
+        currency,
       });
     }
 

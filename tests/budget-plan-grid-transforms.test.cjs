@@ -102,6 +102,7 @@ test("buildBudgetPlanGrid uses existing amounts when present", async () => {
         year: 2024,
         amount: 400,
         rolloverBalance: 0,
+        currency: "EUR",
       },
     ],
     startDate: new Date("2024-02-01"),
@@ -111,8 +112,10 @@ test("buildBudgetPlanGrid uses existing amounts when present", async () => {
 
   assert.equal(first.amount, 400);
   assert.equal(first.isGenerated, false);
+  assert.equal(first.currency, "EUR");
   assert.equal(second.amount, 120);
   assert.equal(second.isGenerated, true);
+  assert.equal(second.currency, "USD");
 });
 
 test("buildBudgetPlanGrid computes rollover balances for rollover categories", async () => {

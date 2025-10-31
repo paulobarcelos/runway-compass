@@ -27,7 +27,60 @@ const META_KEYS = [
   "selected_spreadsheet_id",
   "schema_version",
   "last_bootstrapped_at",
+  "budget_horizon_start",
+  "budget_horizon_months",
 ] as const;
+
+function formatIsoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function computeDefaultHorizonStart(nowTimestamp: number) {
+  const nowDate = new Date(nowTimestamp);
+  const firstOfMonth = new Date(
+    nowDate.getFullYear(),
+    nowDate.getMonth(),
+    1,
+    0,
+    0,
+    0,
+    0,
+  );
+  return formatIsoDate(firstOfMonth);
+}
+
+function normalizeBudgetHorizonStart(
+  value: string | undefined,
+  fallback: string,
+) {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+  }
+  return fallback;
+}
+
+function normalizeBudgetHorizonMonths(
+  value: string | undefined,
+  fallback: number,
+) {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed) {
+      const parsed = Number.parseInt(trimmed, 10);
+      if (Number.isFinite(parsed) && parsed > 0 && parsed <= 120) {
+        return String(parsed);
+      }
+    }
+  }
+
+  return String(fallback);
+}
 
 function headersMatch(actual: string[] | undefined, expected: readonly string[]) {
   if (!actual) {
@@ -145,13 +198,25 @@ export async function bootstrapSpreadsheet({
 
   const selectedSpreadsheetId =
     existingMeta.get("selected_spreadsheet_id") ?? spreadsheetId;
-  const isoTimestamp = new Date(now()).toISOString();
+  const currentTimestamp = now();
+  const isoTimestamp = new Date(currentTimestamp).toISOString();
+  const defaultHorizonStart = computeDefaultHorizonStart(currentTimestamp);
+  const normalizedHorizonStart = normalizeBudgetHorizonStart(
+    existingMeta.get("budget_horizon_start"),
+    defaultHorizonStart,
+  );
+  const normalizedHorizonMonths = normalizeBudgetHorizonMonths(
+    existingMeta.get("budget_horizon_months"),
+    12,
+  );
 
   const orderedMeta = new Map<string, string>();
 
   orderedMeta.set("selected_spreadsheet_id", selectedSpreadsheetId);
   orderedMeta.set("schema_version", schemaVersion);
   orderedMeta.set("last_bootstrapped_at", isoTimestamp);
+  orderedMeta.set("budget_horizon_start", normalizedHorizonStart);
+  orderedMeta.set("budget_horizon_months", normalizedHorizonMonths);
 
   for (const [key, value] of existingMeta) {
     if (META_KEYS.includes(key as (typeof META_KEYS)[number])) {

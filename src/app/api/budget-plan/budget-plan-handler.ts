@@ -7,14 +7,15 @@ import { createSheetsClient } from "@/server/google/clients";
 import {
   createBudgetPlanRepository,
   type BudgetPlanRecord,
-} from "@/server/google/repository/budget-plan-repository";
+  type BudgetHorizonMetadata,
+} from "@/server/google/repository/budget-horizon-repository";
 
 interface FetchBudgetPlanOptions {
   spreadsheetId: string;
 }
 
 type FetchBudgetPlan = (options: FetchBudgetPlanOptions) => ReturnType<
-  ReturnType<typeof createBudgetPlanRepository>["list"]
+  ReturnType<typeof createBudgetPlanRepository>["load"]
 >;
 
 async function fetchBudgetPlanFromSheets({ spreadsheetId }: FetchBudgetPlanOptions) {
@@ -33,11 +34,12 @@ async function fetchBudgetPlanFromSheets({ spreadsheetId }: FetchBudgetPlanOptio
   const sheets = createSheetsClient(tokens);
   const repository = createBudgetPlanRepository({ sheets, spreadsheetId });
 
-  return repository.list();
+  return repository.load();
 }
 
 interface SaveBudgetPlanOptions extends FetchBudgetPlanOptions {
   budgetPlan: BudgetPlanRecord[];
+  metadata: BudgetHorizonMetadata;
 }
 
 type SaveBudgetPlan = (options: SaveBudgetPlanOptions) => Promise<void>;
@@ -45,6 +47,7 @@ type SaveBudgetPlan = (options: SaveBudgetPlanOptions) => Promise<void>;
 async function saveBudgetPlanToSheets({
   spreadsheetId,
   budgetPlan,
+  metadata,
 }: SaveBudgetPlanOptions) {
   const session = await getSession();
 
@@ -61,18 +64,45 @@ async function saveBudgetPlanToSheets({
   const sheets = createSheetsClient(tokens);
   const repository = createBudgetPlanRepository({ sheets, spreadsheetId });
 
-  await repository.save(budgetPlan);
+  await repository.save(budgetPlan, metadata);
 }
 
-function parseBudgetPlanPayload(value: unknown) {
+function parseMetadata(value: unknown): BudgetHorizonMetadata | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const payload = value as Record<string, unknown>;
+  const startRaw = typeof payload.start === "string" ? payload.start.trim() : "";
+  const monthsRaw =
+    typeof payload.months === "number"
+      ? payload.months
+      : typeof payload.months === "string"
+        ? Number.parseInt(payload.months, 10)
+        : NaN;
+
+  if (!startRaw || Number.isNaN(monthsRaw)) {
+    return null;
+  }
+
+  return {
+    start: startRaw,
+    months: monthsRaw,
+  };
+}
+
+function parseBudgetPlanPayload(value: unknown):
+  | { records: BudgetPlanRecord[]; metadata: BudgetHorizonMetadata }
+  | null {
   if (!value || typeof value !== "object") {
     return null;
   }
 
   const payload = value as Record<string, unknown>;
   const rawBudgetPlan = payload.budgetPlan;
+  const parsedMetadata = parseMetadata(payload.meta);
 
-  if (!Array.isArray(rawBudgetPlan)) {
+  if (!Array.isArray(rawBudgetPlan) || !parsedMetadata) {
     return null;
   }
 
@@ -92,6 +122,7 @@ function parseBudgetPlanPayload(value: unknown) {
       year,
       amount,
       rolloverBalance,
+      currency,
     } = item as Record<string, unknown>;
 
     if (typeof recordId !== "string" || !recordId.trim()) {
@@ -118,6 +149,10 @@ function parseBudgetPlanPayload(value: unknown) {
       return null;
     }
 
+    if (typeof currency !== "string") {
+      return null;
+    }
+
     records.push({
       recordId: recordId.trim(),
       categoryId: categoryId.trim(),
@@ -125,10 +160,14 @@ function parseBudgetPlanPayload(value: unknown) {
       year,
       amount,
       rolloverBalance,
+      currency: currency.trim(),
     });
   }
 
-  return records;
+  return {
+    records,
+    metadata: parsedMetadata,
+  };
 }
 
 export function createBudgetPlanHandler({
@@ -149,7 +188,10 @@ export function createBudgetPlanHandler({
     try {
       const budgetPlan = await fetchBudgetPlan({ spreadsheetId });
 
-      return NextResponse.json({ budgetPlan }, { status: 200 });
+      return NextResponse.json(
+        { budgetPlan: budgetPlan.records, meta: budgetPlan.metadata },
+        { status: 200 },
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       const status =
@@ -167,22 +209,39 @@ export function createBudgetPlanHandler({
       return NextResponse.json({ error: "Missing spreadsheetId" }, { status: 400 });
     }
 
-    let budgetPlan: BudgetPlanRecord[] | null = null;
+    let rawPayload: unknown;
 
     try {
-      const payload = await request.json();
-      budgetPlan = parseBudgetPlanPayload(payload);
+      rawPayload = await request.json();
     } catch {
       return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
     }
 
-    if (!budgetPlan) {
-      return NextResponse.json({ error: "Missing budgetPlan payload" }, { status: 400 });
+    const payload =
+      parseBudgetPlanPayload(rawPayload) as
+        | {
+            records: BudgetPlanRecord[];
+            metadata: BudgetHorizonMetadata;
+          }
+        | null;
+
+    if (!payload) {
+      return NextResponse.json(
+        { error: "Missing budgetPlan or metadata payload" },
+        { status: 400 },
+      );
     }
 
     try {
-      await saveBudgetPlan({ spreadsheetId, budgetPlan });
-      return NextResponse.json({ budgetPlan }, { status: 200 });
+      await saveBudgetPlan({
+        spreadsheetId,
+        budgetPlan: payload.records,
+        metadata: payload.metadata,
+      });
+      return NextResponse.json(
+        { budgetPlan: payload.records, meta: payload.metadata },
+        { status: 200 },
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       const status =

@@ -117,6 +117,7 @@ test("createAndRegisterSpreadsheet creates and registers manifest", async () => 
         "accounts",
         "snapshots",
         "cash_flows",
+        "budget_horizon",
         "budget_plan",
         "actuals",
         "future_events",

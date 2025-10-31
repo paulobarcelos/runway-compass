@@ -188,6 +188,7 @@ test("useBudgetPlanManager loads data and computes approximations", async () => 
               year: 2024,
               amount: 150,
               rolloverBalance: 0,
+              currency: "EUR",
             },
             {
               recordId: "rec-travel-jun",
@@ -196,6 +197,7 @@ test("useBudgetPlanManager loads data and computes approximations", async () => 
               year: 2024,
               amount: 250,
               rolloverBalance: 0,
+              currency: "EUR",
             },
             {
               recordId: "rec-supplies-may",
@@ -204,8 +206,10 @@ test("useBudgetPlanManager loads data and computes approximations", async () => 
               year: 2024,
               amount: 90,
               rolloverBalance: 0,
+              currency: "USD",
             },
           ],
+          meta: { start: "2024-05-01", months: 3 },
         }),
       };
     }
@@ -223,16 +227,19 @@ test("useBudgetPlanManager loads data and computes approximations", async () => 
   assert.equal(manager.error, null);
   assert.equal(manager.blockingMessage, null);
   assert.equal(manager.rows.length, 2);
+  assert.deepEqual(manager.metadata, { start: "2024-05-01", months: 3 });
 
   const travelRow = manager.rows[0];
   assert.equal(travelRow.category.categoryId, "cat-travel");
   assert.equal(travelRow.cells[0].amount, 150);
   assert.equal(travelRow.cells[1].rolloverBalance, 50);
-  assert.equal(travelRow.cells[0].baseCurrencyDisplay, "~300.00 USD");
+  assert.equal(travelRow.totalBaseDisplay, "~1200.00 USD");
 
   const suppliesRow = manager.rows[1];
   assert.equal(suppliesRow.category.categoryId, "cat-supplies");
-  assert.equal(suppliesRow.cells[0].baseCurrencyDisplay, "$90.00 USD");
+  assert.equal(travelRow.cells[0].currency, "EUR");
+  assert.equal(suppliesRow.cells[0].currency, "USD");
+  assert.equal(manager.grandTotalBaseDisplay, "~1490.00 USD");
 
   harness.unmount();
 });
@@ -282,8 +289,10 @@ test("useBudgetPlanManager supports editing and saving the draft grid", async ()
             year: 2024,
             amount: 250,
             rolloverBalance: 0,
+            currency: "USD",
           },
         ],
+        meta: { start: "2024-05-01", months: 2 },
       }),
     },
   };
@@ -306,6 +315,7 @@ test("useBudgetPlanManager supports editing and saving the draft grid", async ()
         status: 200,
         json: async () => ({
           budgetPlan: postCalls[postCalls.length - 1].budgetPlan,
+          meta: postCalls[postCalls.length - 1].meta,
         }),
       };
     }
@@ -340,8 +350,10 @@ test("useBudgetPlanManager supports editing and saving the draft grid", async ()
   manager = harness.manager;
 
   assert.equal(postCalls.length, 1);
+  assert.deepEqual(postCalls[0].meta, { start: "2024-05-01", months: 2 });
   assert.equal(manager.isDirty, false);
   assert.equal(manager.isSaving, false);
+  assert.deepEqual(manager.metadata, { start: "2024-05-01", months: 2 });
 
   harness.unmount();
 });
