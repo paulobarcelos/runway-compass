@@ -24,7 +24,7 @@ Google Sheets & Drive
 
 ## Core Modules
 - **Auth Layer:** NextAuth configuration with Google provider requesting `openid email profile`, `https://www.googleapis.com/auth/drive.file`, `https://www.googleapis.com/auth/spreadsheets` plus offline access.
-- **Sheets Client:** Wrapper around Google Sheets/Drive APIs handling batching, retries, and error normalization. See `skills/google-sheets-api-essentials/SKILL.md` and `skills/google-sheets-schema-runway/SKILL.md` for quotas, batching, and tab details.
+- **Sheets Client:** Wrapper around Google Sheets/Drive APIs handling batching, retries, and error normalization. See `skills/google-sheets-api-essentials/SKILL.md` for quotas and batching; schema and tab details live in the Data Tabs section and `skills/spreadsheet-repair-pattern/SKILL.md` for recovery flows.
 - **Repository Layer:** Typed functions for each tab (e.g., `CategoryRepository`, `CashFlowRepository`, `AccountRepository`) encapsulating read/write logic and schema coercion.
 - **Projection Engine:** Aggregates category budgets, cash flows, and snapshots to produce the runway timeline, optionally persisting derived results in `runway_projection`.
 - **UI Components:** Form editors, tables, charts, and status widgets aligned with Tailwind design system.
