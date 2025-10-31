@@ -22,7 +22,7 @@ export function SignInButton() {
       type="button"
       onClick={handleClick}
       disabled={isSubmitting}
-      className="mt-6 inline-flex items-center justify-center rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-70"
+      className="mt-6 inline-flex items-center justify-center rounded-lg accent-bg px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:accent-bg-hover disabled:cursor-not-allowed disabled:opacity-70"
     >
       {isSubmitting ? "Redirecting..." : "Continue with Google"}
     </button>

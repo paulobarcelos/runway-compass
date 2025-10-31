@@ -77,7 +77,7 @@ export function CashPlannerManager() {
 
   const statusButtonClass = (value: "all" | CashFlowStatus) =>
     value === statusFilter
-      ? "rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow-sm"
+      ? "rounded-md accent-bg px-3 py-1 text-xs font-semibold text-white shadow-sm"
       : "rounded-md border border-zinc-300 px-3 py-1 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
   return (

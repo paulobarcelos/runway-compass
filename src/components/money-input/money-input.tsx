@@ -151,7 +151,7 @@ export function MoneyInput({
       ) : null}
       <div className="flex gap-2">
         <select
-          className="min-w-[5.5rem] rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-sm text-zinc-900 text-right shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100 dark:disabled:bg-zinc-800"
+          className="min-w-[5.5rem] rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-sm text-zinc-900 text-right shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100 dark:disabled:bg-zinc-800"
           value={currentCurrency}
           onChange={handleCurrencyChange}
           disabled={disabled || !allowCurrencyChange}
@@ -167,7 +167,7 @@ export function MoneyInput({
           id={inputId}
           type="text"
           inputMode="decimal"
-          className="flex-1 rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-right text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100 dark:disabled:bg-zinc-800"
+          className="flex-1 rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-right text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100 dark:disabled:bg-zinc-800"
           value={amountText}
           onChange={handleAmountChange}
           onBlur={onBlur}

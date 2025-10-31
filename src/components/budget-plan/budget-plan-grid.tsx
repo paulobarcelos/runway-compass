@@ -57,7 +57,7 @@ function AmountInput({
         disabled={disabled}
         value={Number.isFinite(cell.amount) ? cell.amount : 0}
         onChange={handleChange}
-        className="w-full rounded-md border border-zinc-300/70 px-2 py-1 text-sm shadow-sm transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+        className="w-full rounded-md border border-zinc-300/70 px-2 py-1 text-sm shadow-sm transition focus:accent-border-strong focus:outline-none focus:ring-1 focus:accent-ring disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
       />
       {cell.baseCurrencyDisplay ? (
         <span className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -65,7 +65,7 @@ function AmountInput({
         </span>
       ) : null}
       {row.category.rolloverFlag && cell.rolloverBalance > 0 ? (
-        <span className="text-xs text-emerald-600 dark:text-emerald-300">
+        <span className="text-xs accent-text dark:accent-text">
           {`Rollover: ${formatRollover(cell.rolloverBalance)}`}
         </span>
       ) : null}
@@ -187,7 +187,7 @@ export function BudgetPlanGrid({ manager }: { manager: BudgetPlanManagerState })
               void manager.save();
             }}
             disabled={!manager.isDirty || manager.isSaving || manager.status !== "ready"}
-            className="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center rounded-md accent-bg px-4 py-2 text-xs font-semibold shadow-sm transition hover:accent-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             {manager.isSaving ? "Saving…" : "Save changes"}
           </button>

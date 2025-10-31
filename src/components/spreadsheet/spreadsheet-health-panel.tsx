@@ -194,7 +194,7 @@ export function SpreadsheetHealthPanel() {
     info:
       "border-sky-200/70 bg-sky-50/80 text-sky-800 dark:border-sky-600/60 dark:bg-sky-900/30 dark:text-sky-100",
     success:
-      "border-emerald-200/70 bg-emerald-50/80 text-emerald-800 dark:border-emerald-600/60 dark:bg-emerald-900/40 dark:text-emerald-100",
+      "accent-border accent-surface dark:bg-[color:color-mix(in_srgb,var(--color-accent)_22%,#0a0a0a_78%)] dark:text-[color:color-mix(in_srgb,var(--color-accent)_75%,#ede9fe_25%)]",
   };
 
   return (
@@ -260,7 +260,7 @@ export function SpreadsheetHealthPanel() {
         </p>
       ) : null}
       {repairMessage && !repairError ? (
-        <p className="rounded-md border border-emerald-200/60 bg-emerald-50/70 px-3 py-2 text-sm text-emerald-800 shadow-sm dark:border-emerald-600/60 dark:bg-emerald-900/30 dark:text-emerald-100">
+        <p className="rounded-md border accent-border bg-[color:var(--color-accent-muted)] px-3 py-2 text-sm text-[color:var(--color-accent-muted-foreground)] shadow-sm dark:bg-[color:color-mix(in_srgb,var(--color-accent)_24%,#0a0a0a_76%)] dark:text-[color:color-mix(in_srgb,var(--color-accent)_75%,#ede9fe_25%)]">
           {repairMessage}
         </p>
       ) : null}

@@ -15,7 +15,7 @@ export default async function SignInPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center gap-10 px-6 py-16 sm:px-10">
       <header className="flex flex-col gap-2 text-center">
-        <span className="text-sm font-semibold uppercase tracking-wide text-emerald-600">
+        <span className="text-sm font-semibold uppercase tracking-wide accent-text">
           Runway Compass
         </span>
         <h1 className="text-3xl font-semibold sm:text-4xl">

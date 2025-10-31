@@ -485,7 +485,7 @@ export function CashPlannerLedger({
               <td className="px-3 py-2">
                 <select
                   data-testid="ledger-status"
-                  className="rounded border border-emerald-200 bg-white px-2 py-1 text-xs dark:border-emerald-700 dark:bg-zinc-900"
+                  className="rounded border accent-border bg-white px-2 py-1 text-xs dark:border-[color:color-mix(in_srgb,var(--color-accent)_55%,#c7d2fe_45%)] dark:bg-zinc-900"
                   value={newEntry.status}
                   onChange={(event) =>
                     setNewEntry((current) => ({ ...current, status: event.target.value as CashFlowStatus }))
@@ -502,7 +502,7 @@ export function CashPlannerLedger({
                   className={`w-full rounded px-2 py-1 text-xs border bg-white dark:bg-zinc-900 ${
                     newEntryFieldErrors.date
                       ? "border-rose-400 focus-visible:outline-rose-500 dark:border-rose-500"
-                      : "border-emerald-200 dark:border-emerald-700"
+                      : "accent-border dark:border-[color:color-mix(in_srgb,var(--color-accent)_55%,#c7d2fe_45%)]"
                   }`}
                   value={newEntry.date}
                   onChange={(event) => {
@@ -518,7 +518,7 @@ export function CashPlannerLedger({
                   className={`w-full rounded px-2 py-1 text-xs border bg-white dark:bg-zinc-900 ${
                     newEntryFieldErrors.categoryId
                       ? "border-rose-400 focus-visible:outline-rose-500 dark:border-rose-500"
-                      : "border-emerald-200 dark:border-emerald-700"
+                      : "accent-border dark:border-[color:color-mix(in_srgb,var(--color-accent)_55%,#c7d2fe_45%)]"
                   }`}
                   value={newEntry.categoryId}
                   onChange={(event) => handleNewEntryCategoryChange(event.target.value)}
@@ -538,7 +538,7 @@ export function CashPlannerLedger({
                   className={`w-full rounded px-2 py-1 text-xs border bg-white dark:bg-zinc-900 ${
                     newEntryFieldErrors.accountId
                       ? "border-rose-400 focus-visible:outline-rose-500 dark:border-rose-500"
-                      : "border-emerald-200 dark:border-emerald-700"
+                      : "accent-border dark:border-[color:color-mix(in_srgb,var(--color-accent)_55%,#c7d2fe_45%)]"
                   }`}
                   value={newEntry.accountId}
                   onChange={(event) => handleNewEntryAccountChange(event.target.value)}
@@ -571,7 +571,7 @@ export function CashPlannerLedger({
                 <input
                   type="text"
                   placeholder="Optional note"
-                  className="w-full rounded border border-emerald-200 px-2 py-1 text-xs dark:border-emerald-700 dark:bg-zinc-900"
+                  className="w-full rounded border accent-border px-2 py-1 text-xs dark:border-[color:color-mix(in_srgb,var(--color-accent)_55%,#c7d2fe_45%)] dark:bg-zinc-900"
                   value={newEntry.note}
                   onChange={(event) =>
                     setNewEntry((current) => ({ ...current, note: event.target.value }))
@@ -582,7 +582,7 @@ export function CashPlannerLedger({
               <td className="px-3 py-2 text-right">
                 <button
                   type="button"
-                  className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-md accent-bg px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:accent-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
                   onClick={handleCreate}
                   disabled={isSaving}
                 >
