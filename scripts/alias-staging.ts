@@ -26,6 +26,7 @@ export interface GitHubCommentClient {
 export interface GitHubReactionsClient {
   reactToComment(commentId: number, content: string): Promise<number | undefined>;
   deleteReaction(reactionId: number): Promise<void>;
+  listCommentReactions(commentId: number): Promise<Array<{ id: number; content?: string }>>;
 }
 
 export interface GitHubDeploymentClient {
@@ -249,7 +250,7 @@ export async function runAliasFlow(params: {
         reason: "Only collaborators with at least write access can update the staging alias.",
       })
     );
-    await removeStartReaction(github, startReactionId);
+    await removeStartReaction(github, inputs.commentId, startReactionId);
     return "unauthorized";
   }
 
@@ -291,6 +292,7 @@ export async function runAliasFlow(params: {
         reason: `Failed to initialize staging deployment: ${message}`,
       })
     );
+    await removeStartReaction(github, inputs.commentId, startReactionId);
     return "failure";
   }
 
@@ -329,7 +331,7 @@ export async function runAliasFlow(params: {
       })
     );
 
-    await removeStartReaction(github, startReactionId);
+    await removeStartReaction(github, inputs.commentId, startReactionId);
     await attemptAsync(() => github.reactToComment(inputs.commentId, "rocket"));
     return "success";
   } catch (error) {
@@ -387,7 +389,7 @@ export async function runAliasFlow(params: {
       );
     }
 
-    await removeStartReaction(github, startReactionId);
+    await removeStartReaction(github, inputs.commentId, startReactionId);
     await attemptAsync(() => github.reactToComment(inputs.commentId, "confused"));
 
     return "failure";
@@ -404,12 +406,30 @@ async function attemptAsync<T>(action: () => Promise<T>): Promise<T | undefined>
 
 async function removeStartReaction(
   github: GitHubReactionsClient,
+  commentId: number,
   reactionId?: number
 ): Promise<void> {
-  if (!reactionId) {
+  if (reactionId) {
+    const removed = await attemptAsync(async () => {
+      await github.deleteReaction(reactionId);
+      return true;
+    });
+    if (removed) {
+      return;
+    }
+  }
+
+  const reactions = await attemptAsync(() => github.listCommentReactions(commentId));
+  if (!reactions) {
     return;
   }
-  await attemptAsync(() => github.deleteReaction(reactionId));
+
+  const candidate = reactions.find((entry) => entry.content === "eyes");
+  if (!candidate) {
+    return;
+  }
+
+  await attemptAsync(() => github.deleteReaction(candidate.id));
 }
 
 async function safeCreateComment(github: GitHubClient, body: string): Promise<void> {
@@ -465,11 +485,12 @@ export function formatSuccessComment(params: {
 }): string {
   const { requestor, aliasDomain, deploymentUrl } = params;
   const target = deploymentUrl ?? `https://${aliasDomain}`;
-  const link = `[${target}](${target})`;
+  const aliasLink = `[https://${aliasDomain}](https://${aliasDomain})`;
+  const targetLink = `[${target}](${target})`;
   return [
     `@${requestor} staging alias updated ✅`,
     "",
-    `\`${aliasDomain}\` now points to ${link}.`,
+    `${aliasLink} now points to ${targetLink}.`,
     "",
     "Happy testing!",
   ].join("\n");
@@ -584,6 +605,24 @@ class RestGitHubClient implements GitHubClient {
         `Failed to remove reaction (${response.status}): ${text || response.statusText}`
       );
     }
+  }
+
+  async listCommentReactions(commentId: number): Promise<Array<{ id: number; content?: string }>> {
+    const { owner, repo } = this.options;
+    const response = await this.request(
+      `/repos/${owner}/${repo}/issues/comments/${commentId}/reactions`,
+      { method: "GET" }
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Failed to list reactions (${response.status}): ${text || response.statusText}`
+      );
+    }
+
+    const payload = (await response.json()) as Array<{ id: number; content?: string }>;
+    return payload;
   }
 
   async createDeployment(input: CreateDeploymentInput): Promise<{ id: number }> {
