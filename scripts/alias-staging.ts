@@ -788,8 +788,8 @@ export async function run(): Promise<void> {
   const vercelTeamId = process.env.VERCEL_TEAM_ID?.trim() || undefined;
 
   console.error("[alias] config", {
-    projectId: vercelProjectId,
-    teamId: vercelTeamId ?? "(none)",
+    projectIdPrefix: vercelProjectId.slice(0, 6),
+    teamIdPrefix: vercelTeamId ? vercelTeamId.slice(0, 6) : "(none)",
     aliasDomain,
     prNumber,
   });
