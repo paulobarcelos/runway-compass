@@ -223,6 +223,9 @@ test("runAliasFlow reacts, creates deployment, and marks success", async () => {
     async deleteReaction(reactionId) {
       events.push(["remove-reaction", reactionId]);
     },
+    async listCommentReactions() {
+      return [];
+    },
     async getPullRequest() {
       return { head: { ref: "feature/awesome", sha: "abc123" } };
     },
@@ -330,6 +333,9 @@ test("runAliasFlow reports failure and updates deployment status", async () => {
     async deleteReaction(reactionId) {
       events.push(["remove-reaction", reactionId]);
     },
+    async listCommentReactions() {
+      return [];
+    },
     async getPullRequest() {
       return { head: { ref: "feature/missing", sha: "def456" } };
     },
@@ -410,6 +416,9 @@ test("runAliasFlow denies commenters without write association", async () => {
     },
     async deleteReaction(reactionId) {
       events.push(["remove-reaction", reactionId]);
+    },
+    async listCommentReactions() {
+      return [];
     },
     async getPullRequest() {
       throw new Error("should not fetch PR for unauthorized user");
@@ -533,6 +542,6 @@ test("formatSuccessComment includes alias info", () => {
     deploymentUrl: "https://preview.vercel.app",
   });
   assert.match(comment, /paulo/);
-  assert.match(comment, /staging.runway.test/);
+  assert.match(comment, /\[https:\/\/staging.runway.test\]\(https:\/\/staging.runway.test\)/);
   assert.match(comment, /\[https:\/\/preview\.vercel\.app\]\(https:\/\/preview\.vercel\.app\)/);
 });
