@@ -23,6 +23,10 @@ const EXPECTED_SCHEMAS = [
     ],
   },
   {
+    title: "budget_horizon",
+    headers: ["category_id"],
+  },
+  {
     title: "accounts",
     headers: [
       "account_id",
