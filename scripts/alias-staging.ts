@@ -715,18 +715,30 @@ class RestVercelClient implements VercelClient {
   }
 
   async setAlias(domain: string, deploymentId: string): Promise<void> {
-    const url = this.buildUrl("/v2/aliases");
-    const response = await fetch(url, {
+    const body = JSON.stringify({ alias: domain, deploymentId });
+    let url = this.buildUrl("/v2/aliases");
+    let response = await fetch(url, {
       method: "POST",
       headers: {
         ...this.headers(),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        alias: domain,
-        deploymentId,
-      }),
+      body,
     });
+
+    if (response.status === 404 && this.options.teamId) {
+      // Retry without team scope in case the domain lives in the personal account.
+      const fallbackUrl = "https://api.vercel.com/v2/aliases";
+      response = await fetch(fallbackUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.options.token}`,
+          "Content-Type": "application/json",
+          "User-Agent": "runway-compass-staging-alias",
+        },
+        body,
+      });
+    }
 
     if (!response.ok) {
       const text = await response.text();
