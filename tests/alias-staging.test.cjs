@@ -13,12 +13,12 @@ require("ts-node/register");
 const {
   isAliasCommand,
   checkWriteAccess,
+  verifyWriteAccess,
   aliasLatestPreview,
   formatFailureComment,
   MissingDeploymentError,
   AliasFailedError,
   runAliasFlow,
-  verifyWriteAccess,
   RestVercelClient,
 } = require("../scripts/alias-staging");
 
@@ -61,10 +61,12 @@ test("checkWriteAccess returns true only for write-level permissions", async () 
   }
 });
 
-test("verifyWriteAccess honors association before API call", async () => {
+test("verifyWriteAccess allows trusted associations without API call", async () => {
+  let called = false;
   const client = {
     async getCollaboratorPermissionLevel() {
-      throw new Error("should not call API");
+      called = true;
+      return "none";
     },
   };
 
@@ -76,9 +78,10 @@ test("verifyWriteAccess honors association before API call", async () => {
   });
 
   assert.equal(hasAccess, true);
+  assert.equal(called, false);
 });
 
-test("verifyWriteAccess falls back to API when association unknown", async () => {
+test("verifyWriteAccess falls back to API when association is untrusted", async () => {
   const client = {
     async getCollaboratorPermissionLevel() {
       return "write";
@@ -384,13 +387,13 @@ test("runAliasFlow denies commenters without write association", async () => {
       events.push(["reaction", commentId, reaction]);
     },
     async getPullRequest() {
-      throw new Error("should not fetch PR for unauthorized users");
+      throw new Error("should not fetch PR for unauthorized user");
     },
     async createDeployment() {
       throw new Error("should not create deployment");
     },
     async setDeploymentStatus() {
-      throw new Error("should not set deployment status");
+      throw new Error("should not set status");
     },
     async createComment(body) {
       events.push(["comment", body]);
@@ -399,13 +402,13 @@ test("runAliasFlow denies commenters without write association", async () => {
 
   const vercelClient = {
     async getCurrentAlias() {
-      throw new Error("should not query vercel");
+      throw new Error("should not call Vercel");
     },
     async getLatestDeploymentForBranch() {
-      throw new Error("should not query vercel");
+      throw new Error("should not call Vercel");
     },
     async setAlias() {
-      throw new Error("should not query vercel");
+      throw new Error("should not call Vercel");
     },
   };
 
