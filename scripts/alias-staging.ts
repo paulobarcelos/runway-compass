@@ -681,7 +681,7 @@ class RestGitHubClient implements GitHubClient {
   private request(path: string, init: RequestInit): Promise<Response> {
     const url = `${this.baseUrl}${path}`;
     const headers: Record<string, string> = {
-      Accept: "application/vnd.github+json",
+      Accept: "application/vnd.github+json, application/vnd.github.squirrel-girl-preview+json",
       Authorization: `Bearer ${this.options.token}`,
       "User-Agent": "runway-compass-staging-alias",
     };
