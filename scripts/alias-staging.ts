@@ -324,6 +324,8 @@ export async function runAliasFlow(params: {
         deploymentUrl: aliasResult.deploymentUrl,
       })
     );
+
+    await attemptAsync(() => github.reactToComment(inputs.commentId, "rocket"));
     return "success";
   } catch (error) {
     if (deploymentId) {
