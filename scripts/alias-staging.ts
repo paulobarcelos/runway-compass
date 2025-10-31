@@ -23,10 +23,47 @@ export interface GitHubCommentClient {
   createComment(body: string): Promise<void>;
 }
 
+export interface GitHubReactionsClient {
+  reactToComment(commentId: number, content: string): Promise<void>;
+}
+
+export interface GitHubDeploymentClient {
+  createDeployment(input: CreateDeploymentInput): Promise<{ id: number }>;
+  setDeploymentStatus(
+    deploymentId: number,
+    status: DeploymentStatusInput
+  ): Promise<void>;
+}
+
 export interface GitHubClient
   extends GitHubPermissionClient,
     GitHubCommentClient,
-    GitHubPullRequestClient {}
+    GitHubPullRequestClient,
+    GitHubReactionsClient,
+    GitHubDeploymentClient {}
+
+export interface CreateDeploymentInput {
+  ref: string;
+  environment: string;
+  description?: string;
+  auto_merge?: boolean;
+  required_contexts?: string[];
+  transient_environment?: boolean;
+  production_environment?: boolean;
+}
+
+export interface DeploymentStatusInput {
+  state:
+    | "error"
+    | "failure"
+    | "inactive"
+    | "in_progress"
+    | "pending"
+    | "queued"
+    | "success";
+  log_url?: string;
+  environment_url?: string;
+}
 
 export interface VercelAliasInfo {
   deploymentId?: string;
@@ -46,7 +83,7 @@ export interface VercelClient {
 }
 
 export function isAliasCommand(body: string): boolean {
-  return body.trim() === "/alias this";
+  return body.trim() === "/alias to staging";
 }
 
 const ALLOWED_PERMISSIONS: PermissionLevel[] = ["write", "maintain", "admin"];
@@ -143,24 +180,188 @@ export async function aliasLatestPreview(params: {
   }
 }
 
-export function formatSuccessComment(params: {
-  requestor: string;
+export interface RunAliasFlowInputs {
+  commentBody: string;
+  commentAuthor: string;
+  commentId: number;
+  issueNumber: number;
+  pullNumber: number;
+  repoOwner: string;
+  repoName: string;
   aliasDomain: string;
-  deploymentUrl?: string;
-}): string {
-  const { requestor, aliasDomain, deploymentUrl } = params;
-  const lines = [
-    `@${requestor} staging alias updated ✅`,
-    "",
-    `- alias: \`${aliasDomain}\``,
-  ];
+  defaultBranch: string;
+  workflowRunUrl?: string;
+}
 
-  if (deploymentUrl) {
-    lines.push(`- deployment: ${deploymentUrl}`);
+export type RunAliasOutcome = "ignored" | "unauthorized" | "success" | "failure";
+
+export async function runAliasFlow(params: {
+  github: GitHubClient;
+  vercelClient: VercelClient;
+  inputs: RunAliasFlowInputs;
+}): Promise<RunAliasOutcome> {
+  const { github, vercelClient, inputs } = params;
+
+  if (!isAliasCommand(inputs.commentBody)) {
+    return "ignored";
   }
 
-  lines.push("", "Feel free to sanity-check the staging site and follow up if anything looks off.");
-  return lines.join("\n");
+  await attemptAsync(() => github.reactToComment(inputs.commentId, "+1"));
+
+  const hasAccess = await checkWriteAccess(github, {
+    owner: inputs.repoOwner,
+    repo: inputs.repoName,
+    username: inputs.commentAuthor,
+  });
+
+  if (!hasAccess) {
+    await github.createComment(
+      formatFailureComment({
+        requestor: inputs.commentAuthor,
+        reason: "Only collaborators with at least write access can update the staging alias.",
+      })
+    );
+    return "unauthorized";
+  }
+
+  const prInfo = await github.getPullRequest(inputs.pullNumber);
+  const branch = prInfo.head.ref;
+  const deploymentDescription = `Updating staging alias to latest preview for ${branch}`;
+
+  let deploymentId: number | undefined;
+  try {
+    const deployment = await github.createDeployment({
+      ref: inputs.defaultBranch,
+      environment: "staging",
+      description: deploymentDescription,
+      auto_merge: false,
+      required_contexts: [],
+      transient_environment: false,
+      production_environment: false,
+    });
+    deploymentId = deployment.id;
+
+    await github.setDeploymentStatus(
+      deploymentId,
+      withLogUrl(
+        {
+          state: "in_progress",
+        },
+        inputs.workflowRunUrl
+      )
+    );
+  } catch (error) {
+    await github.createComment(
+      formatFailureComment({
+        requestor: inputs.commentAuthor,
+        reason: `Failed to initialize staging deployment: ${getErrorMessage(error)}`,
+      })
+    );
+    return "failure";
+  }
+
+  try {
+    await aliasLatestPreview({
+      branch,
+      aliasDomain: inputs.aliasDomain,
+      vercelClient,
+    });
+
+    await github.setDeploymentStatus(
+      deploymentId!,
+      withLogUrl(
+        {
+          state: "success",
+          environment_url:
+            normalizeDeploymentUrl(inputs.aliasDomain) ?? `https://${inputs.aliasDomain}`,
+        },
+        inputs.workflowRunUrl
+      )
+    );
+    return "success";
+  } catch (error) {
+    if (deploymentId) {
+      await attemptAsync(() =>
+        github.setDeploymentStatus(
+          deploymentId,
+          withLogUrl(
+            {
+              state: "failure",
+            },
+            inputs.workflowRunUrl
+          )
+        )
+      );
+    }
+
+    if (error instanceof MissingDeploymentError) {
+      await github.createComment(
+        formatFailureComment({
+          requestor: inputs.commentAuthor,
+          reason: `No ready Vercel preview deployment found for branch \`${branch}\`. Try redeploying the preview or rerun CI.`,
+        })
+      );
+    } else if (error instanceof AliasFailedError) {
+      const details: string[] = [
+        `Failed to alias deployment \`${error.attemptedDeploymentId}\`: ${error.message}`,
+      ];
+      if (error.rollbackRestored) {
+        details.push("Rolled back to the previous deployment successfully.");
+      } else if (error.previousDeploymentId) {
+        details.push(
+          `Rollback to previous deployment \`${error.previousDeploymentId}\` failed; please fix manually in Vercel.`
+        );
+      }
+
+      await github.createComment(
+        formatFailureComment({
+          requestor: inputs.commentAuthor,
+          reason: details.join(" "),
+        })
+      );
+    } else {
+      await github.createComment(
+        formatFailureComment({
+          requestor: inputs.commentAuthor,
+          reason: getErrorMessage(error),
+        })
+      );
+    }
+
+    return "failure";
+  }
+}
+
+async function attemptAsync<T>(action: () => Promise<T>): Promise<T | undefined> {
+  try {
+    return await action();
+  } catch {
+    return undefined;
+  }
+}
+
+function withLogUrl(
+  status: DeploymentStatusInput,
+  logUrl?: string
+): DeploymentStatusInput {
+  if (!logUrl) {
+    return status;
+  }
+  return { ...status, log_url: logUrl };
+}
+
+function deriveWorkflowRunUrl(): string | undefined {
+  const explicit = process.env.WORKFLOW_RUN_URL?.trim();
+  if (explicit) {
+    return explicit;
+  }
+  const serverUrl = process.env.GITHUB_SERVER_URL;
+  const repository = process.env.GITHUB_REPOSITORY;
+  const runId = process.env.GITHUB_RUN_ID;
+  if (serverUrl && repository && runId) {
+    return `${serverUrl}/${repository}/actions/runs/${runId}`;
+  }
+  return undefined;
 }
 
 export function formatFailureComment(params: {
@@ -241,6 +442,66 @@ class RestGitHubClient implements GitHubClient {
       const text = await response.text();
       throw new Error(
         `Failed to create GitHub comment (${response.status}): ${text || response.statusText}`
+      );
+    }
+  }
+
+  async reactToComment(commentId: number, content: string): Promise<void> {
+    const { owner, repo } = this.options;
+    const response = await this.request(
+      `/repos/${owner}/${repo}/issues/comments/${commentId}/reactions`,
+      {
+        method: "POST",
+        body: JSON.stringify({ content }),
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+
+    if (!response.ok && response.status !== 201) {
+      const text = await response.text();
+      throw new Error(
+        `Failed to add reaction (${response.status}): ${text || response.statusText}`
+      );
+    }
+  }
+
+  async createDeployment(input: CreateDeploymentInput): Promise<{ id: number }> {
+    const { owner, repo } = this.options;
+    const response = await this.request(`/repos/${owner}/${repo}/deployments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Failed to create deployment (${response.status}): ${text || response.statusText}`
+      );
+    }
+
+    const payload = (await response.json()) as { id: number };
+    return payload;
+  }
+
+  async setDeploymentStatus(
+    deploymentId: number,
+    status: DeploymentStatusInput
+  ): Promise<void> {
+    const { owner, repo } = this.options;
+    const response = await this.request(
+      `/repos/${owner}/${repo}/deployments/${deploymentId}/statuses`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(status),
+      }
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Failed to update deployment status (${response.status}): ${text || response.statusText}`
       );
     }
   }
@@ -470,19 +731,16 @@ export async function run(): Promise<void> {
   const githubToken = requireEnv("GITHUB_TOKEN");
   const issueNumber = parseInteger("ISSUE_NUMBER", process.env.ISSUE_NUMBER);
   const prNumber = parseInteger("PR_NUMBER", process.env.PR_NUMBER);
+  const commentId = parseInteger("COMMENT_ID", process.env.COMMENT_ID);
   const repoOwner = requireEnv("REPO_OWNER");
   const repoName = requireEnv("REPO_NAME");
   const commentAuthor = requireEnv("COMMENT_AUTHOR");
   const commentBody = requireEnv("COMMENT_BODY");
   const aliasDomain = requireEnv("VERCEL_ALIAS_DOMAIN");
+  const defaultBranch = requireEnv("DEFAULT_BRANCH");
   const vercelToken = requireEnv("VERCEL_TOKEN");
   const vercelProjectId = requireEnv("VERCEL_PROJECT_ID");
   const vercelTeamId = process.env.VERCEL_TEAM_ID?.trim() || undefined;
-
-  if (!isAliasCommand(commentBody)) {
-    // Defensive: allow workflow to call script even if guard misfires.
-    return;
-  }
 
   const github = new RestGitHubClient({
     token: githubToken,
@@ -497,83 +755,25 @@ export async function run(): Promise<void> {
     teamId: vercelTeamId,
   });
 
-  const hasAccess = await checkWriteAccess(github, {
-    owner: repoOwner,
-    repo: repoName,
-    username: commentAuthor,
+  const outcome = await runAliasFlow({
+    github,
+    vercelClient: vercel,
+    inputs: {
+      commentBody,
+      commentAuthor,
+      commentId,
+      issueNumber,
+      pullNumber: prNumber,
+      repoOwner,
+      repoName,
+      aliasDomain,
+      defaultBranch,
+      workflowRunUrl: deriveWorkflowRunUrl(),
+    },
   });
 
-  if (!hasAccess) {
-    await github.createComment(
-      formatFailureComment({
-        requestor: commentAuthor,
-        reason:
-          "Only collaborators with at least write access can update the staging alias.",
-      })
-    );
-    return;
-  }
-
-  const prInfo = await github.getPullRequest(prNumber);
-  const branch = prInfo.head.ref;
-
-  try {
-    const result = await aliasLatestPreview({
-      branch,
-      aliasDomain,
-      vercelClient: vercel,
-    });
-
-    await github.createComment(
-      formatSuccessComment({
-        requestor: commentAuthor,
-        aliasDomain,
-        deploymentUrl: result.deploymentUrl,
-      })
-    );
-  } catch (error) {
+  if (outcome === "failure") {
     process.exitCode = 1;
-
-    if (error instanceof MissingDeploymentError) {
-      await github.createComment(
-        formatFailureComment({
-          requestor: commentAuthor,
-          reason: `No ready Vercel preview deployment found for branch \`${branch}\`. Try redeploying the preview or rerun CI.`,
-        })
-      );
-      return;
-    }
-
-    if (error instanceof AliasFailedError) {
-      const details: string[] = [
-        `Failed to alias deployment \`${error.attemptedDeploymentId}\`: ${error.message}`,
-      ];
-      if (error.rollbackRestored === true) {
-        details.push("Rolled back to the previous deployment successfully.");
-      } else if (error.previousDeploymentId) {
-        details.push(
-          `Rollback to previous deployment \`${error.previousDeploymentId}\` failed; please fix manually in Vercel.`
-        );
-      }
-
-      await github.createComment(
-        formatFailureComment({
-          requestor: commentAuthor,
-          reason: details.join(" "),
-        })
-      );
-      return;
-    }
-
-    const message =
-      error instanceof Error ? error.message : "Unknown error occurred.";
-
-    await github.createComment(
-      formatFailureComment({
-        requestor: commentAuthor,
-        reason: message,
-      })
-    );
   }
 }
 

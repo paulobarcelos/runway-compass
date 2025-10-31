@@ -14,17 +14,17 @@ const {
   isAliasCommand,
   checkWriteAccess,
   aliasLatestPreview,
-  formatSuccessComment,
   formatFailureComment,
   MissingDeploymentError,
   AliasFailedError,
+  runAliasFlow,
 } = require("../scripts/alias-staging");
 
 test("isAliasCommand returns true only for the exact trigger", () => {
-  assert.equal(isAliasCommand("/alias this"), true);
-  assert.equal(isAliasCommand(" /alias this "), true);
-  assert.equal(isAliasCommand("/ALIAS THIS"), false);
-  assert.equal(isAliasCommand("/alias that"), false);
+  assert.equal(isAliasCommand("/alias to staging"), true);
+  assert.equal(isAliasCommand(" /alias to staging "), true);
+  assert.equal(isAliasCommand("/ALIAS TO STAGING"), false);
+  assert.equal(isAliasCommand("/alias this"), false);
 });
 
 test("checkWriteAccess returns true only for write-level permissions", async () => {
@@ -160,17 +160,6 @@ test("aliasLatestPreview rolls back when alias update fails", async () => {
   ]);
 });
 
-test("formatSuccessComment includes alias and deployment details", () => {
-  const message = formatSuccessComment({
-    aliasDomain: "staging.runway.test",
-    deploymentUrl: "https://deploy.vercel.app",
-    requestor: "paulo",
-  });
-  assert.match(message, /@paulo/);
-  assert.match(message, /staging\.runway\.test/);
-  assert.match(message, /https:\/\/deploy\.vercel\.app/);
-});
-
 test("formatFailureComment highlights reason", () => {
   const message = formatFailureComment({
     requestor: "paulo",
@@ -178,4 +167,170 @@ test("formatFailureComment highlights reason", () => {
   });
   assert.match(message, /@paulo/);
   assert.match(message, /No preview deployment found/);
+});
+
+test("runAliasFlow reacts, creates deployment, and marks success", async () => {
+  const events = [];
+  const github = {
+    async getCollaboratorPermissionLevel() {
+      return "write";
+    },
+    async reactToComment(commentId, reaction) {
+      events.push(["reaction", commentId, reaction]);
+    },
+    async getPullRequest() {
+      return { head: { ref: "feature/awesome" } };
+    },
+    async createDeployment(input) {
+      events.push(["deployment", input]);
+      return { id: 101 };
+    },
+    async setDeploymentStatus(id, status) {
+      events.push(["status", id, status]);
+    },
+    async createComment() {
+      events.push(["comment"]);
+    },
+  };
+
+  const vercelCalls = [];
+  const vercelClient = {
+    async getCurrentAlias() {
+      return { deploymentId: "dpl_old" };
+    },
+    async getLatestDeploymentForBranch(branch) {
+      vercelCalls.push(["latest", branch]);
+      return { id: "dpl_123", url: "https://dpl-123.vercel.app" };
+    },
+    async setAlias(domain, deploymentId) {
+      vercelCalls.push(["alias", domain, deploymentId]);
+    },
+  };
+
+  await runAliasFlow({
+    github,
+    vercelClient,
+    inputs: {
+      commentBody: "/alias to staging",
+      commentAuthor: "paulo",
+      commentId: 77,
+      issueNumber: 99,
+      pullNumber: 99,
+      repoOwner: "paulobarcelos",
+      repoName: "runway-compass",
+      aliasDomain: "staging.runway.test",
+      defaultBranch: "main",
+      workflowRunUrl: "https://github.com/example/runs/1",
+    },
+  });
+
+  assert.deepEqual(events, [
+    ["reaction", 77, "+1"],
+    [
+      "deployment",
+      {
+        ref: "main",
+        environment: "staging",
+        description: "Updating staging alias to latest preview for feature/awesome",
+        auto_merge: false,
+        required_contexts: [],
+        transient_environment: false,
+        production_environment: false,
+      },
+    ],
+    [
+      "status",
+      101,
+      {
+        state: "in_progress",
+        log_url: "https://github.com/example/runs/1",
+      },
+    ],
+    [
+      "status",
+      101,
+      {
+        state: "success",
+        environment_url: "https://staging.runway.test",
+        log_url: "https://github.com/example/runs/1",
+      },
+    ],
+  ]);
+
+  assert.deepEqual(vercelCalls, [
+    ["latest", "feature/awesome"],
+    ["alias", "staging.runway.test", "dpl_123"],
+  ]);
+});
+
+test("runAliasFlow reports failure and updates deployment status", async () => {
+  const events = [];
+  const github = {
+    async getCollaboratorPermissionLevel() {
+      return "write";
+    },
+    async reactToComment() {
+      events.push(["reaction"]);
+    },
+    async getPullRequest() {
+      return { head: { ref: "feature/missing" } };
+    },
+    async createDeployment() {
+      events.push(["deployment"]);
+      return { id: 202 };
+    },
+    async setDeploymentStatus(id, status) {
+      events.push(["status", id, status]);
+    },
+    async createComment(body) {
+      events.push(["comment", body]);
+    },
+  };
+
+  const vercelClient = {
+    async getCurrentAlias() {
+      return { deploymentId: "dpl_old" };
+    },
+    async getLatestDeploymentForBranch() {
+      return null;
+    },
+    async setAlias() {
+      throw new Error("unexpected");
+    },
+  };
+
+  await runAliasFlow({
+    github,
+    vercelClient,
+    inputs: {
+      commentBody: "/alias to staging",
+      commentAuthor: "paulo",
+      commentId: 11,
+      issueNumber: 99,
+      pullNumber: 99,
+      repoOwner: "paulobarcelos",
+      repoName: "runway-compass",
+      aliasDomain: "staging.runway.test",
+      defaultBranch: "main",
+      workflowRunUrl: "https://github.com/example/runs/2",
+    },
+  });
+
+  assert.equal(events[0][0], "reaction");
+  assert.equal(events[1][0], "deployment");
+  assert.deepEqual(events[2], [
+    "status",
+    202,
+    { state: "in_progress", log_url: "https://github.com/example/runs/2" },
+  ]);
+  assert.deepEqual(events[3], [
+    "status",
+    202,
+    {
+      state: "failure",
+      log_url: "https://github.com/example/runs/2",
+    },
+  ]);
+  assert.equal(events[4][0], "comment");
+  assert.match(events[4][1], /No ready Vercel preview deployment found/);
 });
