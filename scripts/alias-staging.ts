@@ -231,7 +231,7 @@ export async function runAliasFlow(params: {
     return "ignored";
   }
 
-  await attemptAsync(() => github.reactToComment(inputs.commentId, "+1"));
+  await attemptAsync(() => github.reactToComment(inputs.commentId, "eyes"));
 
   const hasAccess = await verifyWriteAccess(github, {
     owner: inputs.repoOwner,
@@ -253,12 +253,13 @@ export async function runAliasFlow(params: {
 
   const prInfo = await github.getPullRequest(inputs.pullNumber);
   const branch = prInfo.head.ref;
+  const headRef = prInfo.head.sha ?? prInfo.head.ref;
   const deploymentDescription = `Updating staging alias to latest preview for ${branch}`;
 
   let deploymentId: number | undefined;
   try {
     const deployment = await github.createDeployment({
-      ref: inputs.defaultBranch,
+      ref: headRef,
       environment: "staging",
       description: deploymentDescription,
       auto_merge: false,
@@ -381,6 +382,8 @@ export async function runAliasFlow(params: {
         })
       );
     }
+
+    await attemptAsync(() => github.reactToComment(inputs.commentId, "confused"));
 
     return "failure";
   }

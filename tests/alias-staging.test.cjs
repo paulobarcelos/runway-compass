@@ -266,11 +266,11 @@ test("runAliasFlow reacts, creates deployment, and marks success", async () => {
   });
 
   assert.deepEqual(events, [
-    ["reaction", 77, "+1"],
+    ["reaction", 77, "eyes"],
     [
       "deployment",
       {
-        ref: "main",
+        ref: "feature/awesome",
         environment: "staging",
         description: "Updating staging alias to latest preview for feature/awesome",
         auto_merge: false,
@@ -316,8 +316,8 @@ test("runAliasFlow reports failure and updates deployment status", async () => {
     async getCollaboratorPermissionLevel() {
       return "write";
     },
-    async reactToComment() {
-      events.push(["reaction"]);
+    async reactToComment(_id, reaction) {
+      events.push(["reaction", reaction]);
     },
     async getPullRequest() {
       return { head: { ref: "feature/missing" } };
@@ -364,7 +364,7 @@ test("runAliasFlow reports failure and updates deployment status", async () => {
     },
   });
 
-  assert.equal(events[0][0], "reaction");
+  assert.deepEqual(events[0], ["reaction", "eyes"]);
   assert.equal(events[1][0], "deployment");
   assert.deepEqual(events[2], [
     "status",
@@ -381,6 +381,7 @@ test("runAliasFlow reports failure and updates deployment status", async () => {
   ]);
   assert.equal(events[4][0], "comment");
   assert.match(events[4][1], /No ready Vercel preview deployment found/);
+  assert.deepEqual(events[5], ["reaction", "confused"]);
 });
 
 test("runAliasFlow denies commenters without write association", async () => {
@@ -437,7 +438,7 @@ test("runAliasFlow denies commenters without write association", async () => {
   });
 
   assert.equal(outcome, "unauthorized");
-  assert.deepEqual(events[0], ["reaction", 5, "+1"]);
+  assert.deepEqual(events[0], ["reaction", 5, "eyes"]);
   assert.equal(events[1][0], "permission");
   assert.equal(events[2][0], "comment");
   assert.match(events[2][1], /write access/);
