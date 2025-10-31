@@ -435,7 +435,7 @@ export function CategoryManager() {
 
     if (drafts.length === 0) {
       return (
-        <div className="flex flex-col items-start gap-4 rounded-lg border border-dashed border-emerald-300/70 bg-emerald-50/80 p-6 text-sm text-emerald-800 dark:border-emerald-600/60 dark:bg-emerald-900/30 dark:text-emerald-100">
+        <div className="flex flex-col items-start gap-4 rounded-lg border border-dashed accent-border accent-surface p-6 text-sm dark:bg-[color:color-mix(in_srgb,var(--color-accent)_22%,#0a0a0a_78%)] dark:text-[color:var(--color-accent-muted-foreground)]">
           <p className="font-medium">
             No categories yet. Add your first category to start planning budgets.
           </p>
@@ -443,7 +443,7 @@ export function CategoryManager() {
             type="button"
             onClick={handleAdd}
             disabled={isHealthBlocked}
-            className="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center rounded-md accent-bg px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:accent-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             Add category
           </button>
@@ -479,7 +479,7 @@ export function CategoryManager() {
                       }
                       placeholder="Category name"
                       disabled={isHealthBlocked}
-                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -491,7 +491,7 @@ export function CategoryManager() {
                       }
                       placeholder="#RRGGBB"
                       disabled={isHealthBlocked}
-                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -505,7 +505,7 @@ export function CategoryManager() {
                         handleFieldChange(category.categoryId, "monthlyBudget", event.target.value)
                       }
                       disabled={isHealthBlocked}
-                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -515,7 +515,7 @@ export function CategoryManager() {
                         handleFieldChange(category.categoryId, "currencyCode", event.target.value)
                       }
                       disabled={isHealthBlocked}
-                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                     >
                       {availableCurrencies.map((currency) => (
                         <option key={currency} value={currency}>
@@ -536,7 +536,7 @@ export function CategoryManager() {
                           handleFieldChange(category.categoryId, "rolloverFlag", event.target.checked)
                         }
                         disabled={isHealthBlocked}
-                        className="h-4 w-4 rounded border border-zinc-300 text-emerald-600 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="h-4 w-4 rounded border border-zinc-300 accent-text focus:accent-ring disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       Allow rollover
                     </label>
@@ -549,7 +549,7 @@ export function CategoryManager() {
                         handleFieldChange(category.categoryId, "sortOrder", event.target.value)
                       }
                       disabled={isHealthBlocked}
-                      className="w-24 rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                      className="w-24 rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                     />
                   </td>
                   <td className="px-3 py-2 text-right">
@@ -574,7 +574,7 @@ export function CategoryManager() {
               type="button"
               onClick={handleAdd}
               disabled={isHealthBlocked}
-              className="inline-flex items-center rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center rounded-md accent-bg px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:accent-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
             >
               Add category
             </button>
@@ -606,7 +606,7 @@ export function CategoryManager() {
               type="button"
               onClick={handleSave}
               disabled={!isDirty || isSaving || drafts.length === 0 || isHealthBlocked}
-              className="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center rounded-md accent-bg px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:accent-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving ? "Saving…" : "Save changes"}
             </button>

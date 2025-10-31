@@ -435,7 +435,7 @@ export function ConnectSpreadsheetCard() {
             type="button"
             onClick={handleSelect}
             disabled={disableActions}
-            className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-emerald-400"
+            className="inline-flex items-center gap-2 rounded-full accent-bg px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:accent-bg-hover focus:outline-none focus:ring-2 focus:accent-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[color:color-mix(in_srgb,var(--color-accent)_65%,#ffffff_35%)]"
           >
             {selectLabel}
           </button>
@@ -443,7 +443,7 @@ export function ConnectSpreadsheetCard() {
             type="button"
             onClick={handleCreate}
             disabled={disableActions}
-            className="inline-flex items-center gap-2 rounded-full border border-emerald-500 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:border-emerald-300 disabled:text-emerald-300 dark:border-emerald-400 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
+            className="inline-flex items-center gap-2 rounded-full border accent-border px-4 py-2 text-sm font-medium accent-text transition hover:bg-[color:var(--color-accent-muted)] focus:outline-none focus:ring-2 focus:accent-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:border-[color:color-mix(in_srgb,var(--color-accent)_40%,transparent_60%)] disabled:text-[color:color-mix(in_srgb,var(--color-accent)_40%,#ffffff_60%)] dark:border-[color:color-mix(in_srgb,var(--color-accent)_50%,#ffffff_50%)] dark:text-[color:color-mix(in_srgb,var(--color-accent)_70%,#ede9fe_30%)] dark:hover:bg-[color:color-mix(in_srgb,var(--color-accent)_25%,#0a0a0a_75%)]"
           >
             {createLabel}
           </button>
@@ -451,7 +451,7 @@ export function ConnectSpreadsheetCard() {
       </div>
 
       {manifest ? (
-        <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/70 p-4 text-sm text-emerald-900 dark:border-emerald-700/70 dark:bg-emerald-900/30 dark:text-emerald-100">
+        <div className="rounded-lg border accent-border bg-[color:var(--color-accent-muted)] p-4 text-sm text-[color:var(--color-accent-muted-foreground)] dark:bg-[color:color-mix(in_srgb,var(--color-accent)_24%,#0a0a0a_76%)] dark:text-[color:color-mix(in_srgb,var(--color-accent)_75%,#ede9fe_25%)]">
           <p className="font-medium">Connected spreadsheet</p>
           <p className="mt-1 break-all text-xs">
             <a
@@ -463,13 +463,13 @@ export function ConnectSpreadsheetCard() {
               {manifest.spreadsheetId}
             </a>
           </p>
-          <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-200/80">
+          <p className="mt-1 text-xs text-[color:color-mix(in_srgb,var(--color-accent)_65%,#312e81_35%)] dark:text-[color:color-mix(in_srgb,var(--color-accent)_70%,#c7d2fe_30%)]">
             Stored {new Date(manifest.storedAt).toLocaleString()}
           </p>
           <button
             type="button"
             onClick={handleDisconnect}
-            className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-emerald-800 underline decoration-dotted underline-offset-2 hover:decoration-solid dark:text-emerald-200"
+            className="mt-3 inline-flex items-center gap-1 text-xs font-medium accent-text underline decoration-dotted underline-offset-2 hover:decoration-solid dark:text-[color:color-mix(in_srgb,var(--color-accent)_70%,#ede9fe_30%)]"
           >
             Disconnect
           </button>

@@ -23,7 +23,7 @@ export function BaseCurrencySelector() {
         id="global-base-currency"
         value={baseCurrency}
         onChange={(event) => setBaseCurrency(event.target.value)}
-        className="rounded-md border border-zinc-300/70 bg-white px-3 py-1 text-sm text-zinc-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+        className="rounded-md border border-zinc-300/70 bg-white px-3 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
       >
         {availableCurrencies.map((currency) => (
           <option key={currency} value={currency}>

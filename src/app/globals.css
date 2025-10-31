@@ -10,6 +10,56 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* Accent palette for primary CTAs */
+  --color-accent: #7c3aed;
+  --color-accent-hover: #6d28d9;
+  --color-accent-foreground: #ffffff;
+  --color-accent-border: #a855f7;
+  --color-accent-muted: #ede9fe;
+  --color-accent-muted-foreground: #4c1d95;
+  --color-accent-ring: #c4b5fd;
+}
+
+@utility accent-bg {
+  background-color: var(--color-accent);
+  color: var(--color-accent-foreground);
+}
+
+@utility accent-bg-hover {
+  background-color: var(--color-accent-hover);
+}
+
+@utility accent-border {
+  border-color: var(--color-accent-border);
+}
+
+@utility accent-border-strong {
+  border-color: var(--color-accent);
+}
+
+@utility accent-ring {
+  --tw-ring-color: var(--color-accent);
+}
+
+@utility accent-ring-soft {
+  --tw-ring-color: var(--color-accent-ring);
+}
+
+@utility accent-text {
+  color: var(--color-accent);
+}
+
+@utility accent-text-muted {
+  color: var(--color-accent-muted-foreground);
+}
+
+@utility accent-surface {
+  background-color: var(--color-accent-muted);
+  color: var(--color-accent-muted-foreground);
+}
+
+@utility accent-tint {
+  background-color: color-mix(in srgb, var(--color-accent) 8%, #ffffff 92%);
 }
 
 @media (prefers-color-scheme: dark) {

@@ -74,7 +74,7 @@ export default async function Home() {
       </SpreadsheetHealthProvider>
 
       <section className="flex flex-col gap-6 text-balance">
-        <span className="text-sm font-semibold uppercase tracking-wide text-emerald-600">
+        <span className="text-sm font-semibold uppercase tracking-wide accent-text">
           Personal runway planning
         </span>
         <h1 className="text-4xl font-semibold sm:text-5xl">
@@ -86,7 +86,7 @@ export default async function Home() {
           many months of runway remain.
         </p>
         <div className="flex flex-wrap gap-3">
-          <span className="inline-flex items-center rounded-full bg-emerald-100 px-4 py-1 text-sm font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200">
+          <span className="inline-flex items-center rounded-full bg-[color:var(--color-accent-muted)] px-4 py-1 text-sm font-medium text-[color:var(--color-accent-muted-foreground)] ring-1 ring-inset ring-[color:color-mix(in_srgb,var(--color-accent)_35%,#ede9fe_65%)] dark:bg-[color:color-mix(in_srgb,var(--color-accent)_24%,#0a0a0a_76%)] dark:text-[color:color-mix(in_srgb,var(--color-accent)_78%,#ede9fe_22%)] dark:ring-[color:color-mix(in_srgb,var(--color-accent)_55%,#1f1f1f_45%)]">
             Next.js App Router
           </span>
           <span className="inline-flex items-center rounded-full bg-sky-100 px-4 py-1 text-sm font-medium text-sky-800 ring-1 ring-inset ring-sky-200">
@@ -112,7 +112,7 @@ export default async function Home() {
         ))}
       </section>
 
-      <section className="rounded-2xl border border-dashed border-emerald-300/70 bg-emerald-50/80 p-6 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-100">
+      <section className="rounded-2xl border border-dashed accent-border accent-surface p-6 dark:bg-[color:color-mix(in_srgb,var(--color-accent)_22%,#0a0a0a_78%)] dark:text-[color:color-mix(in_srgb,var(--color-accent)_75%,#ede9fe_25%)]">
         <h2 className="text-lg font-semibold">Up next</h2>
         <p className="mt-2 text-base">
           Milestone 1 will introduce Google sign-in, spreadsheet selection, and
