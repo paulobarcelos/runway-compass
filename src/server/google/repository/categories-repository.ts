@@ -8,24 +8,17 @@ import {
   ensureHeaderRow as assertHeaderRow,
   isEmptyRow,
   normalizeRow,
-  optionalNumber,
-  parseBoolean,
   requireInteger,
 } from "./sheet-utils";
 
 const CATEGORY_HEADERS = CATEGORIES_SHEET_SCHEMA.headers;
 const CATEGORY_RANGE = dataRange(CATEGORIES_SHEET_SCHEMA, 1000);
-const VALID_FLOW_TYPES = new Set(["income", "expense"] as const);
-
 export interface CategoryRecord {
   categoryId: string;
   label: string;
   color: string;
-  flowType: "income" | "expense";
-  rolloverFlag: boolean;
+  description: string;
   sortOrder: number;
-  monthlyBudget: number;
-  currencyCode: string;
 }
 
 interface CategoriesRepositoryOptions {
@@ -43,16 +36,7 @@ function parseCategoryRow(row: unknown[], dataIndex: number): CategoryRecord | n
     return null;
   }
 
-  const [
-    categoryId,
-    label,
-    color,
-    flowTypeRaw,
-    rolloverRaw,
-    sortOrderRaw,
-    monthlyBudgetRaw,
-    currencyCodeRaw,
-  ] = normalized;
+  const [categoryId, label, color, descriptionRaw, sortOrderRaw] = normalized;
 
   if (!categoryId.trim()) {
     throw new Error(`Invalid category row at index ${dataIndex}: missing category_id`);
@@ -66,31 +50,18 @@ function parseCategoryRow(row: unknown[], dataIndex: number): CategoryRecord | n
     throw new Error(`Invalid category row at index ${dataIndex}: missing color`);
   }
 
-  const flowTypeNormalized = String(flowTypeRaw ?? "").trim().toLowerCase();
-  const flowType = VALID_FLOW_TYPES.has(flowTypeNormalized as CategoryRecord["flowType"])
-    ? (flowTypeNormalized as CategoryRecord["flowType"])
-    : "expense";
-
   const sortOrder = requireInteger(sortOrderRaw, {
     field: "sort_order",
     rowIndex: dataIndex,
   });
-  const rolloverFlag = parseBoolean(rolloverRaw);
-  const monthlyBudget = optionalNumber(monthlyBudgetRaw ?? "", {
-    field: "monthly_budget",
-    rowIndex: dataIndex,
-  });
-  const currencyCode = (currencyCodeRaw ?? "").trim().toUpperCase();
+  const description = String(descriptionRaw ?? "").trim();
 
   return {
     categoryId: categoryId.trim(),
     label: label.trim(),
     color: color.trim(),
-    flowType,
-    rolloverFlag,
+    description,
     sortOrder,
-    monthlyBudget,
-    currencyCode,
   };
 }
 
@@ -136,24 +107,14 @@ export function createCategoriesRepository({
       const rows: (string | number | boolean)[][] = [header];
 
       for (const record of records) {
-        const currencyCode = (record.currencyCode ?? "").trim().toUpperCase();
-        const monthlyBudgetString =
-          Number.isFinite(record.monthlyBudget) && record.monthlyBudget !== 0
-            ? String(record.monthlyBudget)
-            : "";
-        const flowType = VALID_FLOW_TYPES.has(record.flowType)
-          ? record.flowType
-          : "expense";
+        const description = String(record.description ?? "").trim();
 
         rows.push([
           record.categoryId,
           record.label,
           record.color,
-          flowType,
-          record.rolloverFlag ? "TRUE" : "FALSE",
+          description,
           String(record.sortOrder),
-          monthlyBudgetString,
-          currencyCode,
         ]);
       }
 

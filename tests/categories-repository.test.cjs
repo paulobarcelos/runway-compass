@@ -51,14 +51,11 @@ test("categories repository list returns typed records", async () => {
         "category_id",
         "label",
         "color",
-        "flow_type",
-        "rollover_flag",
+        "description",
         "sort_order",
-        "monthly_budget",
-        "currency_code",
       ],
-      ["cat-123", "Housing", "#FF0000", "income", "TRUE", "1", "1200", "SEK"],
-      ["cat-456", "Food", "#00FF00", "", "FALSE", "2", "", ""],
+      ["cat-123", "Housing", "#FF0000", "Mortgage", "1"],
+      ["cat-456", "Food", "#00FF00", "", "2"],
     ],
   });
 
@@ -75,28 +72,22 @@ test("categories repository list returns typed records", async () => {
 
   assert.equal(getCalls.length, 1);
   assert.equal(getCalls[0].spreadsheetId, "sheet-123");
-  assert.equal(getCalls[0].range, "categories!A1:H1000");
+  assert.equal(getCalls[0].range, "categories!A1:E1000");
 
   assert.deepEqual(categories, [
     {
       categoryId: "cat-123",
       label: "Housing",
       color: "#FF0000",
-      flowType: "income",
-      rolloverFlag: true,
+      description: "Mortgage",
       sortOrder: 1,
-      monthlyBudget: 1200,
-      currencyCode: "SEK",
     },
     {
       categoryId: "cat-456",
       label: "Food",
       color: "#00FF00",
-      flowType: "expense",
-      rolloverFlag: false,
+      description: "",
       sortOrder: 2,
-      monthlyBudget: 0,
-      currencyCode: "",
     },
   ]);
 });
@@ -109,15 +100,12 @@ test("categories repository list filters empty or malformed rows", async () => {
         "category_id",
         "label",
         "color",
-        "flow_type",
-        "rollover_flag",
+        "description",
         "sort_order",
-        "monthly_budget",
-        "currency_code",
       ],
-      ["", "Missing ID", "#000000", "income", "TRUE", "3", "300", "USD"],
-      ["cat-789", "", "#111111", "expense", "TRUE", "4", "200", "USD"],
-      ["cat-999", "Travel", "", "", "TRUE", "", ""],
+      ["", "Missing ID", "#000000", "Invalid", "3"],
+      ["cat-789", "", "#111111", "Groceries", "4"],
+      ["cat-999", "Travel", "", "Trips", ""],
     ],
   });
 
@@ -141,13 +129,10 @@ test("categories repository list retries transient errors", async () => {
         "category_id",
         "label",
         "color",
-        "flow_type",
-        "rollover_flag",
+        "description",
         "sort_order",
-        "monthly_budget",
-        "currency_code",
       ],
-      ["cat-111", "Utilities", "#ABCDEF", "expense", "TRUE", "3", "500", "USD"],
+      ["cat-111", "Utilities", "#ABCDEF", "Power", "3"],
     ],
   });
 
@@ -184,11 +169,8 @@ test("categories repository list retries transient errors", async () => {
       categoryId: "cat-111",
       label: "Utilities",
       color: "#ABCDEF",
-      flowType: "expense",
-      rolloverFlag: true,
+      description: "Power",
       sortOrder: 3,
-      monthlyBudget: 500,
-      currencyCode: "USD",
     },
   ]);
 });
@@ -201,11 +183,8 @@ test("categories repository save persists header and rows", async () => {
         "category_id",
         "label",
         "color",
-        "flow_type",
-        "rollover_flag",
+        "description",
         "sort_order",
-        "monthly_budget",
-        "currency_code",
       ],
     ],
   });
@@ -224,21 +203,15 @@ test("categories repository save persists header and rows", async () => {
       categoryId: "cat-123",
       label: "Housing",
       color: "#FF0000",
-      flowType: "income",
-      rolloverFlag: true,
+      description: "Mortgage",
       sortOrder: 5,
-      monthlyBudget: 1500,
-      currencyCode: "SEK",
     },
     {
       categoryId: "cat-456",
       label: "Food",
       color: "#00FF00",
-      flowType: "expense",
-      rolloverFlag: false,
+      description: "",
       sortOrder: 10,
-      monthlyBudget: 0,
-      currencyCode: "",
     },
   ];
 
@@ -248,7 +221,7 @@ test("categories repository save persists header and rows", async () => {
 
   const call = updateCalls[0];
   assert.equal(call.spreadsheetId, "sheet-123");
-  assert.equal(call.range, "categories!A1:H3");
+  assert.equal(call.range, "categories!A1:E3");
   assert.equal(call.valueInputOption, "RAW");
 
   assert.deepEqual(call.requestBody.values, [
@@ -256,14 +229,11 @@ test("categories repository save persists header and rows", async () => {
       "category_id",
       "label",
       "color",
-      "flow_type",
-      "rollover_flag",
+      "description",
       "sort_order",
-      "monthly_budget",
-      "currency_code",
     ],
-    ["cat-123", "Housing", "#FF0000", "income", "TRUE", "5", "1500", "SEK"],
-    ["cat-456", "Food", "#00FF00", "expense", "FALSE", "10", "", ""],
+    ["cat-123", "Housing", "#FF0000", "Mortgage", "5"],
+    ["cat-456", "Food", "#00FF00", "", "10"],
   ]);
 
   assert.deepEqual(getStoredValues(), call.requestBody.values);

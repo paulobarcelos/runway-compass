@@ -15,11 +15,8 @@ const EXPECTED_SCHEMAS = [
       "category_id",
       "label",
       "color",
-      "flow_type",
-      "rollover_flag",
+      "description",
       "sort_order",
-      "monthly_budget",
-      "currency_code",
     ],
   },
   {

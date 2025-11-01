@@ -43,32 +43,18 @@ function normalizeCategory(entry: Record<string, unknown>): CategoryRecord {
   const categoryId = String(entry.categoryId ?? "").trim();
   const label = String(entry.label ?? "").trim();
   const color = String(entry.color ?? "").trim() || "#999999";
-  const flowType =
-    String(entry.flowType ?? "")
-      .trim()
-      .toLowerCase() === "income"
-      ? "income"
-      : "expense";
-  const rolloverFlag = Boolean(entry.rolloverFlag);
+  const description = String(entry.description ?? "").trim();
   const sortOrder =
     typeof entry.sortOrder === "number" && Number.isFinite(entry.sortOrder)
       ? entry.sortOrder
       : 0;
-  const monthlyBudget =
-    typeof entry.monthlyBudget === "number" && Number.isFinite(entry.monthlyBudget)
-      ? entry.monthlyBudget
-      : 0;
-  const currencyCode = String(entry.currencyCode ?? "").trim().toUpperCase();
 
   return {
     categoryId,
     label,
     color,
-    flowType,
-    rolloverFlag,
+    description,
     sortOrder,
-    monthlyBudget,
-    currencyCode,
   };
 }
 
@@ -263,19 +249,15 @@ export function useCashPlannerMetadata({
     [accounts],
   );
 
-  const incomeCategoryIds = useMemo(
-    () =>
-      categories
-        .filter((category) => category.flowType === "income")
-        .map((category) => category.categoryId),
-    [categories],
+  const incomeCategoryIds = useMemo<string[]>(
+    () => [],
+    [],
   );
+  // TODO(issue-73): Restore income/expense segmentation when category data exposes
+  // the new flow direction metadata.
 
   const expenseCategoryIds = useMemo(
-    () =>
-      categories
-        .filter((category) => category.flowType !== "income")
-        .map((category) => category.categoryId),
+    () => categories.map((category) => category.categoryId),
     [categories],
   );
 

@@ -121,17 +121,29 @@ interface UseBudgetPlanManagerOptions {
   startDate?: Date;
 }
 
+type BudgetCategory = CategoryRecord & {
+  flowType?: "income" | "expense";
+  rolloverFlag?: boolean;
+  monthlyBudget?: number;
+  currencyCode?: string;
+};
+
 interface FetchBudgetPlanResult {
   grid: BudgetPlanGrid;
   draft: BudgetPlanDraft;
-  categories: CategoryRecord[];
+  categories: BudgetCategory[];
   metadata: BudgetHorizonMetadata;
 }
 
-function normalizeCategoryRecord(entry: Record<string, unknown>): CategoryRecord {
+function normalizeCategoryRecord(entry: Record<string, unknown>): BudgetCategory {
   const categoryId = String(entry.categoryId ?? "").trim();
   const label = String(entry.label ?? "").trim();
   const color = String(entry.color ?? "").trim() || "#999999";
+  const description = String(entry.description ?? "").trim();
+  const sortOrder =
+    typeof entry.sortOrder === "number" && Number.isFinite(entry.sortOrder)
+      ? entry.sortOrder
+      : 0;
   const flowType =
     String(entry.flowType ?? "")
       .trim()
@@ -139,29 +151,26 @@ function normalizeCategoryRecord(entry: Record<string, unknown>): CategoryRecord
       ? "income"
       : "expense";
   const rolloverFlag = Boolean(entry.rolloverFlag);
-  const sortOrder =
-    typeof entry.sortOrder === "number" && Number.isFinite(entry.sortOrder)
-      ? entry.sortOrder
-      : 0;
-  const monthlyBudgetRaw =
+  const monthlyBudget =
     typeof entry.monthlyBudget === "number" && Number.isFinite(entry.monthlyBudget)
       ? entry.monthlyBudget
       : 0;
-  const currencyCode = String(entry.currencyCode ?? "").trim().toUpperCase() || "USD";
+  const currencyCode = String(entry.currencyCode ?? "").trim().toUpperCase();
 
   return {
     categoryId,
     label,
     color,
+    description,
+    sortOrder,
     flowType,
     rolloverFlag,
-    sortOrder,
-    monthlyBudget: monthlyBudgetRaw,
+    monthlyBudget,
     currencyCode,
   };
 }
 
-async function fetchCategories(spreadsheetId: string): Promise<CategoryRecord[]> {
+async function fetchCategories(spreadsheetId: string): Promise<BudgetCategory[]> {
   const response = await fetch(
     `/api/categories?spreadsheetId=${encodeURIComponent(spreadsheetId)}`,
   );
@@ -421,7 +430,7 @@ export function useBudgetPlanManager(
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [baselineGrid, setBaselineGrid] = useState<BudgetPlanGrid | null>(null);
-  const [baselineCategories, setBaselineCategories] = useState<CategoryRecord[]>([]);
+  const [baselineCategories, setBaselineCategories] = useState<BudgetCategory[]>([]);
   const [draft, setDraft] = useState<BudgetPlanDraft | null>(null);
   const [metadata, setMetadata] = useState<BudgetHorizonMetadata | null>(null);
   const [isHorizonUpdating, setIsHorizonUpdating] = useState(false);

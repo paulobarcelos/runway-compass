@@ -5,6 +5,14 @@ import type { BudgetPlanRecord } from "@/server/google/repository/budget-horizon
 
 const DEFAULT_HORIZON_MONTHS = 12;
 
+type LegacyCategoryFields = {
+  flowType?: "income" | "expense";
+  rolloverFlag?: boolean;
+  monthlyBudget?: number;
+  currencyCode?: string;
+  description?: string;
+};
+
 export interface BudgetPlanMonth {
   id: string;
   month: number;
@@ -16,6 +24,7 @@ export interface BudgetPlanCategorySummary {
   categoryId: string;
   label: string;
   color: string;
+  description: string;
   flowType: "income" | "expense";
   rolloverFlag: boolean;
   monthlyBudget: number;
@@ -44,7 +53,7 @@ export interface BudgetPlanGrid {
 }
 
 export interface BuildBudgetPlanGridOptions {
-  categories: CategoryRecord[];
+  categories: Array<CategoryRecord & LegacyCategoryFields>;
   budgetPlan: BudgetPlanRecord[];
   startDate?: Date;
   horizon?: number;
@@ -96,14 +105,14 @@ function buildMonths(startDate: Date, horizon: number): BudgetPlanMonth[] {
   return months;
 }
 
-function normalizeMonthlyBudget(value: number) {
-  return Number.isFinite(value) ? value : 0;
+function normalizeMonthlyBudget(value: number | undefined) {
+  return Number.isFinite(value) ? Number(value) : 0;
 }
 
-function normalizeCurrency(value: string | undefined, fallback: string) {
+function normalizeCurrency(value: string | undefined, fallback: string | undefined) {
   const normalized = (value ?? "").trim().toUpperCase();
-  const fallbackNormalized = fallback.trim().toUpperCase();
-  return normalized || fallbackNormalized || "USD";
+  const fallbackNormalized = (fallback ?? "").trim().toUpperCase();
+  return normalized || fallbackNormalized;
 }
 
 function sortCategories(left: CategoryRecord, right: CategoryRecord) {
@@ -140,14 +149,18 @@ export function buildBudgetPlanGrid({
 
   for (const category of sortedCategories) {
     const monthlyBudget = normalizeMonthlyBudget(category.monthlyBudget);
+    const currencyCode = (category.currencyCode ?? "").trim().toUpperCase();
+    // TODO(issue-73): Restore income/expense and rollover differentiation when the
+    // simplified categories model exposes those attributes again.
     const summary: BudgetPlanCategorySummary = {
       categoryId: category.categoryId,
       label: category.label,
       color: category.color,
-      flowType: category.flowType,
+      description: (category.description ?? "").trim(),
+      flowType: category.flowType === "income" ? "income" : "expense",
       rolloverFlag: Boolean(category.rolloverFlag),
       monthlyBudget,
-      currencyCode: category.currencyCode,
+      currencyCode,
     };
 
     const cells: BudgetPlanCell[] = [];
@@ -162,7 +175,7 @@ export function buildBudgetPlanGrid({
 
       const record = recordLookup.get(key);
       const amount = record?.amount ?? monthlyBudget;
-      const currency = normalizeCurrency(record?.currency, category.currencyCode);
+      const currency = normalizeCurrency(record?.currency, summary.currencyCode) || "";
       const isGenerated = !record;
       const recordId =
         record?.recordId ??

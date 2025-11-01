@@ -5,11 +5,8 @@ export interface CategoryDraft {
   categoryId: string;
   label: string;
   color: string;
-  flowType: "income" | "expense";
-  rolloverFlag: boolean;
+  description: string;
   sortOrder: number;
-  monthlyBudget: string;
-  currencyCode: string;
 }
 
 export function createBlankCategory(sortOrder: number): CategoryDraft {
@@ -22,11 +19,8 @@ export function createBlankCategory(sortOrder: number): CategoryDraft {
     categoryId: id,
     label: "",
     color: "#999999",
-    flowType: "expense",
-    rolloverFlag: false,
+    description: "",
     sortOrder,
-    monthlyBudget: "",
-    currencyCode: "",
   };
 }
 
@@ -43,11 +37,8 @@ export function categoriesEqual(a: CategoryDraft[], b: CategoryDraft[]) {
       left.categoryId !== right.categoryId ||
       left.label !== right.label ||
       left.color !== right.color ||
-      left.flowType !== right.flowType ||
-      left.rolloverFlag !== right.rolloverFlag ||
-      left.sortOrder !== right.sortOrder ||
-      left.monthlyBudget !== right.monthlyBudget ||
-      left.currencyCode !== right.currencyCode
+      left.description !== right.description ||
+      left.sortOrder !== right.sortOrder
     ) {
       return false;
     }
