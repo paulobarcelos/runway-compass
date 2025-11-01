@@ -45,11 +45,8 @@ const metadataStateReady = {
       categoryId: "cat-1",
       label: "Consulting",
       color: "#fff",
-      flowType: "income",
-      rolloverFlag: false,
+      description: "",
       sortOrder: 1,
-      monthlyBudget: 0,
-      currencyCode: "USD",
     },
   ],
   accounts: [

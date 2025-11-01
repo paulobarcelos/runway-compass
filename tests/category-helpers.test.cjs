@@ -14,11 +14,8 @@ test("createBlankCategory generates defaults", async () => {
   assert.ok(draft.categoryId.length > 0);
   assert.equal(draft.label, "");
   assert.equal(draft.color, "#999999");
-  assert.equal(draft.flowType, "expense");
-  assert.equal(draft.rolloverFlag, false);
+  assert.equal(draft.description, "");
   assert.equal(draft.sortOrder, 5);
-  assert.equal(draft.monthlyBudget, "");
-  assert.equal(draft.currencyCode, "");
 });
 
 test("categoriesEqual compares drafts shallowly", async () => {
@@ -32,21 +29,15 @@ test("categoriesEqual compares drafts shallowly", async () => {
       categoryId: "1",
       label: "A",
       color: "#111111",
-      flowType: "expense",
-      rolloverFlag: false,
+      description: "Primary",
       sortOrder: 1,
-      monthlyBudget: "",
-      currencyCode: "",
     },
     {
       categoryId: "2",
       label: "B",
       color: "#222222",
-      flowType: "income",
-      rolloverFlag: true,
+      description: "Secondary",
       sortOrder: 2,
-      monthlyBudget: "500",
-      currencyCode: "SEK",
     },
   ];
 

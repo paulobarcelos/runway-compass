@@ -378,11 +378,8 @@ test("bootstrapSpreadsheet ensures data sheets exist with headers", async () => 
         "category_id",
         "label",
         "color",
-        "flow_type",
-        "rollover_flag",
+        "description",
         "sort_order",
-        "monthly_budget",
-        "currency_code",
       ],
       accounts: [
         "account_id",

@@ -40,6 +40,13 @@ Personal cash runway planner built with Next.js and Google Sheets. Track rolling
 - Set environment variables for Production + Preview (`NEXTAUTH_URL`, Google secrets, Picker keys).
 - Configure OAuth redirect URIs for production domains (e.g., `https://runway.paulobarcelos.com/api/auth/callback/google`).
 
+## Managing Categories
+
+- Category records now store **label**, **color**, optional **description**, and drag-ordered **sort order**; legacy flow, rollover, and budget columns were removed (Issue #73).
+- The Categories panel auto-saves changes ~800 ms after edits and supports native drag-and-drop to reorder rows; the Save button is gone.
+- Existing spreadsheets should drop the removed columns (`flow_type`, `rollover_flag`, `monthly_budget`, `currency_code`) manually or by re-running the bootstrap helper until a dedicated migration ships.
+- Dependent views (budget plan, cash planner) treat every category as an expense and disable rollover by default. Follow-ups will restore richer semantics once the new model lands.
+
 ## Source-of-Truth
 - Journal: https://github.com/paulobarcelos/runway-compass/wiki/Journal
 - Decisions: https://github.com/paulobarcelos/runway-compass/wiki/Decisions

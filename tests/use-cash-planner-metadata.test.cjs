@@ -88,26 +88,20 @@ test("useCashPlannerMetadata loads metadata, options, and orphans", async () => 
         status: 200,
         json: async () => ({
           categories: [
-            {
-              categoryId: "cat-income",
-              label: "Consulting",
-              color: "#00ff99",
-              flowType: "income",
-              rolloverFlag: false,
-              sortOrder: 5,
-              monthlyBudget: 0,
-              currencyCode: "USD",
-            },
-            {
-              categoryId: "cat-expense",
-              label: "Rent",
-              color: "#ff2255",
-              flowType: "expense",
-              rolloverFlag: false,
-              sortOrder: 10,
-              monthlyBudget: 0,
-              currencyCode: "USD",
-            },
+          {
+            categoryId: "cat-income",
+            label: "Consulting",
+            color: "#00ff99",
+            description: "",
+            sortOrder: 5,
+          },
+          {
+            categoryId: "cat-expense",
+            label: "Rent",
+            color: "#ff2255",
+            description: "",
+            sortOrder: 10,
+          },
           ],
         }),
       };
@@ -174,9 +168,8 @@ test("useCashPlannerMetadata loads metadata, options, and orphans", async () => 
     "/api/accounts?spreadsheetId=sheet-123",
     "/api/categories?spreadsheetId=sheet-123",
   ]);
-  assert.equal(latestMetadata.categoriesById.get("cat-income").flowType, "income");
-  assert.deepEqual(latestMetadata.incomeCategoryIds, ["cat-income"]);
-  assert.deepEqual(latestMetadata.expenseCategoryIds, ["cat-expense"]);
+  assert.deepEqual(latestMetadata.incomeCategoryIds, []);
+  assert.deepEqual(latestMetadata.expenseCategoryIds, ["cat-income", "cat-expense"]);
   assert.equal(latestMetadata.accountDisplayById.get("acct-1"), "Operating (USD)");
   assert.deepEqual(latestMetadata.orphanAccountIds, ["acct-missing"]);
   assert.deepEqual(latestMetadata.orphanCategoryIds, ["cat-missing"]);

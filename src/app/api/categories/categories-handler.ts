@@ -18,11 +18,8 @@ type FetchCategories = (options: FetchCategoriesOptions) => Promise<
     categoryId: string;
     label: string;
     color: string;
-    flowType: "income" | "expense";
-    rolloverFlag: boolean;
+    description: string;
     sortOrder: number;
-    monthlyBudget: number;
-    currencyCode: string;
   }>
 >;
 
@@ -71,108 +68,97 @@ async function saveCategoriesToSheets({
   const repository = createCategoriesRepository({ sheets, spreadsheetId });
 
   const sanitized: CategoryRecord[] = categories.map((category) => {
-    const normalizedFlowType: CategoryRecord["flowType"] =
-      category.flowType === "income" ? "income" : "expense";
-
-    const normalizedMonthlyBudget =
-      typeof category.monthlyBudget === "number" && Number.isFinite(category.monthlyBudget)
-        ? category.monthlyBudget
-        : 0;
-
-    const normalizedCurrency = (category.currencyCode ?? "").trim().toUpperCase();
+    const categoryId = String(category.categoryId ?? "").trim();
+    const label = String(category.label ?? "").trim();
+    const color = String(category.color ?? "").trim();
+    const description = String(category.description ?? "").trim();
+    const sortOrder = Number.isFinite(category.sortOrder) ? category.sortOrder : 0;
 
     return {
-      categoryId: category.categoryId,
-      label: category.label,
-      color: category.color,
-      flowType: normalizedFlowType,
-      rolloverFlag: Boolean(category.rolloverFlag),
-      sortOrder: category.sortOrder,
-      monthlyBudget: normalizedMonthlyBudget,
-      currencyCode: normalizedCurrency,
+      categoryId,
+      label,
+      color,
+      description,
+      sortOrder,
     };
   });
 
   await repository.save(sanitized);
 }
 
-function parseCategoriesPayload(value: unknown) {
+type ParsedCategoriesResult =
+  | { ok: true; categories: CategoryRecord[] }
+  | { ok: false; error: "Missing categories payload" | "Invalid categories payload" };
+
+function parseCategoriesPayload(value: unknown): ParsedCategoriesResult {
   if (!value || typeof value !== "object") {
-    return null;
+    return { ok: false, error: "Missing categories payload" };
   }
 
   const payload = value as Record<string, unknown>;
   const rawCategories = payload.categories;
 
   if (!Array.isArray(rawCategories)) {
-    return null;
+    return { ok: false, error: "Missing categories payload" };
   }
 
   const categories: CategoryRecord[] = [];
 
-  const normalizeFlowType = (value: unknown): "income" | "expense" => {
-    const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
-    return normalized === "income" ? "income" : "expense";
-  };
+  const LEGACY_KEYS = ["flowType", "rolloverFlag", "monthlyBudget", "currencyCode"];
 
   for (let index = 0; index < rawCategories.length; index += 1) {
     const item = rawCategories[index];
 
     if (!item || typeof item !== "object") {
-      return null;
+      return { ok: false, error: "Invalid categories payload" };
     }
 
     const {
       categoryId,
       label,
       color,
-      flowType,
-      rolloverFlag,
+      description,
       sortOrder,
-      monthlyBudget,
-      currencyCode,
     } = item as Record<string, unknown>;
 
     if (typeof categoryId !== "string" || !categoryId.trim()) {
-      return null;
+      return { ok: false, error: "Invalid categories payload" };
     }
 
     if (typeof label !== "string" || !label.trim()) {
-      return null;
+      return { ok: false, error: "Invalid categories payload" };
     }
 
     if (typeof color !== "string" || !color.trim()) {
-      return null;
+      return { ok: false, error: "Invalid categories payload" };
     }
 
-    const normalizedFlowType = normalizeFlowType(flowType);
-
-    if (typeof rolloverFlag !== "boolean") {
-      return null;
+    if (typeof description !== "string") {
+      return { ok: false, error: "Invalid categories payload" };
     }
 
     if (typeof sortOrder !== "number" || !Number.isInteger(sortOrder)) {
-      return null;
+      return { ok: false, error: "Invalid categories payload" };
     }
 
-    const normalizedMonthlyBudget =
-      typeof monthlyBudget === "number" && Number.isFinite(monthlyBudget) ? monthlyBudget : 0;
+    for (const key of LEGACY_KEYS) {
+      if (key in item && item[key as keyof typeof item] !== undefined) {
+        return { ok: false, error: "Invalid categories payload" };
+      }
+    }
 
-    const normalizedCurrency = typeof currencyCode === "string" ? currencyCode.trim().toUpperCase() : "";
+    const normalizedDescription = description.trim();
 
     categories.push({
       categoryId: categoryId.trim(),
       label: label.trim(),
       color: color.trim(),
-      flowType: normalizedFlowType,
-      rolloverFlag,
+      description: normalizedDescription,
       sortOrder,
-      monthlyBudget: normalizedMonthlyBudget,
-      currencyCode: normalizedCurrency,
     });
   }
 
-  return categories;
+  return { ok: true, categories };
 }
 
 export function createCategoriesHandler({
@@ -211,22 +197,23 @@ export function createCategoriesHandler({
       return NextResponse.json({ error: "Missing spreadsheetId" }, { status: 400 });
     }
 
-    let categories: CategoryRecord[] | null = null;
+    let parsed: ParsedCategoriesResult | null = null;
 
     try {
       const payload = await request.json();
-      categories = parseCategoriesPayload(payload);
+      parsed = parseCategoriesPayload(payload);
     } catch {
       return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
     }
 
-    if (!categories) {
-      return NextResponse.json({ error: "Missing categories payload" }, { status: 400 });
+    if (!parsed?.ok) {
+      const error = parsed?.error ?? "Missing categories payload";
+      return NextResponse.json({ error }, { status: 400 });
     }
 
     try {
-      await saveCategories({ spreadsheetId, categories });
-      return NextResponse.json({ categories }, { status: 200 });
+      await saveCategories({ spreadsheetId, categories: parsed.categories });
+      return NextResponse.json({ categories: parsed.categories }, { status: 200 });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       const status =

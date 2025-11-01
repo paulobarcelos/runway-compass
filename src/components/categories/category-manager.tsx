@@ -1,8 +1,15 @@
 // ABOUTME: Renders category management form for the connected spreadsheet.
-// ABOUTME: Supports listing, editing, adding, and deleting categories.
+// ABOUTME: Supports listing, editing, adding, and deleting categories with drag ordering.
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
 
 import {
   loadManifest,
@@ -12,13 +19,12 @@ import {
 } from "@/lib/manifest-store";
 import { emitManifestChange, subscribeToManifestChange } from "@/lib/manifest-events";
 import { debugLog } from "@/lib/debug-log";
-import { useBaseCurrency } from "@/components/currency/base-currency-context";
 import { useSpreadsheetHealth } from "@/components/spreadsheet/spreadsheet-health-context";
 import {
   buildSheetUrl,
   filterSheetIssues,
-  shouldRetryAfterRecovery,
   shouldReloadAfterBootstrap,
+  shouldRetryAfterRecovery,
 } from "@/components/spreadsheet/spreadsheet-health-helpers";
 import {
   categoriesEqual,
@@ -26,8 +32,62 @@ import {
   type CategoryDraft,
 } from "./category-helpers";
 
+const AUTOSAVE_DELAY_MS = 800;
+
 type LoadState = "idle" | "loading" | "error" | "ready";
 type SaveState = "idle" | "saving";
+
+type SerializableCategory = {
+  categoryId: string;
+  label: string;
+  color: string;
+  description: string;
+  sortOrder: number;
+};
+
+function normalizeDraftsFromResponse(
+  source: Array<Record<string, unknown>>,
+): CategoryDraft[] {
+  const normalized = source
+    .map((item) => ({
+      categoryId: String(item.categoryId ?? "").trim(),
+      label: String(item.label ?? "").trim(),
+      color: String(item.color ?? "").trim() || "#999999",
+      description: String(item.description ?? "").trim(),
+      sortOrder:
+        typeof item.sortOrder === "number" && Number.isFinite(item.sortOrder)
+          ? item.sortOrder
+          : 0,
+    }))
+    .filter((item) => item.categoryId && item.label && item.color);
+
+  const ordered = normalized.sort((left, right) => {
+    if (left.sortOrder !== right.sortOrder) {
+      return left.sortOrder - right.sortOrder;
+    }
+
+    return left.label.localeCompare(right.label);
+  });
+
+  return ordered.map((item, index) => ({
+    ...item,
+    sortOrder: index + 1,
+  }));
+}
+
+function buildPayloadFromDrafts(drafts: CategoryDraft[]): SerializableCategory[] {
+  return drafts.map((draft, index) => ({
+    categoryId: draft.categoryId,
+    label: draft.label.trim(),
+    color: draft.color.trim() || "#999999",
+    description: draft.description.trim(),
+    sortOrder: index + 1,
+  }));
+}
+
+function resequenceDrafts(list: CategoryDraft[]): CategoryDraft[] {
+  return list.map((item, index) => ({ ...item, sortOrder: index + 1 }));
+}
 
 export function CategoryManager() {
   const [manifest, setManifest] = useState<ManifestRecord | null>(null);
@@ -38,12 +98,14 @@ export function CategoryManager() {
   const [original, setOriginal] = useState<CategoryDraft[]>([]);
   const [drafts, setDrafts] = useState<CategoryDraft[]>([]);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
-  const {
-    baseCurrency,
-    availableCurrencies,
-    convertAmount,
-    formatAmount,
-  } = useBaseCurrency();
+
+  const pendingSaveTimeoutRef = useRef<number | null>(null);
+  const dragSourceIdRef = useRef<string | null>(null);
+  const previousHealthBlockedRef = useRef<boolean>(false);
+  const manifestStoredAt = manifest?.storedAt ?? null;
+  const previousManifestStoredAtRef = useRef<number | null>(manifestStoredAt);
+  const skipNextManifestReloadRef = useRef(false);
+
   const { diagnostics: healthDiagnostics } = useSpreadsheetHealth();
   const categoriesHealth = useMemo(
     () =>
@@ -54,9 +116,6 @@ export function CategoryManager() {
     [healthDiagnostics],
   );
   const isHealthBlocked = categoriesHealth.hasErrors;
-  const previousHealthBlockedRef = useRef(isHealthBlocked);
-  const manifestStoredAt = manifest?.storedAt ?? null;
-  const previousManifestStoredAtRef = useRef<number | null>(manifestStoredAt);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -96,28 +155,12 @@ export function CategoryManager() {
   );
 
   const isDirty = useMemo(() => !categoriesEqual(drafts, original), [drafts, original]);
-  const isSaving = saveState === "saving";
-
-  const renderNormalizedBudget = useCallback(
-    (category: CategoryDraft) => {
-      const parsedBudget = Number.parseFloat(category.monthlyBudget);
-
-      if (!Number.isFinite(parsedBudget) || parsedBudget === 0) {
-        return "—";
-      }
-
-      const sourceCurrency = category.currencyCode || baseCurrency;
-      const converted = convertAmount(parsedBudget, sourceCurrency);
-
-      if (converted == null) {
-        return "…";
-      }
-
-      const approximate = sourceCurrency.toUpperCase() !== baseCurrency.toUpperCase();
-      return formatAmount(converted, approximate);
-    },
-    [convertAmount, formatAmount, baseCurrency],
+  const hasIncompleteDraft = useMemo(
+    () =>
+      drafts.some((draft) => !draft.label.trim() || !draft.color.trim()),
+    [drafts],
   );
+  const isSaving = saveState === "saving";
 
   const fetchCategories = useCallback(
     async (id: string) => {
@@ -134,37 +177,16 @@ export function CategoryManager() {
           throw new Error(message);
         }
 
-        const categories = Array.isArray(payload?.categories) ? payload.categories : [];
+        const source = Array.isArray(payload?.categories) ? payload.categories : [];
+        const normalized = normalizeDraftsFromResponse(
+          source.filter((item: unknown): item is Record<string, unknown> => !!item && typeof item === "object"),
+        );
 
-        const normalized: CategoryDraft[] = categories
-          .map((item: Record<string, unknown>) => ({
-            categoryId: String(item.categoryId ?? "").trim(),
-            label: String(item.label ?? "").trim(),
-            color: String(item.color ?? "").trim() || "#999999",
-            flowType:
-              String(item.flowType ?? "")
-                .trim()
-                .toLowerCase() === "income"
-                ? "income"
-                : "expense",
-            rolloverFlag: Boolean(item.rolloverFlag),
-            sortOrder:
-              typeof item.sortOrder === "number" && Number.isFinite(item.sortOrder)
-                ? item.sortOrder
-                : 0,
-            monthlyBudget:
-              typeof item.monthlyBudget === "number" && Number.isFinite(item.monthlyBudget)
-                ? item.monthlyBudget.toString()
-                : "",
-            currencyCode:
-              String(item.currencyCode ?? "").trim().toUpperCase() || baseCurrency.toUpperCase(),
-          }))
-          .sort((left: CategoryDraft, right: CategoryDraft) => left.sortOrder - right.sortOrder);
-
-        setOriginal(normalized.map((item: CategoryDraft) => ({ ...item })));
+        setOriginal(normalized.map((item) => ({ ...item })));
         setDrafts(normalized);
         setLoadState("ready");
         setLastSavedAt(null);
+        setSaveError(null);
 
         void debugLog("Loaded categories", { count: normalized.length });
       } catch (loadException) {
@@ -175,7 +197,7 @@ export function CategoryManager() {
         void debugLog("Category load error", { message });
       }
     },
-    [baseCurrency],
+    [],
   );
 
   useEffect(() => {
@@ -188,7 +210,7 @@ export function CategoryManager() {
     }
 
     void fetchCategories(spreadsheetId);
-  }, [spreadsheetId, fetchCategories]);
+  }, [fetchCategories, spreadsheetId]);
 
   useEffect(() => {
     const previousStoredAt = previousManifestStoredAtRef.current;
@@ -199,6 +221,10 @@ export function CategoryManager() {
     }
 
     if (shouldReloadAfterBootstrap(previousStoredAt, manifestStoredAt)) {
+      if (skipNextManifestReloadRef.current) {
+        skipNextManifestReloadRef.current = false;
+        return;
+      }
       void fetchCategories(spreadsheetId);
     }
   }, [fetchCategories, manifestStoredAt, spreadsheetId]);
@@ -216,73 +242,142 @@ export function CategoryManager() {
     }
   }, [fetchCategories, isHealthBlocked, spreadsheetId]);
 
+  const persistDrafts = useCallback(
+    async (payloadCategories: SerializableCategory[]) => {
+      if (!spreadsheetId) {
+        return;
+      }
+
+      setSaveError(null);
+      setSaveState("saving");
+
+      try {
+        const response = await fetch(
+          `/api/categories?spreadsheetId=${encodeURIComponent(spreadsheetId)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ categories: payloadCategories }),
+          },
+        );
+
+        const body = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          const message = typeof body?.error === "string" ? body.error : "Failed to save categories";
+          throw new Error(message);
+        }
+
+        const updatedSource = Array.isArray(body?.categories)
+          ? body.categories
+          : (payloadCategories as unknown as Array<Record<string, unknown>>);
+        const normalized = normalizeDraftsFromResponse(
+          updatedSource.filter((item: unknown): item is Record<string, unknown> =>
+            !!item && typeof item === "object",
+          ),
+        );
+
+        setOriginal(normalized.map((item) => ({ ...item })));
+        setDrafts(normalized);
+        setLastSavedAt(new Date().toISOString());
+
+        if (typeof window !== "undefined") {
+          skipNextManifestReloadRef.current = true;
+          const manifestRecord = saveManifest(window.localStorage, {
+            spreadsheetId,
+            storedAt: Date.now(),
+          });
+          emitManifestChange(manifestRecord);
+        }
+
+        void debugLog("Saved categories", { count: normalized.length });
+      } catch (saveException) {
+        const message =
+          saveException instanceof Error ? saveException.message : "Failed to save categories";
+        setSaveError(message);
+        void debugLog("Category save error", { message });
+      } finally {
+        setSaveState("idle");
+      }
+    },
+    [spreadsheetId],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (
+      !spreadsheetId ||
+      isHealthBlocked ||
+      !isDirty ||
+      loadState !== "ready" ||
+      isSaving ||
+      hasIncompleteDraft
+    ) {
+      return;
+    }
+
+    const payload = buildPayloadFromDrafts(drafts);
+
+    const timeoutId = window.setTimeout(() => {
+      void persistDrafts(payload);
+    }, AUTOSAVE_DELAY_MS);
+    pendingSaveTimeoutRef.current = timeoutId;
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      pendingSaveTimeoutRef.current = null;
+    };
+  }, [drafts, hasIncompleteDraft, isDirty, isHealthBlocked, isSaving, loadState, persistDrafts, spreadsheetId]);
+
   const handleAdd = useCallback(() => {
     if (isHealthBlocked) {
       return;
     }
 
     setDrafts((current) => {
-      const nextSort =
-        current.length > 0
-          ? Math.max(...current.map((item: CategoryDraft) => item.sortOrder)) + 1
-          : 1;
-      const blank = createBlankCategory(nextSort);
-      return [...current, { ...blank, currencyCode: baseCurrency }];
+      const nextSort = current.length > 0 ? Math.max(...current.map((item) => item.sortOrder)) + 1 : 1;
+      return [...current, createBlankCategory(nextSort)];
     });
-  }, [baseCurrency, isHealthBlocked]);
-
-  const handleDelete = useCallback((categoryId: string) => {
-    if (isHealthBlocked) {
-      return;
-    }
-
-    setDrafts((current) => current.filter((item: CategoryDraft) => item.categoryId !== categoryId));
   }, [isHealthBlocked]);
 
+  const handleDelete = useCallback(
+    (categoryId: string) => {
+      if (isHealthBlocked) {
+        return;
+      }
+
+      setDrafts((current) => {
+        const filtered = current.filter((item) => item.categoryId !== categoryId);
+        return resequenceDrafts(filtered);
+      });
+    },
+    [isHealthBlocked],
+  );
+
   const handleFieldChange = useCallback(
-    (categoryId: string, field: keyof CategoryDraft, value: string | boolean) => {
+    (categoryId: string, field: "label" | "color" | "description", value: string) => {
       if (isHealthBlocked) {
         return;
       }
 
       setDrafts((current) =>
-        current.map((item: CategoryDraft) => {
+        current.map((item) => {
           if (item.categoryId !== categoryId) {
             return item;
           }
 
-          if (field === "rolloverFlag") {
-            return { ...item, rolloverFlag: Boolean(value) };
+          if (field === "label") {
+            return { ...item, label: value };
           }
 
-          if (field === "sortOrder") {
-            const parsed = typeof value === "string" ? Number.parseInt(value, 10) : value;
-            return {
-              ...item,
-              sortOrder: Number.isFinite(parsed) ? Number(parsed) : item.sortOrder,
-            };
+          if (field === "color") {
+            return { ...item, color: value };
           }
 
-          if (field === "currencyCode") {
-            return {
-              ...item,
-              currencyCode: typeof value === "string" ? value.trim().toUpperCase() : item.currencyCode,
-            };
-          }
-
-          if (field === "flowType") {
-            const normalized =
-              typeof value === "string" && value.trim().toLowerCase() === "income"
-                ? "income"
-                : "expense";
-
-            return {
-              ...item,
-              flowType: normalized,
-            };
-          }
-
-          return { ...item, [field]: typeof value === "string" ? value : String(value) };
+          return { ...item, description: value };
         }),
       );
     },
@@ -294,98 +389,16 @@ export function CategoryManager() {
       return;
     }
 
-    setDrafts(original.map((item: CategoryDraft) => ({ ...item })));
+    setDrafts(original.map((item) => ({ ...item })));
     setSaveError(null);
     setLastSavedAt(null);
-  }, [original, isHealthBlocked]);
+  }, [isHealthBlocked, original]);
 
-  const handleSave = useCallback(async () => {
-    if (!spreadsheetId || drafts.length === 0 || isHealthBlocked) {
-      return;
+  const handleRefresh = useCallback(() => {
+    if (spreadsheetId) {
+      void fetchCategories(spreadsheetId);
     }
-
-    setSaveError(null);
-    setSaveState("saving");
-
-    const payload = {
-      categories: drafts.map((draft) => ({
-        categoryId: draft.categoryId,
-        label: draft.label.trim(),
-        color: draft.color.trim() || "#999999",
-        flowType: draft.flowType === "income" ? "income" : "expense",
-        rolloverFlag: draft.rolloverFlag,
-        sortOrder: Number(draft.sortOrder),
-        monthlyBudget:
-          draft.monthlyBudget.trim() === ""
-            ? 0
-            : Number.parseFloat(draft.monthlyBudget.trim()) || 0,
-        currencyCode: draft.currencyCode.trim().toUpperCase(),
-      })),
-    };
-
-    try {
-      const response = await fetch(`/api/categories?spreadsheetId=${encodeURIComponent(spreadsheetId)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const body = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        const message = typeof body?.error === "string" ? body.error : "Failed to save categories";
-        throw new Error(message);
-      }
-
-      const updated = Array.isArray(body?.categories) ? body.categories : payload.categories;
-
-      const normalized: CategoryDraft[] = updated
-        .map((item: Record<string, unknown>) => ({
-          categoryId: String(item.categoryId ?? "").trim(),
-          label: String(item.label ?? "").trim(),
-          color: String(item.color ?? "").trim() || "#999999",
-          flowType:
-            String(item.flowType ?? "")
-              .trim()
-              .toLowerCase() === "income"
-              ? "income"
-              : "expense",
-          rolloverFlag: Boolean(item.rolloverFlag),
-          sortOrder:
-            typeof item.sortOrder === "number" && Number.isFinite(item.sortOrder)
-              ? item.sortOrder
-              : 0,
-          monthlyBudget:
-            typeof item.monthlyBudget === "number" && Number.isFinite(item.monthlyBudget)
-              ? item.monthlyBudget.toString()
-              : "",
-          currencyCode: String(item.currencyCode ?? "").trim().toUpperCase(),
-        }))
-        .sort((left: CategoryDraft, right: CategoryDraft) => left.sortOrder - right.sortOrder);
-
-      setOriginal(normalized.map((item: CategoryDraft) => ({ ...item })));
-      setDrafts(normalized);
-
-      const savedAt = new Date().toISOString();
-      setLastSavedAt(savedAt);
-      void debugLog("Saved categories", { count: normalized.length, savedAt });
-
-      if (typeof window !== "undefined") {
-        const manifest = saveManifest(window.localStorage, {
-          spreadsheetId,
-          storedAt: Date.now(),
-        });
-        emitManifestChange(manifest);
-      }
-    } catch (saveException) {
-      const message =
-        saveException instanceof Error ? saveException.message : "Failed to save categories";
-      setSaveError(message);
-      void debugLog("Category save error", { message });
-    } finally {
-      setSaveState("idle");
-    }
-  }, [spreadsheetId, drafts, isHealthBlocked]);
+  }, [fetchCategories, spreadsheetId]);
 
   const handleManifestRefresh = useCallback(() => {
     if (typeof window === "undefined") {
@@ -396,6 +409,86 @@ export function CategoryManager() {
     setManifest(stored);
     void debugLog("Category manager refreshed manifest", stored);
   }, []);
+
+  const handleDragStart = useCallback((categoryId: string, event: DragEvent<HTMLButtonElement>) => {
+    dragSourceIdRef.current = categoryId;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", categoryId);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    dragSourceIdRef.current = null;
+  }, []);
+
+  const handleRowDrop = useCallback(
+    (targetId: string) => {
+      const sourceId = dragSourceIdRef.current;
+      dragSourceIdRef.current = null;
+
+      if (!sourceId || sourceId === targetId) {
+        return;
+      }
+
+      setDrafts((current) => {
+        const sourceIndex = current.findIndex((item) => item.categoryId === sourceId);
+        const targetIndex = current.findIndex((item) => item.categoryId === targetId);
+
+        if (sourceIndex === -1 || targetIndex === -1) {
+          return current;
+        }
+
+        const reordered = current.slice();
+        const [moved] = reordered.splice(sourceIndex, 1);
+        reordered.splice(targetIndex, 0, moved);
+
+        return resequenceDrafts(reordered);
+      });
+    },
+    [],
+  );
+
+  const handleListDrop = useCallback(() => {
+    const sourceId = dragSourceIdRef.current;
+    dragSourceIdRef.current = null;
+
+    if (!sourceId) {
+      return;
+    }
+
+    setDrafts((current) => {
+      const sourceIndex = current.findIndex((item) => item.categoryId === sourceId);
+
+      if (sourceIndex === -1) {
+        return current;
+      }
+
+      const reordered = current.slice();
+      const [moved] = reordered.splice(sourceIndex, 1);
+      reordered.push(moved);
+
+      return resequenceDrafts(reordered);
+    });
+  }, []);
+
+  const autoSaveStatus = useMemo(() => {
+    if (hasIncompleteDraft) {
+      return "Fill required fields to save";
+    }
+
+    if (isSaving) {
+      return "Saving…";
+    }
+
+    if (isDirty) {
+      return "Unsaved changes";
+    }
+
+    if (lastSavedAt) {
+      return `Saved ${new Date(lastSavedAt).toLocaleTimeString()}`;
+    }
+
+    return "All changes saved";
+  }, [hasIncompleteDraft, isDirty, isSaving, lastSavedAt]);
 
   const blockingMessage = useMemo(() => {
     if (isHealthBlocked) {
@@ -449,9 +542,7 @@ export function CategoryManager() {
     if (drafts.length === 0) {
       return (
         <div className="flex flex-col items-start gap-4 rounded-lg border border-dashed accent-border accent-surface p-6 text-sm dark:bg-[color:color-mix(in_srgb,var(--color-accent)_22%,#0a0a0a_78%)] dark:text-[color:var(--color-accent-muted-foreground)]">
-          <p className="font-medium">
-            No categories yet. Add your first category to start planning budgets.
-          </p>
+          <p className="font-medium">No categories yet. Add your first category to start planning budgets.</p>
           <button
             type="button"
             onClick={handleAdd}
@@ -470,26 +561,57 @@ export function CategoryManager() {
           <table className="min-w-full divide-y divide-zinc-200/60 dark:divide-zinc-700/60">
             <thead className="bg-zinc-50/80 dark:bg-zinc-900/60">
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                <th className="w-10 px-3 py-2">Move</th>
                 <th className="px-3 py-2">Label</th>
                 <th className="px-3 py-2">Color</th>
-                <th className="px-3 py-2">Monthly budget</th>
-                <th className="px-3 py-2">Currency</th>
-                 <th className="px-3 py-2">Normalized ({baseCurrency})</th>
-                <th className="px-3 py-2">Rollover</th>
-                <th className="px-3 py-2">Sort</th>
-                <th className="px-3 py-2 text-right">Actions</th>
+                <th className="px-3 py-2">Description</th>
+                <th className="w-16 px-3 py-2 text-right">Order</th>
+                <th className="w-24 px-3 py-2 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100/70 bg-white/80 text-sm dark:divide-zinc-800 dark:bg-zinc-900/70">
-              {drafts.map((category) => (
-                <tr key={category.categoryId}>
+            <tbody
+              className="divide-y divide-zinc-100/70 bg-white/80 text-sm dark:divide-zinc-800 dark:bg-zinc-900/70"
+              onDragOver={(event) => {
+                if (event.target === event.currentTarget) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                handleListDrop();
+              }}
+            >
+              {drafts.map((category, index) => (
+                <tr
+                  key={category.categoryId}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    handleRowDrop(category.categoryId);
+                  }}
+                >
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      draggable
+                      onDragStart={(event) => handleDragStart(category.categoryId, event)}
+                      onDragEnd={handleDragEnd}
+                      aria-label={`Reorder ${category.label || "category"}`}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300/70 bg-white text-lg text-zinc-500 shadow-sm transition hover:bg-zinc-100 active:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      disabled={isHealthBlocked}
+                    >
+                      ☰
+                    </button>
+                  </td>
                   <td className="px-3 py-2">
                     <input
                       type="text"
                       value={category.label}
-                      onChange={(event) =>
-                        handleFieldChange(category.categoryId, "label", event.target.value)
-                      }
+                      onChange={(event) => handleFieldChange(category.categoryId, "label", event.target.value)}
                       placeholder="Category name"
                       disabled={isHealthBlocked}
                       className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
@@ -499,78 +621,29 @@ export function CategoryManager() {
                     <input
                       type="text"
                       value={category.color}
-                      onChange={(event) =>
-                        handleFieldChange(category.categoryId, "color", event.target.value)
-                      }
+                      onChange={(event) => handleFieldChange(category.categoryId, "color", event.target.value)}
                       placeholder="#RRGGBB"
                       disabled={isHealthBlocked}
                       className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                     />
                   </td>
                   <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      inputMode="decimal"
-                      value={category.monthlyBudget}
-                      onChange={(event) =>
-                        handleFieldChange(category.categoryId, "monthlyBudget", event.target.value)
-                      }
+                    <textarea
+                      value={category.description}
+                      onChange={(event) => handleFieldChange(category.categoryId, "description", event.target.value)}
+                      placeholder="Optional details"
+                      rows={1}
                       disabled={isHealthBlocked}
-                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                      className="h-16 w-full resize-none rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
                     />
                   </td>
-                  <td className="px-3 py-2">
-                    <select
-                      value={category.currencyCode}
-                      onChange={(event) =>
-                        handleFieldChange(category.categoryId, "currencyCode", event.target.value)
-                      }
-                      disabled={isHealthBlocked}
-                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
-                    >
-                      {availableCurrencies.map((currency) => (
-                        <option key={currency} value={currency}>
-                          {currency}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300">
-                    {renderNormalizedBudget(category)}
-                  </td>
-                  <td className="px-3 py-2">
-                    <label className="inline-flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">
-                      <input
-                        type="checkbox"
-                        checked={category.rolloverFlag}
-                        onChange={(event) =>
-                          handleFieldChange(category.categoryId, "rolloverFlag", event.target.checked)
-                        }
-                        disabled={isHealthBlocked}
-                        className="h-4 w-4 rounded border border-zinc-300 accent-text focus:accent-ring disabled:cursor-not-allowed disabled:opacity-60"
-                      />
-                      Allow rollover
-                    </label>
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      value={category.sortOrder}
-                      onChange={(event) =>
-                        handleFieldChange(category.categoryId, "sortOrder", event.target.value)
-                      }
-                      disabled={isHealthBlocked}
-                      className="w-24 rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
-                    />
-                  </td>
+                  <td className="px-3 py-2 text-right text-sm text-zinc-500 dark:text-zinc-300">{index + 1}</td>
                   <td className="px-3 py-2 text-right">
                     <button
                       type="button"
                       onClick={() => handleDelete(category.categoryId)}
                       disabled={isHealthBlocked}
-                      className="inline-flex items-center rounded-md bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-rose-900/50 dark:text-rose-100 dark:hover:bg-rose-900"
+                      className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                     >
                       Delete
                     </button>
@@ -579,51 +652,6 @@ export function CategoryManager() {
               ))}
             </tbody>
           </table>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={isHealthBlocked}
-              className="inline-flex items-center rounded-md accent-bg px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:accent-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Add category
-            </button>
-            <button
-              type="button"
-              onClick={handleReset}
-              disabled={!isDirty || isSaving || isHealthBlocked}
-              className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              Reset changes
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {lastSavedAt ? (
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                Saved {new Date(lastSavedAt).toLocaleTimeString()}
-              </span>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => void fetchCategories(spreadsheetId)}
-              disabled={isSaving}
-              className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              Refresh
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!isDirty || isSaving || drafts.length === 0 || isHealthBlocked}
-              className="inline-flex items-center rounded-md accent-bg px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:accent-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSaving ? "Saving…" : "Save changes"}
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -635,7 +663,7 @@ export function CategoryManager() {
         <div>
           <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Categories</h2>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-            Edit category labels, colors, rollover behavior, and ordering. These updates sync directly to your Google Sheet.
+            Edit category names, colors, descriptions, and ordering. Changes save automatically.
           </p>
         </div>
         {categoriesSheetUrl ? (
@@ -673,6 +701,38 @@ export function CategoryManager() {
               </a>
             ) : null}
           </div>
+        </div>
+      ) : null}
+
+      {!blockingMessage ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleAdd}
+              disabled={isHealthBlocked}
+              className="inline-flex items-center rounded-md accent-bg px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:accent-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Add category
+            </button>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isSaving}
+              className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={handleReset}
+              disabled={!isDirty || isSaving}
+              className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              Undo changes
+            </button>
+          </div>
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-300">{autoSaveStatus}</span>
         </div>
       ) : null}
 
