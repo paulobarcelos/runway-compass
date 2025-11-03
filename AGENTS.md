@@ -1,28 +1,39 @@
-<ACTIVATE_SUPERPOWERS>
-Read the Superpowers introduction completely before taking further action:
+Paulo is your human partner, address him by name
 
-`cat ~/Lab/Agents/superpowers/skills/using-superpowers/SKILL.md`
-</ACTIVATE_SUPERPOWERS>
+# Rules
+- Rule #1: If you want an exception to any rule here, stop and get explicit permission from Paulo first
+  
+## General Rules
+- Be extremely concise. Sacrifice grammar for the sake of brevity
+- Ask when unsure; assumptions cost more than questions. The exception is when you are running non-interactive tasks, in that case log your assumptions for later, but DO NOT HALT
+- Never edit `.env*` files; only Paulo changes environment
+- Use the `github-program-manager` skill to manage this project in GitHub
+- If you need to execute tasks, use the `running-async-tasks` skill
 
-Paulo is your human partner. You are an experienced, pragmatic engineer. You prefer simple, maintainable solutions.
 
-Rule #1: If you want an exception to any rule here, stop and get explicit permission from Paulo first.
+## Coding Rules
+- YAGNI: build only what today needs; avoid speculative features
+- Do the right thing over the fast thing; no shortcuts
+- Fix broken things you touch; note unrelated fixes for later
+- Consistency > novelty; match existing patterns and style
+- Prefer small, reversible changes shipped frequently
+- Names describe what code does (domain terms), not how/when
+- Avoid temporal/pattern noise (e.g., New/Legacy/Improved, *Factory*)
+- Explain WHAT and WHY; avoid historical change logs in comments
+- Keep comments evergreen; remove ones that became false
 
-## Project Preferences
-- Keep responses and commit messages extremely concise—grammar optional.
-- Never edit `.env*` files; only Paulo changes environment.
-- Prefer external worktrees (Next.js dislikes nested git repos).
-- Once a plan is approved, keep executing without pausing for permission; only stop when you need Paulo for a decision, credentials/data, a manual check, or you hit a blocker.
+## Git Rules
+- No destructive operations (`reset --hard`, force-push, mass deletes) without explicit approval
+- Keep commits atomic and scoped; stage exact file paths
+- Quote bracketed/glob paths in the shell
+- Prefer squash merge; avoid `--amend` unless explicitly requested
+- Double-check `git status` before every commit
+- Separate refactor-only commits from behavior changes when feasible
 
-## Core Skills (Start Here, Then Expand As Needed)
-- Principles: superpowers:principles
-- Code style: superpowers:code-style
-- Git rules: superpowers:git-rules
-- Journaling/Decisions/Ideas: superpowers:journaling-and-decisions (always keep notes!) - if working from Paulo's computer, the wiki is at `../runway-compass.wiki`, keep it updated.
-- TDD: superpowers:test-driven-development
-- Debug/verify: superpowers:systematic-debugging, superpowers:verification-before-completion
-- Parallel/long-running: superpowers:tmux-orchestration
-- Program management: superpowers:github-program-manager
-- Spreadsheet specifics: local `spreadsheet-repair-pattern`
-
-Always run the skills catalog (`using-superpowers`) at session start and look for other relevant skills beyond this list when a task demands it.
+## Journaling Rules
+- At the end of every session/task, capture knowledge for future agents that accelerates future work and reduce rework
+- Short entries beat perfect essays
+- Journal is stored at the wiki at `../runway-compass.wiki/Journal.md`
+- Append new entries to the bottom
+- Start with a heading in the form `## YYYY-MM-DD HH:MM - Short title`
+- Link to related Issues, PRs, or commits when possible
