@@ -1,8 +1,9 @@
 "use client";
 
-import { Hydrate, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Hydrate, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { createQueryClient } from "@/lib/query";
 
 type QueryProviderProps = {
   children: ReactNode;
@@ -10,22 +11,7 @@ type QueryProviderProps = {
 };
 
 export function QueryProvider({ children, dehydratedState }: QueryProviderProps) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 30_000,
-            retry: 2,
-            refetchOnWindowFocus: true,
-            refetchOnReconnect: true,
-          },
-          mutations: {
-            retry: 3,
-          },
-        },
-      }),
-  );
+  const [queryClient] = useState(() => createQueryClient());
 
   return (
     <QueryClientProvider client={queryClient}>
