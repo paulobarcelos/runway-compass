@@ -32,6 +32,4 @@ yarn-error.log*
 .worktrees/
 *.tsbuildinfo
 next-env.d.ts
-.tmux-tasks/*
-!.tmux-tasks/.gitkeep
-/.async-tasks/
+.async-tasks/
