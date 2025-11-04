@@ -26,13 +26,16 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await getSession();
+  const dehydratedState = undefined;
 
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground antialiased`}
       >
-        <AppProviders session={session}>{children}</AppProviders>
+        <AppProviders dehydratedState={dehydratedState} session={session}>
+          {children}
+        </AppProviders>
       </body>
     </html>
   );
