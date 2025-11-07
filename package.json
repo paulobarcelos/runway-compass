@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint --max-warnings=0 --ext .js,.jsx,.ts,.tsx .",
-    "test": "node --test tests/*.cjs"
+    "test": "NODE_OPTIONS=--max-old-space-size=4096 node --test tests/*.cjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.6",

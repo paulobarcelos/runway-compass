@@ -4,6 +4,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { AppProviders } from "@/components/providers/app-providers";
 import { createQueryClient, dehydrate, queryKeys } from "@/lib/query";
 import { getCategories } from "@/app/(authenticated)/actions/categories-actions";
+import { getBudgetPlan } from "@/app/(authenticated)/actions/budget-plan-actions";
 import { requireSession } from "@/server/auth/session";
 import { ConnectSpreadsheetCard } from "@/components/spreadsheet/connect-spreadsheet-card";
 import { BaseCurrencySelector } from "@/components/currency/base-currency-selector";
@@ -30,6 +31,15 @@ export default async function Home() {
       });
     } catch (error) {
       console.error("Failed to prefetch categories", error);
+    }
+
+    try {
+      await queryClient.prefetchQuery({
+        queryKey: queryKeys.budgetPlan(spreadsheetId),
+        queryFn: () => getBudgetPlan({ spreadsheetId }),
+      });
+    } catch (error) {
+      console.error("Failed to prefetch budget plan", error);
     }
   }
 

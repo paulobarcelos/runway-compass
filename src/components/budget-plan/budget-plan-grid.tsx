@@ -10,7 +10,7 @@ import type {
   BudgetPlanManagerCell,
   BudgetPlanManagerRow,
   BudgetPlanManagerState,
-} from "./use-budget-plan-manager";
+} from "./use-budget-plan";
 
 const MAX_HORIZON_MONTHS = 120;
 
