@@ -3,5 +3,9 @@ export function formatMutationError(error: unknown): string {
     return error.message;
   }
 
+  if (typeof error === "string" && error.trim()) {
+    return error.trim();
+  }
+
   return "Sync failed. Please retry.";
 }

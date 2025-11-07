@@ -46,3 +46,45 @@ export function categoriesEqual(a: CategoryDraft[], b: CategoryDraft[]) {
 
   return true;
 }
+
+export function resequenceDrafts(list: CategoryDraft[]): CategoryDraft[] {
+  return list.map((item, index) => ({ ...item, sortOrder: index + 1 }));
+}
+
+export function normalizeDraftsFromResponse(source: Array<Record<string, unknown>>): CategoryDraft[] {
+  const normalized = source
+    .map((item) => ({
+      categoryId: String(item.categoryId ?? "").trim(),
+      label: String(item.label ?? "").trim(),
+      color: String(item.color ?? "").trim(),
+      description: String(item.description ?? "").trim(),
+      sortOrder:
+        typeof item.sortOrder === "number" && Number.isFinite(item.sortOrder)
+          ? item.sortOrder
+          : 0,
+    }))
+    .filter((item) => item.categoryId && item.label);
+
+  normalized.sort((left, right) => {
+    if (left.sortOrder !== right.sortOrder) {
+      return left.sortOrder - right.sortOrder;
+    }
+
+    return left.label.localeCompare(right.label);
+  });
+
+  return normalized.map((item, index) => ({
+    ...item,
+    sortOrder: index + 1,
+  }));
+}
+
+export function buildSerializableCategories(drafts: CategoryDraft[]): CategoryDraft[] {
+  return drafts.map((draft, index) => ({
+    categoryId: draft.categoryId,
+    label: draft.label.trim(),
+    color: draft.color.trim(),
+    description: draft.description.trim(),
+    sortOrder: index + 1,
+  }));
+}

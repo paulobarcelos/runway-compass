@@ -2,6 +2,7 @@
 // ABOUTME: Wraps session and base-currency contexts for descendant components.
 "use client";
 
+import type { DehydratedState } from "@tanstack/react-query";
 import type { Session } from "next-auth";
 import type { ReactNode } from "react";
 
@@ -11,7 +12,7 @@ import { QueryProvider } from "@/components/providers/query-client-provider";
 
 type AppProvidersProps = {
   children: ReactNode;
-  dehydratedState?: unknown;
+  dehydratedState?: DehydratedState | null;
   session: Session | null;
 };
 

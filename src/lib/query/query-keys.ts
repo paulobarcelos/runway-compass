@@ -1,6 +1,11 @@
+type SheetQueryKey<TSuffix extends string | undefined = undefined> = TSuffix extends string
+  ? readonly ["sheet", string, TSuffix]
+  : readonly ["sheet", string];
+
 export const queryKeys = {
-  sheet: (sheetId: string) => ["sheet", sheetId] as const,
-  categories: (sheetId: string) => ["sheet", sheetId, "categories"] as const,
-  budgetPlan: (sheetId: string) => ["sheet", sheetId, "budget-plan"] as const,
-  // add more slices as rollout continues
+  sheet: (sheetId: string): SheetQueryKey => ["sheet", sheetId] as const,
+  categories: (sheetId: string): SheetQueryKey<"categories"> =>
+    ["sheet", sheetId, "categories"] as const,
+  budgetPlan: (sheetId: string): SheetQueryKey<"budget-plan"> =>
+    ["sheet", sheetId, "budget-plan"] as const,
 };

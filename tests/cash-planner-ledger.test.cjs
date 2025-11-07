@@ -16,7 +16,7 @@ const originalLoad = Module._load;
 
 Module._load = function patchedLoad(request, parent, isMain) {
   if (request === "@/components/currency/base-currency-context") {
-    return require("./helpers/stubs/base-currency-context.tsx");
+    return require("./helpers/stubs/base-currency-context.ts");
   }
 
   return originalLoad(request, parent, isMain);
@@ -45,7 +45,7 @@ const {
   BaseCurrencyProvider,
   __setBaseCurrencyTestValue,
   __resetBaseCurrencyTestValue,
-} = require("./helpers/stubs/base-currency-context.tsx");
+} = require("./helpers/stubs/base-currency-context.ts");
 
 async function renderLedger(props) {
   const { CashPlannerLedger } = require("../src/components/cash-planner/cash-planner-ledger");
