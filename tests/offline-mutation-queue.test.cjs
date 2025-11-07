@@ -78,7 +78,7 @@ afterEach(() => {
   }
 });
 
-async function renderQueue(initialMutateAsync) {
+async function renderQueue(initialMutateAsync, queueOptions) {
   const jiti = createTestJiti(__filename);
   const { useOfflineMutationQueue } = await jiti.import(
     "../src/lib/query/offline-mutation-queue",
@@ -94,7 +94,7 @@ async function renderQueue(initialMutateAsync) {
         }),
       [mutateAsync],
     );
-    latest = useOfflineMutationQueue(mutation);
+    latest = useOfflineMutationQueue(mutation, queueOptions);
     return null;
   }
 
@@ -124,6 +124,71 @@ async function renderQueue(initialMutateAsync) {
       if (container.parentNode) {
         container.parentNode.removeChild(container);
       }
+    },
+  };
+}
+
+function installManualFakeTimers() {
+  const originals = {
+    windowSetTimeout: window.setTimeout,
+    windowClearTimeout: window.clearTimeout,
+    globalSetTimeout: global.setTimeout,
+    globalClearTimeout: global.clearTimeout,
+  };
+
+  let now = 0;
+  let nextId = 1;
+  const tasks = [];
+
+  const sortTasks = () => {
+    tasks.sort((a, b) => a.time - b.time);
+  };
+
+  const setTimeoutStub = (callback, delay = 0, ...args) => {
+    const timeout = Math.max(0, Number(delay) || 0);
+    const id = nextId++;
+    tasks.push({ id, time: now + timeout, callback, args });
+    sortTasks();
+    return id;
+  };
+
+  const clearTimeoutStub = (id) => {
+    const index = tasks.findIndex((task) => task.id === id);
+    if (index >= 0) {
+      tasks.splice(index, 1);
+    }
+  };
+
+  const advanceTimersByTime = (milliseconds) => {
+    const target = now + Math.max(0, Number(milliseconds) || 0);
+    while (tasks.length > 0) {
+      sortTasks();
+      const next = tasks[0];
+      if (!next || next.time > target) {
+        break;
+      }
+
+      tasks.shift();
+      now = next.time;
+      next.callback(...next.args);
+    }
+    now = target;
+  };
+
+  window.setTimeout = setTimeoutStub;
+  window.clearTimeout = clearTimeoutStub;
+  global.setTimeout = setTimeoutStub;
+  global.clearTimeout = clearTimeoutStub;
+
+  return {
+    advanceTimersByTime,
+    restore() {
+      window.setTimeout = originals.windowSetTimeout;
+      window.clearTimeout = originals.windowClearTimeout;
+      global.setTimeout = originals.globalSetTimeout;
+      global.clearTimeout = originals.globalClearTimeout;
+      tasks.length = 0;
+      now = 0;
     },
   };
 }
@@ -231,4 +296,61 @@ test("enqueue while offline replaces pending entry with latest snapshot", async 
   assert.equal(view.queue.pending, 0, "queue drains after flush");
 
   view.cleanup();
+});
+
+test("online reconnect waits for delay before flushing queue once", async () => {
+  setNavigatorOnline(false);
+
+  const timers = installManualFakeTimers();
+  const flushedPayloads = [];
+  let reconnectCalls = 0;
+
+  const view = await renderQueue(
+    async (variables) => {
+      flushedPayloads.push(variables);
+      return null;
+    },
+    {
+      reconnectDelayMs: 200,
+      onReconnect: () => {
+        reconnectCalls += 1;
+      },
+    },
+  );
+
+  let pendingResult;
+
+  try {
+    await act(async () => {
+      pendingResult = view.queue.enqueue({ version: "latest" });
+    });
+    await flushMicrotasks();
+
+    setNavigatorOnline(true);
+    await act(async () => {
+      window.dispatchEvent(new window.Event("online"));
+    });
+    await flushMicrotasks();
+
+    assert.equal(flushedPayloads.length, 0, "flush does not happen before delay");
+
+    timers.advanceTimersByTime(150);
+    await flushMicrotasks();
+    assert.equal(flushedPayloads.length, 0, "queue still pending before timer completes");
+
+    timers.advanceTimersByTime(100);
+    await flushMicrotasks();
+
+    assert.deepEqual(flushedPayloads, [{ version: "latest" }], "delayed flush runs once");
+    const resolved = await pendingResult;
+    assert.equal(resolved, null, "offline enqueue resolves after reconnect flush");
+    assert.equal(reconnectCalls, 1, "onReconnect runs after successful flush");
+
+    timers.advanceTimersByTime(1000);
+    await flushMicrotasks();
+    assert.equal(flushedPayloads.length, 1, "no duplicate flush after reconnect");
+  } finally {
+    timers.restore();
+    view.cleanup();
+  }
 });

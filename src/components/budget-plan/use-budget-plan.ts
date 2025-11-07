@@ -26,7 +26,12 @@ import {
   type BudgetPlanRow,
 } from "@/lib/budget-plan/grid-transforms";
 import { debugLog } from "@/lib/debug-log";
-import { formatMutationError, queryKeys, useOfflineMutationQueue } from "@/lib/query";
+import {
+  formatMutationError,
+  queryKeys,
+  useOfflineMutationQueue,
+  useSheetInvalidation,
+} from "@/lib/query";
 import {
   getBudgetPlan,
   saveBudgetPlan,
@@ -254,6 +259,7 @@ export function useBudgetPlan(
   const queryClient = useQueryClient();
   const { baseCurrency, convertAmount, formatAmount } = useBaseCurrency();
   const { query: categoriesQuery } = useCategories(spreadsheetId);
+  const { invalidate } = useSheetInvalidation(spreadsheetId ?? undefined);
 
   const categories = useMemo(
     () => normalizeCategories(categoriesQuery.data ?? []),
@@ -281,6 +287,7 @@ export function useBudgetPlan(
   const budgetPlanQuery: UseQueryResult<BudgetPlanPayload> = useQuery<BudgetPlanPayload>({
     queryKey: budgetPlanKey,
     enabled,
+    refetchInterval: enabled ? 30_000 : false, // keep heavy grid close to live sheet when editing
     queryFn: async () => {
       if (!spreadsheetId) {
         return {
@@ -396,7 +403,9 @@ export function useBudgetPlan(
     },
   });
 
-  const offlineQueue = useOfflineMutationQueue(mutation);
+  const offlineQueue = useOfflineMutationQueue(mutation, {
+    onReconnect: invalidate,
+  });
 
   const months = draft?.months ?? baselineGrid?.months ?? [];
 
@@ -669,8 +678,9 @@ export function useBudgetPlan(
 
     setLoadError(null);
     setSaveError(null);
-    await refetchBudgetPlan();
-  }, [refetchBudgetPlan, spreadsheetId]);
+    await invalidate();
+    return refetchBudgetPlan();
+  }, [invalidate, refetchBudgetPlan, spreadsheetId]);
 
   const updateHorizon = useCallback(
     async (next: BudgetHorizonMetadata, action: "expand" | "shrink" | "apply") => {

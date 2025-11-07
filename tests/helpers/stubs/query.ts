@@ -3,3 +3,4 @@ export * from "../../../src/lib/query/mutation-error";
 export * from "../../../src/lib/query/query-client";
 export * from "../../../src/lib/query/query-keys";
 export { useOfflineMutationQueue } from "./offline-mutation-queue";
+export { useSheetInvalidation } from "../../../src/lib/query/use-sheet-invalidation";

@@ -100,8 +100,10 @@ export function CategoryManager() {
     [categoriesHealth.sheetGid, spreadsheetId],
   );
 
-  const { query, mutation, mutationError } = useCategories(spreadsheetId);
-  const offlineQueue = useOfflineMutationQueue(mutation);
+  const { query, mutation, mutationError, invalidate } = useCategories(spreadsheetId);
+  const offlineQueue = useOfflineMutationQueue(mutation, {
+    onReconnect: invalidate,
+  });
 
   const loadState = useMemo<LoadState>(() => {
     if (!spreadsheetId) {

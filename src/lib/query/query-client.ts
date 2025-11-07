@@ -9,6 +9,7 @@ export function createQueryClient() {
         retry: 2,
         refetchOnWindowFocus: true,
         refetchOnReconnect: true,
+        refetchIntervalInBackground: true, // keep background polling alive when tab hidden
       },
       mutations: {
         retry: 3,

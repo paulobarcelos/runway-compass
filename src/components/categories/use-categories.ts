@@ -10,7 +10,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 
-import { formatMutationError, queryKeys } from "@/lib/query";
+import { formatMutationError, queryKeys, useSheetInvalidation } from "@/lib/query";
 import {
   buildSerializableCategories,
   normalizeDraftsFromResponse,
@@ -31,16 +31,19 @@ interface UseCategoriesResult {
     { previous?: CategoryDraft[] }
   >;
   mutationError: string | null;
+  invalidate: () => Promise<void>;
 }
 
 export function useCategories(spreadsheetId: string | null): UseCategoriesResult {
   const enabled = typeof spreadsheetId === "string" && spreadsheetId.length > 0;
   const queryClient = useQueryClient();
   const key = enabled ? queryKeys.categories(spreadsheetId!) : ["sheet", "noop", "categories"];
+  const { invalidate } = useSheetInvalidation(spreadsheetId ?? undefined);
 
   const query = useQuery<CategoryDraft[]>({
     queryKey: key,
     enabled,
+    refetchInterval: enabled ? 60_000 : false, // minute-level drift protection for shared sheet edits
     queryFn: async () => {
       if (!spreadsheetId) {
         return [];
@@ -123,5 +126,5 @@ export function useCategories(spreadsheetId: string | null): UseCategoriesResult
     return null;
   }, [mutation.error, mutation.isError]);
 
-  return { query, mutation, mutationError };
+  return { query, mutation, mutationError, invalidate };
 }
