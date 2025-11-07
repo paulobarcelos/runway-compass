@@ -405,6 +405,7 @@ export function useBudgetPlan(
 
   const offlineQueue = useOfflineMutationQueue(mutation, {
     onReconnect: invalidate,
+    resetKey: spreadsheetId ?? null,
   });
 
   const months = draft?.months ?? baselineGrid?.months ?? [];

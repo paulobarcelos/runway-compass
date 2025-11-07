@@ -7,6 +7,7 @@ import type { UseMutationResult } from "@tanstack/react-query";
 interface OfflineMutationQueueResult<TData, TVariables> {
   enqueue: (variables: TVariables) => Promise<TData | null>;
   flush: () => Promise<void>;
+  reset: () => void;
   isOnline: boolean;
   pending: number;
 }
@@ -14,6 +15,7 @@ interface OfflineMutationQueueResult<TData, TVariables> {
 type OfflineMutationQueueOptions = {
   onReconnect?: () => void;
   reconnectDelayMs?: number;
+  resetKey?: unknown;
 };
 
 type QueueEntry<TData, TVariables> = {
@@ -99,6 +101,23 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
 
   const reconnectDelay = options?.reconnectDelayMs ?? 500;
   const onReconnect = options?.onReconnect;
+  const resetKey = options?.resetKey ?? null;
+
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimeoutRef.current !== null) {
+      clearTimeout(reconnectTimeoutRef.current as ReturnType<typeof setTimeout>);
+      reconnectTimeoutRef.current = null;
+    }
+  }, []);
+
+  const resetQueue = useCallback(() => {
+    if (queueRef.current.length > 0) {
+      queueRef.current = [];
+      forceRender();
+    }
+
+    clearReconnectTimer();
+  }, [clearReconnectTimer, forceRender]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -106,10 +125,7 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
     }
 
     const handleReconnectFlush = () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-
+      clearReconnectTimer();
       reconnectTimeoutRef.current = window.setTimeout(async () => {
         reconnectTimeoutRef.current = null;
         await flush();
@@ -126,26 +142,24 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
     };
 
     const handleOffline = () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
+      clearReconnectTimer();
       isOnlineRef.current = false;
       setIsOnlineState(false);
     };
 
     window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
+      window.addEventListener("offline", handleOffline);
 
-    return () => {
-      window.removeEventListener("online", handleOnline);
+      return () => {
+        window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
+      clearReconnectTimer();
     };
-  }, [flush, onReconnect, reconnectDelay]);
+  }, [clearReconnectTimer, flush, onReconnect, reconnectDelay]);
+
+  useEffect(() => {
+    resetQueue();
+  }, [resetKey, resetQueue]);
 
   const enqueue = useCallback(
     async (variables: TVariables) => {
@@ -194,6 +208,7 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
     },
     enqueue,
     flush,
+    reset: resetQueue,
     isOnline: isOnlineState,
   };
 }

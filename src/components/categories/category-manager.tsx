@@ -103,6 +103,7 @@ export function CategoryManager() {
   const { query, mutation, mutationError, invalidate } = useCategories(spreadsheetId);
   const offlineQueue = useOfflineMutationQueue(mutation, {
     onReconnect: invalidate,
+    resetKey: spreadsheetId ?? null,
   });
 
   const loadState = useMemo<LoadState>(() => {

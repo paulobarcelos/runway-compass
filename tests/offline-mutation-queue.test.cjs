@@ -78,7 +78,7 @@ afterEach(() => {
   }
 });
 
-async function renderQueue(initialMutateAsync, queueOptions) {
+async function renderQueue(initialMutateAsync, initialQueueOptions) {
   const jiti = createTestJiti(__filename);
   const { useOfflineMutationQueue } = await jiti.import(
     "../src/lib/query/offline-mutation-queue",
@@ -86,7 +86,7 @@ async function renderQueue(initialMutateAsync, queueOptions) {
 
   let latest;
 
-  function Harness({ mutateAsync }) {
+  function Harness({ mutateAsync, queueOptions }) {
     const mutation = React.useMemo(
       () =>
         ({
@@ -102,20 +102,35 @@ async function renderQueue(initialMutateAsync, queueOptions) {
   document.body.appendChild(container);
   const root = createRoot(container);
 
-  async function renderWith(fn) {
+  let currentMutate = initialMutateAsync;
+  let currentOptions = initialQueueOptions;
+
+  async function renderWith(fn, nextOptions) {
+    if (typeof fn === "function") {
+      currentMutate = fn;
+    }
+    if (nextOptions !== undefined) {
+      currentOptions = nextOptions;
+    }
+
     await act(async () => {
-      root.render(React.createElement(Harness, { mutateAsync: fn }));
+      root.render(
+        React.createElement(Harness, {
+          mutateAsync: currentMutate,
+          queueOptions: currentOptions,
+        }),
+      );
     });
   }
 
-  await renderWith(initialMutateAsync);
+  await renderWith(initialMutateAsync, initialQueueOptions);
 
   return {
     get queue() {
       return latest;
     },
-    async rerender(fn) {
-      await renderWith(fn);
+    async rerender(fn, nextOptions) {
+      await renderWith(fn, nextOptions);
     },
     cleanup() {
       act(() => {
@@ -353,4 +368,28 @@ test("online reconnect waits for delay before flushing queue once", async () => 
     timers.restore();
     view.cleanup();
   }
+});
+
+test("resetKey clears queued payloads when spreadsheet changes", async () => {
+  setNavigatorOnline(false);
+
+  const view = await renderQueue(
+    async () => {
+      throw new Error("should not flush while offline");
+    },
+    { resetKey: "sheet-123" },
+  );
+
+  await act(async () => {
+    void view.queue.enqueue({ version: "sheet-123" });
+  });
+  await flushMicrotasks();
+
+  assert.equal(view.queue.pending, 1, "initial queue holds payload");
+
+  await view.rerender(undefined, { resetKey: "sheet-456" });
+  await flushMicrotasks();
+
+  assert.equal(view.queue.pending, 0, "queue clears when resetKey changes");
+  view.cleanup();
 });
