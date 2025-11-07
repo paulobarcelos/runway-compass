@@ -23,6 +23,8 @@ type QueueEntry<TData, TVariables> = {
   promise: Promise<TData | null>;
 };
 
+type TimeoutHandle = ReturnType<typeof setTimeout> | number;
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (error: Error) => void;
@@ -41,7 +43,7 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
 ): OfflineMutationQueueResult<TData, TVariables> {
   const queueRef = useRef<Array<QueueEntry<TData, TVariables>>>([]);
   const flushPromiseRef = useRef<Promise<void> | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimeoutRef = useRef<TimeoutHandle | null>(null);
   const [, forceRender] = useReducer((count) => count + 1, 0);
   const [isOnlineState, setIsOnlineState] = useState<boolean>(() => {
     if (typeof window === "undefined" || typeof navigator === "undefined") {
