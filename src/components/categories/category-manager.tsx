@@ -18,7 +18,6 @@ import {
   type ManifestRecord,
 } from "@/lib/manifest-store";
 import { emitManifestChange, subscribeToManifestChange } from "@/lib/manifest-events";
-import { debugLog } from "@/lib/debug-log";
 import { useSpreadsheetHealth } from "@/components/spreadsheet/spreadsheet-health-context";
 import {
   buildSheetUrl,
@@ -26,74 +25,24 @@ import {
   shouldReloadAfterBootstrap,
   shouldRetryAfterRecovery,
 } from "@/components/spreadsheet/spreadsheet-health-helpers";
+import { formatMutationError } from "@/lib/query";
+import { useOfflineMutationQueue } from "@/lib/query/offline-mutation-queue";
 import {
   categoriesEqual,
   createBlankCategory,
+  resequenceDrafts,
   type CategoryDraft,
 } from "./category-helpers";
+import { useCategories } from "./use-categories";
+import { ManagerHeader } from "@/components/managers";
+import type { ManagerHeaderStatusTone } from "@/components/managers";
 
 const AUTOSAVE_DELAY_MS = 800;
 
 type LoadState = "idle" | "loading" | "error" | "ready";
-type SaveState = "idle" | "saving";
-
-type SerializableCategory = {
-  categoryId: string;
-  label: string;
-  color: string;
-  description: string;
-  sortOrder: number;
-};
-
-function normalizeDraftsFromResponse(
-  source: Array<Record<string, unknown>>,
-): CategoryDraft[] {
-  const normalized = source
-    .map((item) => ({
-      categoryId: String(item.categoryId ?? "").trim(),
-      label: String(item.label ?? "").trim(),
-      color: String(item.color ?? "").trim() || "#999999",
-      description: String(item.description ?? "").trim(),
-      sortOrder:
-        typeof item.sortOrder === "number" && Number.isFinite(item.sortOrder)
-          ? item.sortOrder
-          : 0,
-    }))
-    .filter((item) => item.categoryId && item.label && item.color);
-
-  const ordered = normalized.sort((left, right) => {
-    if (left.sortOrder !== right.sortOrder) {
-      return left.sortOrder - right.sortOrder;
-    }
-
-    return left.label.localeCompare(right.label);
-  });
-
-  return ordered.map((item, index) => ({
-    ...item,
-    sortOrder: index + 1,
-  }));
-}
-
-function buildPayloadFromDrafts(drafts: CategoryDraft[]): SerializableCategory[] {
-  return drafts.map((draft, index) => ({
-    categoryId: draft.categoryId,
-    label: draft.label.trim(),
-    color: draft.color.trim() || "#999999",
-    description: draft.description.trim(),
-    sortOrder: index + 1,
-  }));
-}
-
-function resequenceDrafts(list: CategoryDraft[]): CategoryDraft[] {
-  return list.map((item, index) => ({ ...item, sortOrder: index + 1 }));
-}
 
 export function CategoryManager() {
   const [manifest, setManifest] = useState<ManifestRecord | null>(null);
-  const [loadState, setLoadState] = useState<LoadState>("idle");
-  const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [original, setOriginal] = useState<CategoryDraft[]>([]);
   const [drafts, setDrafts] = useState<CategoryDraft[]>([]);
@@ -128,7 +77,6 @@ export function CategoryManager() {
     };
 
     updateManifest();
-    void debugLog("Category manager loaded manifest", loadManifest(window.localStorage));
 
     const unsubscribe = subscribeToManifestChange((record) => {
       setManifest(record);
@@ -154,63 +102,105 @@ export function CategoryManager() {
     [categoriesHealth.sheetGid, spreadsheetId],
   );
 
+  const { query, mutation, mutationError, invalidate } = useCategories(spreadsheetId);
+  const offlineQueue = useOfflineMutationQueue(mutation, {
+    onReconnect: invalidate,
+    resetKey: spreadsheetId ?? null,
+  });
+
+  const loadState = useMemo<LoadState>(() => {
+    if (!spreadsheetId) {
+      return "idle";
+    }
+
+    if (query.isLoading || query.status === "pending") {
+      return "loading";
+    }
+
+    if (query.isError) {
+      return "error";
+    }
+
+    if (Array.isArray(query.data)) {
+      return "ready";
+    }
+
+    return "idle";
+  }, [query.data, query.isError, query.isLoading, query.status, spreadsheetId]);
+
+  const loadError = useMemo(() => {
+    if (!query.isError) {
+      return null;
+    }
+
+    return formatMutationError(query.error);
+  }, [query.error, query.isError]);
+
   const isDirty = useMemo(() => !categoriesEqual(drafts, original), [drafts, original]);
   const hasIncompleteDraft = useMemo(
-    () =>
-      drafts.some((draft) => !draft.label.trim() || !draft.color.trim()),
+    () => drafts.some((draft) => !draft.label.trim()),
     [drafts],
   );
-  const isSaving = saveState === "saving";
+  const combinedSaveError = saveError ?? mutationError ?? null;
 
-  const fetchCategories = useCallback(
-    async (id: string) => {
-      setLoadState("loading");
-      setLoadError(null);
-
-      try {
-        const response = await fetch(`/api/categories?spreadsheetId=${encodeURIComponent(id)}`);
-        const payload = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          const message =
-            typeof payload?.error === "string" ? payload.error : "Failed to load categories";
-          throw new Error(message);
-        }
-
-        const source = Array.isArray(payload?.categories) ? payload.categories : [];
-        const normalized = normalizeDraftsFromResponse(
-          source.filter((item: unknown): item is Record<string, unknown> => !!item && typeof item === "object"),
-        );
-
-        setOriginal(normalized.map((item) => ({ ...item })));
-        setDrafts(normalized);
-        setLoadState("ready");
-        setLastSavedAt(null);
-        setSaveError(null);
-
-        void debugLog("Loaded categories", { count: normalized.length });
-      } catch (loadException) {
-        const message =
-          loadException instanceof Error ? loadException.message : "Failed to load categories";
-        setLoadState("error");
-        setLoadError(message);
-        void debugLog("Category load error", { message });
-      }
-    },
-    [],
-  );
 
   useEffect(() => {
     if (!spreadsheetId) {
       setOriginal([]);
       setDrafts([]);
-      setLoadState("idle");
-      setLoadError(null);
+      setLastSavedAt(null);
+      setSaveError(null);
       return;
     }
 
-    void fetchCategories(spreadsheetId);
-  }, [fetchCategories, spreadsheetId]);
+    if (!Array.isArray(query.data)) {
+      return;
+    }
+
+    const normalized = resequenceDrafts(query.data.map((item) => ({ ...item })));
+
+    setOriginal((current) =>
+      categoriesEqual(current, normalized) ? current : normalized.map((item) => ({ ...item })),
+    );
+
+    if (!isDirty) {
+      setDrafts(normalized.map((item) => ({ ...item })));
+    }
+  }, [isDirty, query.data, spreadsheetId]);
+
+  useEffect(() => {
+    if (!spreadsheetId || !mutation.isSuccess || !Array.isArray(mutation.data)) {
+      return;
+    }
+
+    const normalized = resequenceDrafts(mutation.data.map((item) => ({ ...item })));
+    setOriginal(normalized.map((item) => ({ ...item })));
+    setDrafts(normalized);
+    setLastSavedAt(new Date().toISOString());
+    setSaveError(null);
+
+    if (typeof window !== "undefined") {
+      skipNextManifestReloadRef.current = true;
+      const record = saveManifest(window.localStorage, {
+        spreadsheetId,
+        storedAt: Date.now(),
+      });
+      emitManifestChange(record);
+    }
+  }, [mutation.data, mutation.isSuccess, spreadsheetId]);
+
+  useEffect(() => {
+    if (!spreadsheetId) {
+      return;
+    }
+
+    const previousBlocked = previousHealthBlockedRef.current;
+    previousHealthBlockedRef.current = isHealthBlocked;
+
+    if (shouldRetryAfterRecovery(previousBlocked, isHealthBlocked)) {
+      void query.refetch();
+    }
+  }, [isHealthBlocked, query, spreadsheetId]);
 
   useEffect(() => {
     const previousStoredAt = previousManifestStoredAtRef.current;
@@ -225,82 +215,35 @@ export function CategoryManager() {
         skipNextManifestReloadRef.current = false;
         return;
       }
-      void fetchCategories(spreadsheetId);
-    }
-  }, [fetchCategories, manifestStoredAt, spreadsheetId]);
 
-  useEffect(() => {
-    const previousBlocked = previousHealthBlockedRef.current;
-    previousHealthBlockedRef.current = isHealthBlocked;
-
-    if (!spreadsheetId) {
-      return;
+      void query.refetch();
     }
-
-    if (shouldRetryAfterRecovery(previousBlocked, isHealthBlocked)) {
-      void fetchCategories(spreadsheetId);
-    }
-  }, [fetchCategories, isHealthBlocked, spreadsheetId]);
+  }, [manifestStoredAt, query, spreadsheetId]);
 
   const persistDrafts = useCallback(
-    async (payloadCategories: SerializableCategory[]) => {
+    async (nextDrafts: CategoryDraft[]) => {
       if (!spreadsheetId) {
         return;
       }
 
+      mutation.reset();
       setSaveError(null);
-      setSaveState("saving");
 
       try {
-        const response = await fetch(
-          `/api/categories?spreadsheetId=${encodeURIComponent(spreadsheetId)}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ categories: payloadCategories }),
-          },
-        );
+        const queuedWhileOffline = !offlineQueue.isOnline;
 
-        const body = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          const message = typeof body?.error === "string" ? body.error : "Failed to save categories";
-          throw new Error(message);
+        if (queuedWhileOffline) {
+          setSaveError("Offline: changes will sync when reconnected.");
         }
 
-        const updatedSource = Array.isArray(body?.categories)
-          ? body.categories
-          : (payloadCategories as unknown as Array<Record<string, unknown>>);
-        const normalized = normalizeDraftsFromResponse(
-          updatedSource.filter((item: unknown): item is Record<string, unknown> =>
-            !!item && typeof item === "object",
-          ),
-        );
-
-        setOriginal(normalized.map((item) => ({ ...item })));
-        setDrafts(normalized);
-        setLastSavedAt(new Date().toISOString());
-
-        if (typeof window !== "undefined") {
-          skipNextManifestReloadRef.current = true;
-          const manifestRecord = saveManifest(window.localStorage, {
-            spreadsheetId,
-            storedAt: Date.now(),
-          });
-          emitManifestChange(manifestRecord);
-        }
-
-        void debugLog("Saved categories", { count: normalized.length });
-      } catch (saveException) {
-        const message =
-          saveException instanceof Error ? saveException.message : "Failed to save categories";
+        await offlineQueue.enqueue(resequenceDrafts(nextDrafts));
+      } catch (error) {
+        const message = formatMutationError(error);
         setSaveError(message);
-        void debugLog("Category save error", { message });
-      } finally {
-        setSaveState("idle");
+        console.error("Category save error", message);
       }
     },
-    [spreadsheetId],
+    [mutation, offlineQueue, spreadsheetId],
   );
 
   useEffect(() => {
@@ -313,16 +256,14 @@ export function CategoryManager() {
       isHealthBlocked ||
       !isDirty ||
       loadState !== "ready" ||
-      isSaving ||
+      mutation.isPending ||
       hasIncompleteDraft
     ) {
       return;
     }
 
-    const payload = buildPayloadFromDrafts(drafts);
-
     const timeoutId = window.setTimeout(() => {
-      void persistDrafts(payload);
+      void persistDrafts(drafts);
     }, AUTOSAVE_DELAY_MS);
     pendingSaveTimeoutRef.current = timeoutId;
 
@@ -330,7 +271,7 @@ export function CategoryManager() {
       window.clearTimeout(timeoutId);
       pendingSaveTimeoutRef.current = null;
     };
-  }, [drafts, hasIncompleteDraft, isDirty, isHealthBlocked, isSaving, loadState, persistDrafts, spreadsheetId]);
+  }, [drafts, hasIncompleteDraft, isDirty, isHealthBlocked, loadState, mutation.isPending, persistDrafts, spreadsheetId]);
 
   const handleAdd = useCallback(() => {
     if (isHealthBlocked) {
@@ -384,21 +325,15 @@ export function CategoryManager() {
     [isHealthBlocked],
   );
 
-  const handleReset = useCallback(() => {
-    if (isHealthBlocked) {
+  const handleRefresh = useCallback(() => {
+    if (!spreadsheetId) {
       return;
     }
 
-    setDrafts(original.map((item) => ({ ...item })));
+    mutation.reset();
     setSaveError(null);
-    setLastSavedAt(null);
-  }, [isHealthBlocked, original]);
-
-  const handleRefresh = useCallback(() => {
-    if (spreadsheetId) {
-      void fetchCategories(spreadsheetId);
-    }
-  }, [fetchCategories, spreadsheetId]);
+    void query.refetch();
+  }, [mutation, query, spreadsheetId]);
 
   const handleManifestRefresh = useCallback(() => {
     if (typeof window === "undefined") {
@@ -407,7 +342,6 @@ export function CategoryManager() {
 
     const stored = loadManifest(window.localStorage);
     setManifest(stored);
-    void debugLog("Category manager refreshed manifest", stored);
   }, []);
 
   const handleDragStart = useCallback((categoryId: string, event: DragEvent<HTMLButtonElement>) => {
@@ -471,11 +405,19 @@ export function CategoryManager() {
   }, []);
 
   const autoSaveStatus = useMemo(() => {
+    if (!offlineQueue.isOnline) {
+      return "Offline – changes will sync when online";
+    }
+
+    if (offlineQueue.pending > 0) {
+      return "Changes will sync when online";
+    }
+
     if (hasIncompleteDraft) {
       return "Fill required fields to save";
     }
 
-    if (isSaving) {
+    if (mutation.isPending) {
       return "Saving…";
     }
 
@@ -488,7 +430,7 @@ export function CategoryManager() {
     }
 
     return "All changes saved";
-  }, [hasIncompleteDraft, isDirty, isSaving, lastSavedAt]);
+  }, [hasIncompleteDraft, isDirty, lastSavedAt, mutation.isPending, offlineQueue.isOnline, offlineQueue.pending]);
 
   const blockingMessage = useMemo(() => {
     if (isHealthBlocked) {
@@ -505,6 +447,67 @@ export function CategoryManager() {
 
     return null;
   }, [isHealthBlocked, loadError, loadState]);
+
+  const managerStatus = useMemo(() => {
+    let tone: ManagerHeaderStatusTone = "success";
+    let label = "Ready";
+
+    if (!spreadsheetId) {
+      tone = "default";
+      label = "Connect a spreadsheet";
+    }
+
+    if (isHealthBlocked || blockingMessage) {
+      tone = "danger";
+      label = "Spreadsheet issues";
+    } else if (combinedSaveError) {
+      tone = "danger";
+      label = "Save failed";
+    } else if (offlineQueue.state === "offline") {
+      tone = "danger";
+      label = "Offline – changes queue";
+    } else if (offlineQueue.state === "queued") {
+      tone = "warning";
+      label = "Pending sync";
+    } else if (offlineQueue.state === "processing") {
+      tone = "info";
+      label = "Saving…";
+    }
+
+    return { label, tone };
+  }, [blockingMessage, combinedSaveError, isHealthBlocked, offlineQueue.state, spreadsheetId]);
+
+  const syncDetail = useMemo(() => {
+    if (!lastSavedAt) {
+      return null;
+    }
+    const timestamp = new Date(lastSavedAt);
+    if (Number.isNaN(timestamp.getTime())) {
+      return null;
+    }
+    return `Saved at ${timestamp.toLocaleTimeString()}`;
+  }, [lastSavedAt]);
+
+  const managerSync = useMemo(
+    () => ({
+      label: autoSaveStatus,
+      detail: syncDetail ?? undefined,
+      isPending:
+        offlineQueue.state === "processing" || offlineQueue.state === "queued",
+      isOffline: offlineQueue.state === "offline",
+    }),
+    [autoSaveStatus, offlineQueue.state, syncDetail],
+  );
+
+  const sheetLinkData = useMemo(
+    () => ({
+      href: categoriesSheetUrl ?? "#",
+      label: "Open sheet",
+      disabled: !categoriesSheetUrl,
+      sheetName: categoriesHealth.sheetTitle ?? "Categories",
+    }),
+    [categoriesHealth.sheetTitle, categoriesSheetUrl],
+  );
 
   const renderBody = () => {
     if (!spreadsheetId) {
@@ -529,178 +532,123 @@ export function CategoryManager() {
 
     if (loadState === "loading") {
       return (
-        <div className="rounded-lg border border-zinc-200/70 bg-white/70 p-6 text-sm text-zinc-600 shadow-sm shadow-zinc-900/5 dark:border-zinc-700/60 dark:bg-zinc-900/70 dark:text-zinc-300">
+        <div className="rounded-lg border border-dashed border-zinc-300/70 bg-zinc-50/60 p-6 text-sm text-zinc-600 dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:text-zinc-300">
           Loading categories…
         </div>
       );
     }
 
-    if (loadState === "error" || isHealthBlocked) {
+    if (blockingMessage) {
       return null;
     }
 
     if (drafts.length === 0) {
       return (
-        <div className="flex flex-col items-start gap-4 rounded-lg border border-dashed accent-border accent-surface p-6 text-sm dark:bg-[color:color-mix(in_srgb,var(--color-accent)_22%,#0a0a0a_78%)] dark:text-[color:var(--color-accent-muted-foreground)]">
-          <p className="font-medium">No categories yet. Add your first category to start planning budgets.</p>
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={isHealthBlocked}
-            className="inline-flex items-center rounded-md accent-bg px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:accent-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Add category
-          </button>
+        <div className="rounded-lg border border-zinc-200/70 bg-white/60 p-6 text-sm text-zinc-600 shadow-sm dark:border-zinc-700/60 dark:bg-zinc-900/60 dark:text-zinc-300">
+          <p className="font-medium text-zinc-900 dark:text-zinc-100">No categories yet.</p>
+          <p className="mt-2 text-sm">Add a category to plan your budget categories and colors.</p>
         </div>
       );
     }
 
     return (
-      <div className="flex flex-col gap-4">
-        <div className="overflow-x-auto rounded-lg border border-zinc-200/70 shadow-sm shadow-zinc-900/5 dark:border-zinc-700/60">
-          <table className="min-w-full divide-y divide-zinc-200/60 dark:divide-zinc-700/60">
-            <thead className="bg-zinc-50/80 dark:bg-zinc-900/60">
-              <tr className="text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                <th className="w-10 px-3 py-2">Move</th>
-                <th className="px-3 py-2">Label</th>
-                <th className="px-3 py-2">Color</th>
-                <th className="px-3 py-2">Description</th>
-                <th className="w-16 px-3 py-2 text-right">Order</th>
-                <th className="w-24 px-3 py-2 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody
-              className="divide-y divide-zinc-100/70 bg-white/80 text-sm dark:divide-zinc-800 dark:bg-zinc-900/70"
-              onDragOver={(event) => {
-                if (event.target === event.currentTarget) {
+      <div className="overflow-hidden rounded-lg border border-zinc-200/70 bg-white shadow-sm dark:border-zinc-700/60 dark:bg-zinc-900">
+        <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700/60">
+          <thead className="bg-zinc-50/80 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
+            <tr>
+              <th scope="col" className="w-10 px-3 py-3" aria-label="Reorder" />
+              <th scope="col" className="px-3 py-3 text-left">Label</th>
+              <th scope="col" className="px-3 py-3 text-left">Color</th>
+              <th scope="col" className="px-3 py-3 text-left">Description</th>
+              <th scope="col" className="px-3 py-3" aria-label="Actions" />
+            </tr>
+          </thead>
+          <tbody
+            className="divide-y divide-zinc-200/70 text-sm dark:divide-zinc-700/60"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={handleListDrop}
+          >
+            {drafts.map((category) => (
+              <tr
+                key={category.categoryId}
+                className="hover:bg-zinc-50/60 dark:hover:bg-zinc-900/40"
+                onDrop={(event) => {
                   event.preventDefault();
-                  event.dataTransfer.dropEffect = "move";
-                }
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                handleListDrop();
-              }}
-            >
-              {drafts.map((category, index) => (
-                <tr
-                  key={category.categoryId}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    handleRowDrop(category.categoryId);
-                  }}
-                >
-                  <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      draggable
-                      onDragStart={(event) => handleDragStart(category.categoryId, event)}
-                      onDragEnd={handleDragEnd}
-                      aria-label={`Reorder ${category.label || "category"}`}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300/70 bg-white text-lg text-zinc-500 shadow-sm transition hover:bg-zinc-100 active:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                      disabled={isHealthBlocked}
-                    >
-                      ☰
-                    </button>
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="text"
-                      value={category.label}
-                      onChange={(event) => handleFieldChange(category.categoryId, "label", event.target.value)}
-                      placeholder="Category name"
-                      disabled={isHealthBlocked}
-                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="text"
-                      value={category.color}
-                      onChange={(event) => handleFieldChange(category.categoryId, "color", event.target.value)}
-                      placeholder="#RRGGBB"
-                      disabled={isHealthBlocked}
-                      className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <textarea
-                      value={category.description}
-                      onChange={(event) => handleFieldChange(category.categoryId, "description", event.target.value)}
-                      placeholder="Optional details"
-                      rows={1}
-                      disabled={isHealthBlocked}
-                      className="h-16 w-full resize-none rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-right text-sm text-zinc-500 dark:text-zinc-300">{index + 1}</td>
-                  <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(category.categoryId)}
-                      disabled={isHealthBlocked}
-                      className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  event.stopPropagation();
+                  handleRowDrop(category.categoryId);
+                }}
+              >
+                <td className="w-10 px-3 py-2">
+                  <button
+                    type="button"
+                    draggable
+                    onDragStart={(event) => handleDragStart(category.categoryId, event)}
+                    onDragEnd={handleDragEnd}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200/70 bg-white text-lg leading-none text-zinc-400 shadow-sm transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:focus:ring-zinc-600"
+                    aria-label="Reorder category"
+                  >
+                    ⋮⋮
+                  </button>
+                </td>
+                <td className="w-1/4 px-3 py-2">
+                  <input
+                    value={category.label}
+                    onChange={(event) => handleFieldChange(category.categoryId, "label", event.target.value)}
+                    placeholder="Category name"
+                    disabled={isHealthBlocked}
+                    className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                  />
+                </td>
+                <td className="w-28 px-3 py-2">
+                  <input
+                    value={category.color}
+                    onChange={(event) => handleFieldChange(category.categoryId, "color", event.target.value)}
+                    placeholder="#000000"
+                    disabled={isHealthBlocked}
+                    className="w-full rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                  />
+                </td>
+                <td className="px-3 py-2">
+                  <textarea
+                    value={category.description}
+                    onChange={(event) => handleFieldChange(category.categoryId, "description", event.target.value)}
+                    placeholder="Optional details"
+                    rows={1}
+                    disabled={isHealthBlocked}
+                    className="h-16 w-full resize-none rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-sm text-zinc-900 shadow-sm focus:accent-border-strong focus:outline-none focus:ring-2 focus:accent-ring-soft disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-100"
+                  />
+                </td>
+                <td className="w-20 px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(category.categoryId)}
+                    disabled={isHealthBlocked}
+                    className="inline-flex items-center rounded-md border border-zinc-200/70 bg-white px-2 py-1 text-xs font-medium text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   };
 
   return (
-    <section className="flex flex-col gap-6 rounded-2xl border border-zinc-200/70 bg-white/70 p-6 shadow-sm shadow-zinc-900/5 dark:border-zinc-700/60 dark:bg-zinc-900/70">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Categories</h2>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-            Edit category names, colors, descriptions, and ordering. Changes save automatically.
-          </p>
-        </div>
-        {categoriesSheetUrl ? (
-          <a
-            href={categoriesSheetUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            Open in Google Sheets
-          </a>
-        ) : null}
-      </div>
+    <section className="flex flex-col gap-4">
+      <ManagerHeader
+        title="Categories"
+        description="Define the categories that power your budget, projections, and reporting."
+        status={managerStatus}
+        sheetLink={sheetLinkData}
+        sync={managerSync}
+      />
 
       {blockingMessage ? (
         <div className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-4 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
-          <p>{blockingMessage}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={spreadsheetId ? () => void fetchCategories(spreadsheetId) : undefined}
-              disabled={!spreadsheetId}
-              className="inline-flex items-center rounded-md bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Reload categories
-            </button>
-            {categoriesSheetUrl ? (
-              <a
-                href={categoriesSheetUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center rounded-md border border-rose-300/60 bg-transparent px-4 py-2 text-xs font-semibold text-rose-700 shadow-sm transition hover:bg-rose-100 dark:border-rose-600/60 dark:text-rose-100 dark:hover:bg-rose-900/40"
-              >
-                Open in Google Sheets
-              </a>
-            ) : null}
-          </div>
+          {blockingMessage}
         </div>
       ) : null}
 
@@ -718,27 +666,19 @@ export function CategoryManager() {
             <button
               type="button"
               onClick={handleRefresh}
-              disabled={isSaving}
+              disabled={mutation.isPending}
               className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               Refresh
-            </button>
-            <button
-              type="button"
-              onClick={handleReset}
-              disabled={!isDirty || isSaving}
-              className="inline-flex items-center rounded-md border border-zinc-300/70 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              Undo changes
             </button>
           </div>
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-300">{autoSaveStatus}</span>
         </div>
       ) : null}
 
-      {saveError && loadState !== "error" && !isHealthBlocked ? (
+      {combinedSaveError && loadState !== "error" && !isHealthBlocked ? (
         <div className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-4 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">
-          {saveError}
+          {combinedSaveError}
         </div>
       ) : null}
 

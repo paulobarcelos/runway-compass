@@ -101,7 +101,7 @@ Module._load = function patchedLoad(request, parent, isMain) {
   }
 
   if (request === "@/components/currency/base-currency-context") {
-    return require("./helpers/stubs/base-currency-context.tsx");
+    return require("./helpers/stubs/base-currency-context.ts");
   }
 
   return originalLoad(request, parent, isMain);
@@ -129,7 +129,7 @@ tsconfigPaths.register({
 const {
   BaseCurrencyProvider,
   __resetBaseCurrencyTestValue,
-} = require("./helpers/stubs/base-currency-context.tsx");
+} = require("./helpers/stubs/base-currency-context.ts");
 
 test("CashPlannerManager renders ledger table", async () => {
   __resetBaseCurrencyTestValue();

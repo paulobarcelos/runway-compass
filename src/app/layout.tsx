@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { AppProviders } from "@/components/providers/app-providers";
-import { getSession } from "@/server/auth/session";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,19 +18,17 @@ export const metadata: Metadata = {
     "Plan budgets, forecast cash runway, and track balances across accounts.",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getSession();
-
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground antialiased`}
       >
-        <AppProviders session={session}>{children}</AppProviders>
+        {children}
       </body>
     </html>
   );

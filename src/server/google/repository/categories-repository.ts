@@ -3,7 +3,11 @@
 import type { sheets_v4 } from "googleapis";
 
 import { executeWithRetry } from "@/server/google/retry";
-import { CATEGORIES_SHEET_SCHEMA, dataRange } from "@/server/google/sheet-schemas";
+import {
+  CATEGORIES_SHEET_SCHEMA,
+  columnIndexToLetter,
+  dataRange,
+} from "@/server/google/sheet-schemas";
 import {
   ensureHeaderRow as assertHeaderRow,
   isEmptyRow,
@@ -44,10 +48,6 @@ function parseCategoryRow(row: unknown[], dataIndex: number): CategoryRecord | n
 
   if (!label.trim()) {
     throw new Error(`Invalid category row at index ${dataIndex}: missing label`);
-  }
-
-  if (!color.trim()) {
-    throw new Error(`Invalid category row at index ${dataIndex}: missing color`);
   }
 
   const sortOrder = requireInteger(sortOrderRaw, {
@@ -130,6 +130,20 @@ export function createCategoriesRepository({
           },
         }),
       );
+
+      const lastColumn = columnIndexToLetter(CATEGORIES_SHEET_SCHEMA.headers.length);
+      const clearStartRow = records.length + 2;
+
+      const clearFn = sheets.spreadsheets.values.clear?.bind(sheets.spreadsheets.values);
+
+      if (clearFn && clearStartRow <= 1000) {
+        await executeWithRetry(() =>
+          clearFn({
+            spreadsheetId,
+            range: `${CATEGORIES_SHEET_SCHEMA.title}!A${clearStartRow}:${lastColumn}1000`,
+          }),
+        );
+      }
     },
   };
 }

@@ -62,11 +62,11 @@ function stubAliases() {
   return {
     "@/components/currency/base-currency-context": path.resolve(
       __dirname,
-      "helpers/stubs/base-currency-context.tsx",
+      "helpers/stubs/base-currency-context.ts",
     ),
     "@/components/spreadsheet/spreadsheet-health-context": path.resolve(
       __dirname,
-      "helpers/stubs/spreadsheet-health-context.tsx",
+      "helpers/stubs/spreadsheet-health-context.ts",
     ),
     "@/lib/manifest-store": path.resolve(__dirname, "helpers/stubs/manifest-store.ts"),
     "@/lib/manifest-events": path.resolve(

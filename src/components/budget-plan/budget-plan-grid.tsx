@@ -4,13 +4,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { MoneyInput, type MoneyInputChange } from "@/components/money-input";
+import { MoneyInput } from "@/components/money-input";
 
 import type {
   BudgetPlanManagerCell,
   BudgetPlanManagerRow,
   BudgetPlanManagerState,
-} from "./use-budget-plan-manager";
+} from "./use-budget-plan";
 
 const MAX_HORIZON_MONTHS = 120;
 
@@ -131,7 +131,7 @@ function AmountCell({
         ? "focus-within:ring-rose-200"
         : "";
 
-  const handleMoneyChange = (change: MoneyInputChange) => {
+  const handleMoneyChange = (change: { amount: number | null; currency: string }) => {
     const nextAmount =
       typeof change.amount === "number" && Number.isFinite(change.amount)
         ? change.amount

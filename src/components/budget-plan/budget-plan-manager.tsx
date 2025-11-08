@@ -2,13 +2,110 @@
 // ABOUTME: Provides heading and context-aware messaging for the planner.
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { useSpreadsheetHealth } from "@/components/spreadsheet/spreadsheet-health-context";
+import {
+  filterSheetIssues,
+  shouldReloadAfterBootstrap,
+  shouldRetryAfterRecovery,
+} from "@/components/spreadsheet/spreadsheet-health-helpers";
+import {
+  loadManifest,
+  manifestStorageKey,
+  type ManifestRecord,
+} from "@/lib/manifest-store";
+import { subscribeToManifestChange } from "@/lib/manifest-events";
 
 import { BudgetPlanGrid } from "./budget-plan-grid";
-import { useBudgetPlanManager } from "./use-budget-plan-manager";
+import { useBudgetPlan } from "./use-budget-plan";
+
+const BUDGET_PLAN_SHEET_ID = "budget_plan";
 
 export function BudgetPlanManager() {
-  const manager = useBudgetPlanManager();
+  const [manifest, setManifest] = useState<ManifestRecord | null>(null);
+  const previousManifestStoredAtRef = useRef<number | null>(null);
+  const previousHealthBlockedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const updateManifest = () => {
+      const stored = loadManifest(window.localStorage);
+      setManifest(stored);
+    };
+
+    updateManifest();
+
+    const unsubscribe = subscribeToManifestChange((record) => {
+      setManifest(record as ManifestRecord | null);
+    });
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === manifestStorageKey()) {
+        updateManifest();
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      unsubscribe();
+    };
+  }, []);
+
+  const spreadsheetId = manifest?.spreadsheetId ?? null;
+  const manifestStoredAt = manifest?.storedAt ?? null;
+
+  const { diagnostics } = useSpreadsheetHealth();
+  const budgetHealth = useMemo(
+    () =>
+      filterSheetIssues(diagnostics, {
+        sheetId: BUDGET_PLAN_SHEET_ID,
+        fallbackTitle: "Budget plan",
+      }),
+    [diagnostics],
+  );
+
+  const blockingMessage = budgetHealth.hasErrors
+    ? `Spreadsheet health flagged issues with the ${budgetHealth.sheetTitle} tab. Fix the problems above, then reload.`
+    : null;
+
+  const manager = useBudgetPlan(spreadsheetId, {
+    isBlocked: budgetHealth.hasErrors,
+    blockingMessage,
+  });
+  const refresh = manager.refresh;
+
+  useEffect(() => {
+    if (!spreadsheetId) {
+      return;
+    }
+
+    const previousBlocked = previousHealthBlockedRef.current;
+    previousHealthBlockedRef.current = budgetHealth.hasErrors;
+
+    if (shouldRetryAfterRecovery(previousBlocked, budgetHealth.hasErrors)) {
+      void refresh();
+    }
+  }, [budgetHealth.hasErrors, refresh, spreadsheetId]);
+
+  useEffect(() => {
+    const previousStoredAt = previousManifestStoredAtRef.current;
+    previousManifestStoredAtRef.current = manifestStoredAt;
+
+    if (!spreadsheetId) {
+      return;
+    }
+
+    if (shouldReloadAfterBootstrap(previousStoredAt, manifestStoredAt)) {
+      void refresh();
+    }
+  }, [manifestStoredAt, refresh, spreadsheetId]);
+
   const statusLabel = useMemo(() => {
     if (manager.status === "loading") {
       return "Fetching budget plan…";

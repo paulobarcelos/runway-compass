@@ -2,92 +2,41 @@
 // ABOUTME: Allows dependency injection for testing and runtime reuse.
 import { NextResponse } from "next/server";
 
-import { getSession } from "@/server/auth/session";
-import { createSheetsClient } from "@/server/google/clients";
 import {
-  createCategoriesRepository,
-  type CategoryRecord,
-} from "@/server/google/repository/categories-repository";
+  createCategoriesActions,
+  sanitizeCategoriesInput,
+  type CategoryInput,
+} from "@/server/categories/categories-service";
+import type { CategoryRecord } from "@/server/google/repository/categories-repository";
 
 interface FetchCategoriesOptions {
   spreadsheetId: string;
 }
 
-type FetchCategories = (options: FetchCategoriesOptions) => Promise<
-  Array<{
-    categoryId: string;
-    label: string;
-    color: string;
-    description: string;
-    sortOrder: number;
-  }>
->;
+type FetchCategories = (options: FetchCategoriesOptions) => Promise<CategoryRecord[]>;
 
-async function fetchCategoriesFromSheets({ spreadsheetId }: FetchCategoriesOptions) {
-  const session = await getSession();
-
-  if (!session) {
-    throw new Error("Missing authenticated session");
-  }
-
-  const tokens = session.googleTokens;
-
-  if (!tokens?.accessToken || !tokens.refreshToken || !tokens.expiresAt) {
-    throw new Error("Missing Google tokens");
-  }
-
-  const sheets = createSheetsClient(tokens);
-  const repository = createCategoriesRepository({ sheets, spreadsheetId });
-
-  return repository.list();
+interface SaveCategoriesOptions {
+  spreadsheetId: string;
+  categories: CategoryInput[];
 }
 
-interface SaveCategoriesOptions extends FetchCategoriesOptions {
-  categories: CategoryRecord[];
+type SaveCategories = (
+  options: SaveCategoriesOptions,
+) => Promise<void | CategoryRecord[] | { categories: CategoryRecord[]; updatedAt?: string }>;
+
+const defaultActions = createCategoriesActions();
+
+async function fetchCategoriesDefault(options: FetchCategoriesOptions) {
+  return defaultActions.getCategories(options);
 }
 
-type SaveCategories = (options: SaveCategoriesOptions) => Promise<void>;
-
-async function saveCategoriesToSheets({
-  spreadsheetId,
-  categories,
-}: SaveCategoriesOptions) {
-  const session = await getSession();
-
-  if (!session) {
-    throw new Error("Missing authenticated session");
-  }
-
-  const tokens = session.googleTokens;
-
-  if (!tokens?.accessToken || !tokens.refreshToken || !tokens.expiresAt) {
-    throw new Error("Missing Google tokens");
-  }
-
-  const sheets = createSheetsClient(tokens);
-  const repository = createCategoriesRepository({ sheets, spreadsheetId });
-
-  const sanitized: CategoryRecord[] = categories.map((category) => {
-    const categoryId = String(category.categoryId ?? "").trim();
-    const label = String(category.label ?? "").trim();
-    const color = String(category.color ?? "").trim();
-    const description = String(category.description ?? "").trim();
-    const sortOrder = Number.isFinite(category.sortOrder) ? category.sortOrder : 0;
-
-    return {
-      categoryId,
-      label,
-      color,
-      description,
-      sortOrder,
-    };
-  });
-
-  await repository.save(sanitized);
+async function saveCategoriesDefault(options: SaveCategoriesOptions) {
+  const result = await defaultActions.saveCategories(options);
+  return result.categories;
 }
 
 type ParsedCategoriesResult =
-  | { ok: true; categories: CategoryRecord[] }
+  | { ok: true; categories: CategoryInput[] }
   | { ok: false; error: "Missing categories payload" | "Invalid categories payload" };
 
 function parseCategoriesPayload(value: unknown): ParsedCategoriesResult {
@@ -102,7 +51,7 @@ function parseCategoriesPayload(value: unknown): ParsedCategoriesResult {
     return { ok: false, error: "Missing categories payload" };
   }
 
-  const categories: CategoryRecord[] = [];
+  const categories: CategoryInput[] = [];
 
   const LEGACY_KEYS = ["flowType", "rolloverFlag", "monthlyBudget", "currencyCode"];
 
@@ -113,13 +62,7 @@ function parseCategoriesPayload(value: unknown): ParsedCategoriesResult {
       return { ok: false, error: "Invalid categories payload" };
     }
 
-    const {
-      categoryId,
-      label,
-      color,
-      description,
-      sortOrder,
-    } = item as Record<string, unknown>;
+    const { categoryId, label, color, description, sortOrder } = item as Record<string, unknown>;
 
     if (typeof categoryId !== "string" || !categoryId.trim()) {
       return { ok: false, error: "Invalid categories payload" };
@@ -147,13 +90,11 @@ function parseCategoriesPayload(value: unknown): ParsedCategoriesResult {
       }
     }
 
-    const normalizedDescription = description.trim();
-
     categories.push({
       categoryId: categoryId.trim(),
       label: label.trim(),
       color: color.trim(),
-      description: normalizedDescription,
+      description: description.trim(),
       sortOrder,
     });
   }
@@ -162,8 +103,8 @@ function parseCategoriesPayload(value: unknown): ParsedCategoriesResult {
 }
 
 export function createCategoriesHandler({
-  fetchCategories = fetchCategoriesFromSheets,
-  saveCategories = saveCategoriesToSheets,
+  fetchCategories = fetchCategoriesDefault,
+  saveCategories = saveCategoriesDefault,
 }: {
   fetchCategories?: FetchCategories;
   saveCategories?: SaveCategories;
@@ -212,8 +153,22 @@ export function createCategoriesHandler({
     }
 
     try {
-      await saveCategories({ spreadsheetId, categories: parsed.categories });
-      return NextResponse.json({ categories: parsed.categories }, { status: 200 });
+      const saveResult = await saveCategories({
+        spreadsheetId,
+        categories: parsed.categories,
+      });
+
+      let categories: CategoryRecord[];
+
+      if (Array.isArray(saveResult)) {
+        categories = saveResult;
+      } else if (saveResult && Array.isArray(saveResult.categories)) {
+        categories = saveResult.categories;
+      } else {
+        categories = sanitizeCategoriesInput(parsed.categories);
+      }
+
+      return NextResponse.json({ categories }, { status: 200 });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       const status =
