@@ -393,3 +393,52 @@ test("resetKey clears queued payloads when spreadsheet changes", async () => {
   assert.equal(view.queue.pending, 0, "queue clears when resetKey changes");
   view.cleanup();
 });
+
+test("queue state reflects offline, queued, and processing phases", async () => {
+  setNavigatorOnline(false);
+
+  const timers = installManualFakeTimers();
+  const pendingResolves = [];
+
+  const view = await renderQueue(
+    () =>
+      new Promise((resolve) => {
+        pendingResolves.push(resolve);
+      }),
+    { reconnectDelayMs: 1000 },
+  );
+
+  assert.equal(view.queue.state, "offline", "defaults to offline state");
+
+  await act(async () => {
+    void view.queue.enqueue({ version: 1 });
+  });
+  await flushMicrotasks();
+  assert.equal(view.queue.state, "offline", "remains offline while navigator offline");
+
+  setNavigatorOnline(true);
+  await act(async () => {
+    window.dispatchEvent(new window.Event("online"));
+  });
+  await flushMicrotasks();
+  assert.equal(view.queue.state, "queued", "queued when online with pending entries");
+
+  let flushPromise;
+  act(() => {
+    flushPromise = view.queue.flush();
+  });
+  assert.equal(view.queue.state, "processing", "processing while flush runs");
+
+  act(() => {
+    pendingResolves.shift()?.(null);
+  });
+
+  await act(async () => {
+    await flushPromise;
+  });
+  await flushMicrotasks();
+  assert.equal(view.queue.state, "idle", "idle after queue drains");
+
+  timers.restore();
+  view.cleanup();
+});

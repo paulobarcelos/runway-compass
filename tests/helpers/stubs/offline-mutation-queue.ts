@@ -7,11 +7,15 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
   return {
     enqueue: async (variables: TVariables) => mutation.mutateAsync(variables),
     flush: async () => {},
+    reset: () => {},
     get isOnline() {
       return true;
     },
     get pending() {
       return mutation.isPending ? 1 : 0;
+    },
+    get state() {
+      return mutation.isPending ? "processing" : "idle";
     },
   } as const;
 }

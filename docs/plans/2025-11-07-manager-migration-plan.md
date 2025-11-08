@@ -18,6 +18,11 @@
    - `/app/(authenticated)/layout.tsx` stays the provider shell (session, query hydration, base currency, spreadsheet health).
    - Each manager lives under `/app/(authenticated)/manager/<name>/page.tsx` and uses the same Providers via layout nesting.
 
+#### Shared UX / Architecture Decisions – Manager Header Notes (2025-11-07)
+- **ManagerHeader scope:** Single card houses title, description, status pill, sheet shortcut (`target="_blank"`), sync indicator, and optional action slots so each manager route reads consistently with dashboard cards.
+- **Autosave + offline language:** Map `useOfflineMutationQueue.state` into pill/sync text: `processing` → “Saving…” tone `info`, `queued` → “Pending offline changes” tone `warning`, `offline` → “Offline” tone `danger`, `idle` with `pending=0` → “Up to date” tone `success`. Pair with `lastSavedAt` (e.g., “Saved 2m ago”) and any mutation flags (errors bubble up via existing toast helpers).
+- **Global nav/hooks:** Every manager route inherits the shared top navigation + global header (login identity, spreadsheet connection health, high-level autosave status) to reinforce parity across screens.
+
 ### Work Breakdown (Sequence)
 
 #### 0. Template + Utilities

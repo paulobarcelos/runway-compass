@@ -34,6 +34,8 @@ import {
   type CategoryDraft,
 } from "./category-helpers";
 import { useCategories } from "./use-categories";
+import { ManagerHeader } from "@/components/managers";
+import type { ManagerHeaderStatusTone } from "@/components/managers";
 
 const AUTOSAVE_DELAY_MS = 800;
 
@@ -446,6 +448,67 @@ export function CategoryManager() {
     return null;
   }, [isHealthBlocked, loadError, loadState]);
 
+  const managerStatus = useMemo(() => {
+    let tone: ManagerHeaderStatusTone = "success";
+    let label = "Ready";
+
+    if (!spreadsheetId) {
+      tone = "default";
+      label = "Connect a spreadsheet";
+    }
+
+    if (isHealthBlocked || blockingMessage) {
+      tone = "danger";
+      label = "Spreadsheet issues";
+    } else if (combinedSaveError) {
+      tone = "danger";
+      label = "Save failed";
+    } else if (offlineQueue.state === "offline") {
+      tone = "danger";
+      label = "Offline – changes queue";
+    } else if (offlineQueue.state === "queued") {
+      tone = "warning";
+      label = "Pending sync";
+    } else if (offlineQueue.state === "processing") {
+      tone = "info";
+      label = "Saving…";
+    }
+
+    return { label, tone };
+  }, [blockingMessage, combinedSaveError, isHealthBlocked, offlineQueue.state, spreadsheetId]);
+
+  const syncDetail = useMemo(() => {
+    if (!lastSavedAt) {
+      return null;
+    }
+    const timestamp = new Date(lastSavedAt);
+    if (Number.isNaN(timestamp.getTime())) {
+      return null;
+    }
+    return `Saved at ${timestamp.toLocaleTimeString()}`;
+  }, [lastSavedAt]);
+
+  const managerSync = useMemo(
+    () => ({
+      label: autoSaveStatus,
+      detail: syncDetail ?? undefined,
+      isPending:
+        offlineQueue.state === "processing" || offlineQueue.state === "queued",
+      isOffline: offlineQueue.state === "offline",
+    }),
+    [autoSaveStatus, offlineQueue.state, syncDetail],
+  );
+
+  const sheetLinkData = useMemo(
+    () => ({
+      href: categoriesSheetUrl ?? "#",
+      label: "Open sheet",
+      disabled: !categoriesSheetUrl,
+      sheetName: categoriesHealth.sheetTitle ?? "Categories",
+    }),
+    [categoriesHealth.sheetTitle, categoriesSheetUrl],
+  );
+
   const renderBody = () => {
     if (!spreadsheetId) {
       return (
@@ -575,24 +638,13 @@ export function CategoryManager() {
 
   return (
     <section className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Categories</h2>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Define the categories that power your budget, projections, and reporting.
-          </p>
-        </div>
-        {categoriesSheetUrl ? (
-          <a
-            href={categoriesSheetUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center rounded-md border border-zinc-200/70 bg-white px-3 py-2 text-xs font-medium text-zinc-600 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700/60 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            Open sheet
-          </a>
-        ) : null}
-      </header>
+      <ManagerHeader
+        title="Categories"
+        description="Define the categories that power your budget, projections, and reporting."
+        status={managerStatus}
+        sheetLink={sheetLinkData}
+        sync={managerSync}
+      />
 
       {blockingMessage ? (
         <div className="rounded-lg border border-rose-200/70 bg-rose-50/80 p-4 text-sm text-rose-700 shadow-sm shadow-rose-900/10 dark:border-rose-700/60 dark:bg-rose-900/50 dark:text-rose-100">

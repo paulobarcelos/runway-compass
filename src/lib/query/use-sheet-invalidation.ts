@@ -8,11 +8,16 @@ import { queryKeys } from "./query-keys";
 type SheetInvalidationOptions = {
   refetchOnWindowFocus?: boolean;
   refetchOnVisibility?: boolean;
+  disableListeners?: boolean;
 };
 
 export function useSheetInvalidation(spreadsheetId?: string, options?: SheetInvalidationOptions) {
   const queryClient = useQueryClient();
-  const { refetchOnWindowFocus = true, refetchOnVisibility = true } = options ?? {};
+  const {
+    refetchOnWindowFocus = true,
+    refetchOnVisibility = true,
+    disableListeners = false,
+  } = options ?? {};
 
   const invalidate = useCallback(() => {
     if (!spreadsheetId) {
@@ -25,7 +30,12 @@ export function useSheetInvalidation(spreadsheetId?: string, options?: SheetInva
   }, [queryClient, spreadsheetId]);
 
   useEffect(() => {
-    if (!spreadsheetId || typeof window === "undefined" || typeof document === "undefined") {
+    if (
+      disableListeners ||
+      !spreadsheetId ||
+      typeof window === "undefined" ||
+      typeof document === "undefined"
+    ) {
       return;
     }
 
@@ -52,7 +62,7 @@ export function useSheetInvalidation(spreadsheetId?: string, options?: SheetInva
     return () => {
       cleanups.forEach((cleanup) => cleanup());
     };
-  }, [invalidate, refetchOnVisibility, refetchOnWindowFocus, spreadsheetId]);
+  }, [disableListeners, invalidate, refetchOnVisibility, refetchOnWindowFocus, spreadsheetId]);
 
   return { invalidate };
 }

@@ -4,12 +4,15 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { UseMutationResult } from "@tanstack/react-query";
 
+export type OfflineMutationQueueState = "idle" | "processing" | "queued" | "offline";
+
 interface OfflineMutationQueueResult<TData, TVariables> {
   enqueue: (variables: TVariables) => Promise<TData | null>;
   flush: () => Promise<void>;
   reset: () => void;
   isOnline: boolean;
   pending: number;
+  state: OfflineMutationQueueState;
 }
 
 type OfflineMutationQueueOptions = {
@@ -47,14 +50,43 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
   const flushPromiseRef = useRef<Promise<void> | null>(null);
   const reconnectTimeoutRef = useRef<TimeoutHandle | null>(null);
   const [, forceRender] = useReducer((count) => count + 1, 0);
-  const [isOnlineState, setIsOnlineState] = useState<boolean>(() => {
-    if (typeof window === "undefined" || typeof navigator === "undefined") {
-      return true;
-    }
+  const initialOnline =
+    typeof window === "undefined" || typeof navigator === "undefined"
+      ? true
+      : navigator.onLine;
+  const [isOnlineState, setIsOnlineState] = useState<boolean>(initialOnline);
+  const [queueState, setQueueState] = useState<OfflineMutationQueueState>(
+    initialOnline ? "idle" : "offline",
+  );
+  const isOnlineRef = useRef(initialOnline);
+  const processingRef = useRef(false);
 
-    return navigator.onLine;
-  });
-  const isOnlineRef = useRef(isOnlineState);
+  const updateState = useCallback(() => {
+    setQueueState((current) => {
+      let next: OfflineMutationQueueState = "idle";
+
+      if (!isOnlineRef.current) {
+        next = "offline";
+      } else if (processingRef.current) {
+        next = "processing";
+      } else if (queueRef.current.length > 0) {
+        next = "queued";
+      }
+
+      return current === next ? current : next;
+    });
+  }, []);
+
+  const setProcessing = useCallback(
+    (value: boolean) => {
+      if (processingRef.current === value) {
+        return;
+      }
+      processingRef.current = value;
+      updateState();
+    },
+    [updateState],
+  );
 
   const flush = useCallback(async () => {
     if (flushPromiseRef.current) {
@@ -67,27 +99,35 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
     }
 
     const execution = (async () => {
-      while (queueRef.current.length > 0 && isOnlineRef.current) {
+      setProcessing(true);
+      try {
+        while (queueRef.current.length > 0 && isOnlineRef.current) {
         const entry = queueRef.current[0];
 
         try {
           const result = await mutation.mutateAsync(entry.variables);
           queueRef.current.shift();
           forceRender();
+          updateState();
           entry.resolve(result ?? null);
         } catch (error) {
           if (typeof navigator !== "undefined" && !navigator.onLine) {
             isOnlineRef.current = false;
             setIsOnlineState(false);
+            updateState();
             break;
           }
 
           queueRef.current.shift();
           forceRender();
+          updateState();
           const normalized = error instanceof Error ? error : new Error(String(error));
           entry.reject(normalized);
           break;
         }
+      }
+      } finally {
+        setProcessing(false);
       }
     })();
 
@@ -97,7 +137,7 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
     });
 
     await flushPromiseRef.current;
-  }, [mutation]);
+  }, [mutation, setProcessing, updateState]);
 
   const reconnectDelay = options?.reconnectDelayMs ?? 500;
   const onReconnect = options?.onReconnect;
@@ -116,8 +156,10 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
       forceRender();
     }
 
+    setProcessing(false);
+    updateState();
     clearReconnectTimer();
-  }, [clearReconnectTimer, forceRender]);
+  }, [clearReconnectTimer, forceRender, setProcessing, updateState]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -138,6 +180,7 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
     const handleOnline = () => {
       isOnlineRef.current = true;
       setIsOnlineState(true);
+      updateState();
       handleReconnectFlush();
     };
 
@@ -145,6 +188,8 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
       clearReconnectTimer();
       isOnlineRef.current = false;
       setIsOnlineState(false);
+      setProcessing(false);
+      updateState();
     };
 
     window.addEventListener("online", handleOnline);
@@ -155,7 +200,7 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
       window.removeEventListener("offline", handleOffline);
       clearReconnectTimer();
     };
-  }, [clearReconnectTimer, flush, onReconnect, reconnectDelay]);
+  }, [clearReconnectTimer, flush, onReconnect, reconnectDelay, setProcessing, updateState]);
 
   useEffect(() => {
     resetQueue();
@@ -168,6 +213,7 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
           const last = queueRef.current[queueRef.current.length - 1];
           last.variables = variables;
           forceRender();
+          updateState();
           return last.promise;
         }
 
@@ -179,6 +225,7 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
           promise: deferred.promise,
         });
         forceRender();
+        updateState();
         return deferred.promise;
       };
 
@@ -187,19 +234,23 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
       }
 
       try {
+        setProcessing(true);
         const result = await mutation.mutateAsync(variables);
         return result ?? null;
       } catch (error) {
         if (typeof navigator !== "undefined" && !navigator.onLine) {
           isOnlineRef.current = false;
           setIsOnlineState(false);
+          updateState();
           return queueVariables();
         }
 
         throw error;
+      } finally {
+        setProcessing(false);
       }
     },
-    [mutation],
+    [mutation, setProcessing, updateState],
   );
 
   return {
@@ -210,5 +261,6 @@ export function useOfflineMutationQueue<TData, TError, TVariables>(
     flush,
     reset: resetQueue,
     isOnline: isOnlineState,
+    state: queueState,
   };
 }
